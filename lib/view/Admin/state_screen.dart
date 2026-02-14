@@ -1,368 +1,307 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:projectqdel/view/Admin/add_states.dart';
+import 'package:projectqdel/view/Admin/district_screen.dart';
+import 'package:projectqdel/view/Admin/update_state.dart';
 
 class StateScreen extends StatefulWidget {
-  const StateScreen({super.key});
+  final int countryId;
+  final String countryName;
+  const StateScreen({
+    super.key,
+    required this.countryId,
+    required this.countryName,
+  });
 
   @override
   State<StateScreen> createState() => _StateScreenState();
 }
 
 class _StateScreenState extends State<StateScreen> {
-  TextEditingController contryctl = TextEditingController();
   TextEditingController statectl = TextEditingController();
+  TextEditingController searchCtl = TextEditingController();
   ApiService apiService = ApiService();
-  late Future<List<dynamic>> statefuture;
-  late Future<List<dynamic>> countryfuture;
 
-  int? selectedCountryId;
-  List countries = [];
+  List<dynamic> allStates = [];
+  List<dynamic> filteredStates = [];
 
   @override
   void initState() {
     super.initState();
-    loadCountries();
-    statefuture = apiService.statesList();
+
+    loadStates();
   }
 
-  Future<void> loadCountries() async {
+  Future<void> loadStates() async {
     try {
-      final data = await apiService.countriesList();
+      final data = await apiService.getStates(countryId: widget.countryId);
+
       setState(() {
-        countries = data;
+        allStates = data
+            .where((s) => s['country'] == widget.countryName)
+            .toList();
+
+        filteredStates = allStates;
       });
     } catch (e) {
-      print("Error loading countries: $e");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error loading states: $e")));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ColorConstants.bgred,
       floatingActionButton: FloatingActionButton(
         backgroundColor: ColorConstants.red,
-        onPressed: () {
-          showAddDialog();
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddStateScreen(
+                countryId: widget.countryId,
+                countryName: widget.countryName,
+              ),
+            ),
+          );
+
+          if (result == true) {
+            loadStates();
+          }
         },
-        child: Text(
-          "Add",
-          style: TextStyle(color: ColorConstants.white, fontSize: 20),
-        ),
+        child: const Text("Add"),
       ),
+
       appBar: AppBar(
         backgroundColor: ColorConstants.red,
         automaticallyImplyLeading: false,
-        title: const Center(
+        title: Center(
           child: Text(
-            "state",
-            style: TextStyle(
+            "States of ${widget.countryName}",
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 25,
+              fontSize: 22,
             ),
           ),
-        ),
-      ),
-      body: FutureBuilder<List<dynamic>>(
-        future: statefuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          }
-
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text("No States found"));
-          }
-
-          final statesdata = snapshot.data!;
-
-          return ListView.builder(
-            itemCount: statesdata.length,
-            itemBuilder: (context, index) {
-              final state = statesdata[index];
-
-              return ListTile(
-                title: Text(
-                  state['name'],
-                  style: const TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                subtitle: Text(
-                  "Country ID : ${state['country']}",
-                  style: const TextStyle(fontSize: 14),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: () {
-                        showUpdateDialog(state);
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () async {
-                        await apiService.deleteState(stateId: state["id"]);
-                        setState(() {
-                          statefuture = apiService.statesList();
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  void showUpdateDialog(Map state) {
-    if (countries.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Countries not loaded yet")));
-      return;
-    }
-
-    statectl.text = state['name'];
-
-    // ✅ ensure value exists in dropdown
-    final countryExists = countries.any((c) => c['id'] == state['country']);
-
-    selectedCountryId = countryExists ? state['country'] : null;
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: ColorConstants.textfieldgrey,
-        title: const Text("Update State"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<int>(
-              value: selectedCountryId,
-              hint: const Text("Select Country"),
-              isExpanded: true,
-              items: countries.map<DropdownMenuItem<int>>((c) {
-                return DropdownMenuItem<int>(
-                  value: c['id'],
-                  child: Text(c['name']),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() => selectedCountryId = value);
-              },
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: statectl,
-              decoration: const InputDecoration(labelText: "State Name"),
-            ),
-          ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+          Text(
+            "QDEL",
+            style: TextStyle(
+              color: ColorConstants.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              if (statectl.text.isEmpty || selectedCountryId == null) return;
+        ],
+        actionsPadding: EdgeInsets.only(right: 20),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: searchCtl,
+              decoration: InputDecoration(
+                hintText: "Search state...",
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  filteredStates = allStates
+                      .where(
+                        (s) => s['name'].toString().toLowerCase().contains(
+                          value.toLowerCase(),
+                        ),
+                      )
+                      .toList();
+                });
+              },
+            ),
+          ),
 
-              await apiService.updateState(
-                stateId: state['id'],
-                name: statectl.text.trim(),
-                countryId: selectedCountryId!,
-              );
-
-              Navigator.pop(context);
-              setState(() {
-                statefuture = apiService.statesList();
-              });
-
-              statectl.clear();
-              selectedCountryId = null;
-            },
-            child: const Text("Update"),
+          Expanded(
+            child: filteredStates.isEmpty
+                ? const Center(
+                    child: Text(
+                      "No States found",
+                      style: TextStyle(
+                        color: ColorConstants.white,
+                        fontSize: 18,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: filteredStates.length,
+                    itemBuilder: (context, index) {
+                      final state = filteredStates[index];
+                      return stateCard(state);
+                    },
+                  ),
           ),
         ],
       ),
     );
   }
 
-  // void showUpdateDialog(Map state) {
-  //   statectl.text = state['name'];
-  //   selectedCountryId = state['country'];
-
-  //   showDialog(
-  //     context: context,
-  //     builder: (context) {
-  //       return AlertDialog(
-  //         backgroundColor: ColorConstants.textfieldgrey,
-  //         title: const Text("Update State"),
-  //         content: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           children: [
-  //             DropdownButtonFormField<int>(
-  //               value: selectedCountryId,
-  //               isExpanded: true,
-  //               hint: const Text("Select Country"),
-  //               items: countries.map<DropdownMenuItem<int>>((c) {
-  //                 return DropdownMenuItem<int>(
-  //                   value: c['id'],
-  //                   child: Text(c['name']),
-  //                 );
-  //               }).toList(),
-  //               onChanged: (value) {
-  //                 setState(() {
-  //                   selectedCountryId = value;
-  //                 });
-  //               },
-  //             ),
-  //             const SizedBox(height: 10),
-  //             TextField(
-  //               controller: statectl,
-  //               decoration: const InputDecoration(labelText: "State Name"),
-  //             ),
-  //           ],
-  //         ),
-  //         actions: [
-  //           TextButton(
-  //             onPressed: () {
-  //               statectl.clear();
-  //               Navigator.pop(context);
-  //             },
-  //             child: const Text("Cancel"),
-  //           ),
-  //           ElevatedButton(
-  //             onPressed: () async {
-  //               String name = statectl.text.trim();
-
-  //               if (name.isEmpty || selectedCountryId == null) {
-  //                 ScaffoldMessenger.of(context).showSnackBar(
-  //                   const SnackBar(
-  //                     content: Text("Please enter state and select country"),
-  //                   ),
-  //                 );
-  //                 return;
-  //               }
-
-  //               bool success = await apiService.updateState(
-  //                 stateId: state['id'],
-  //                 name: name,
-  //                 countryId: selectedCountryId!,
-  //               );
-
-  //               if (success) {
-  //                 Navigator.pop(context);
-  //                 setState(() {
-  //                   statefuture = apiService.statesList();
-  //                 });
-
-  //                 statectl.clear();
-  //                 selectedCountryId = null;
-  //               } else {
-  //                 ScaffoldMessenger.of(context).showSnackBar(
-  //                   const SnackBar(content: Text("Failed to update State")),
-  //                 );
-  //               }
-  //             },
-  //             child: const Text("Update"),
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
-
-  void showAddDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: ColorConstants.textfieldgrey,
-          title: const Text("Add State"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<int>(
-                value: selectedCountryId,
-                hint: const Text("Select Country"),
-                isExpanded: true,
-                items: countries.map<DropdownMenuItem<int>>((c) {
-                  return DropdownMenuItem<int>(
-                    value: c['id'],
-                    child: Text(c['name']),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedCountryId = value;
-                  });
-                },
-              ),
-
-              const SizedBox(height: 10),
-
-              TextField(
-                controller: statectl,
-                decoration: const InputDecoration(labelText: "State Name"),
-              ),
-            ],
+  Widget stateCard(Map state) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                DistrictScreen(stateId: state['id'], stateName: state['name']),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                String name = statectl.text.trim();
-
-                if (name.isEmpty || selectedCountryId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Please enter state and select country"),
-                    ),
-                  );
-                  return;
-                }
-
-                bool success = await apiService.addstates(
-                  name: name,
-                  country: selectedCountryId!,
-                );
-
-                if (success) {
-                  Navigator.pop(context);
-
-                  setState(() {
-                    statefuture = apiService.statesList();
-                  });
-
-                  statectl.clear();
-                  selectedCountryId = null;
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Failed to add State")),
-                  );
-                }
-              },
-              child: const Text("Save"),
-            ),
-          ],
         );
       },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 🔹 Top Row
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: ColorConstants.red.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Colors.red,
+                    size: 22,
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        state['name'],
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    widget.countryName,
+
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+
+            Divider(color: Colors.grey.shade200),
+
+            const SizedBox(height: 6),
+
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => UpdateStateScreen(
+                            stateId: state['id'],
+                            stateName: state['name'],
+                            countryId: widget.countryId,
+                          ),
+                        ),
+                      );
+
+                      if (result == true) {
+                        loadStates();
+                      }
+                    },
+
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text("Update"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.black87,
+                      side: BorderSide(color: Colors.grey.shade300),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await apiService.deleteState(stateId: state["id"]);
+                      await loadStates();
+                    },
+                    icon: const Icon(Icons.delete, size: 18),
+                    label: const Text("Delete"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: BorderSide(color: Colors.red.withOpacity(0.4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:projectqdel/view/Admin/add_district.dart';
+import 'package:projectqdel/view/Admin/update_district.dart';
 
 class DistrictScreen extends StatefulWidget {
-  const DistrictScreen({super.key});
+  final int stateId;
+  final String stateName;
+  const DistrictScreen({
+    super.key,
+    required this.stateId,
+    required this.stateName,
+  });
 
   @override
   State<DistrictScreen> createState() => _DistrictScreenState();
@@ -11,363 +19,241 @@ class DistrictScreen extends StatefulWidget {
 
 class _DistrictScreenState extends State<DistrictScreen> {
   TextEditingController districtctl = TextEditingController();
-  TextEditingController statectl = TextEditingController();
+
   ApiService apiService = ApiService();
-  late Future<List<dynamic>> statefuture;
   late Future<List<dynamic>> districtfuture;
-
-  int? selectedCountryId;
-  int? selectedStateId;
-
-  List countries = [];
-  List states = [];
-  bool loadingStates = false;
-  late Future<void> initialLoad;
+  TextEditingController searchController = TextEditingController();
+  String searchText = '';
 
   @override
   void initState() {
     super.initState();
-    initialLoad = loadInitialData();
-    districtfuture = apiService.districtList();
+    districtfuture = apiService.getDistricts(stateId: widget.stateId);
   }
 
-  Future<void> loadInitialData() async {
-    final countryData = await apiService.countriesList();
-    final stateData = await apiService.statesList();
-
-    setState(() {
-      countries = countryData;
-      states = stateData;
-    });
+  @override
+  void dispose() {
+    super.dispose();
+    searchController.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ColorConstants.bgred,
       floatingActionButton: FloatingActionButton(
         backgroundColor: ColorConstants.red,
-        onPressed: () {
-          showAddDialog();
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddDistrictScreen(
+                stateId: widget.stateId,
+                stateName: widget.stateName,
+              ),
+            ),
+          );
+
+          if (result == true) {
+            setState(() {
+              districtfuture = apiService.getDistricts(stateId: widget.stateId);
+            });
+          }
         },
-        child: Text(
-          "Add",
-          style: TextStyle(color: ColorConstants.white, fontSize: 20),
-        ),
+        child: const Text("Add"),
       ),
+
       appBar: AppBar(
         backgroundColor: ColorConstants.red,
         automaticallyImplyLeading: false,
-        title: const Center(
+        title: Center(
           child: Text(
-            "District",
-            style: TextStyle(
+            "Districts of ${widget.stateName}",
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 25,
+              fontSize: 22,
             ),
           ),
         ),
+
+        actions: [
+          Text(
+            "QDEL",
+            style: TextStyle(
+              color: ColorConstants.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+        actionsPadding: EdgeInsets.only(right: 20),
       ),
-      body: FutureBuilder(
-        future: initialLoad,
-        builder: (context, initSnap) {
-          if (initSnap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return FutureBuilder<List<dynamic>>(
-            future: districtfuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (!snapshot.hasData) {
-                return const Center(child: Text("No Districts found"));
-              }
-              final districtdata = snapshot.data!;
-              return ListView.builder(
-                itemCount: districtdata.length,
-                itemBuilder: (context, index) {
-                  final district = districtdata[index];
-                  final state = states.firstWhere(
-                    (s) => s['id'] == district['state'],
-                    orElse: () => {},
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: searchController,
+              onChanged: (value) {
+                setState(() {
+                  searchText = value.toLowerCase();
+                });
+              },
+              decoration: InputDecoration(
+                hintText: "Search district...",
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+
+          Expanded(
+            child: FutureBuilder<List<dynamic>>(
+              future: districtfuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData) {
+                  return const Center(child: Text("No districts added yet"));
+                }
+
+                final stateFiltered = snapshot.data!
+                    .where((d) => d['state'] == widget.stateId)
+                    .toList();
+
+                final filteredDistricts = stateFiltered.where((d) {
+                  return d['name'].toString().toLowerCase().contains(
+                    searchText,
                   );
-                  final country = countries.firstWhere(
-                    (c) => c['id'] == state['country'],
-                    orElse: () => {},
-                  );
-                  return ListTile(
-                    title: Text(
-                      district['name'],
-                      style: const TextStyle(
-                        fontSize: 25,
-                        fontWeight: FontWeight.bold,
+                }).toList();
+
+                if (filteredDistricts.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      "No districts found",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: ColorConstants.white,
                       ),
                     ),
-                    subtitle: Text(
-                      "State : ${state['name'] ?? "Unknown"}\n"
-                      "Country : ${state['country'] ?? "Unknown"}",
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () {
-                            showUpdateDialog(state);
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () async {
-                            await apiService.deleteDistrict(
-                              districtId: district["id"],
-                            );
-                            setState(() {
-                              districtfuture = apiService.districtList();
-                            });
-                          },
-                        ),
-                      ],
-                    ),
                   );
-                },
-              );
-            },
-          );
-        },
+                }
+
+                return ListView.builder(
+                  itemCount: filteredDistricts.length,
+                  itemBuilder: (context, index) {
+                    return districtCard(district: filteredDistricts[index]);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  void showUpdateDialog(Map district) async {
-    if (countries.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Countries not loaded yet")));
-      return;
-    }
-    districtctl.text = district['name'];
+  Widget districtCard({required Map district}) {
+    final bool isActive = district['is_active'] ?? true;
 
-    selectedStateId = district['state'];
-    Map? stateData = states.firstWhere(
-      (s) => s['id'] == district['state'],
-      orElse: () => {},
-    );
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: isActive
+                ? Colors.red.withOpacity(0.15)
+                : Colors.grey.shade300,
+            child: Icon(
+              Icons.location_city,
+              color: isActive ? Colors.red : Colors.grey,
+            ),
+          ),
 
-    selectedCountryId = stateData != null ? stateData['country'] : null;
-    if (selectedCountryId != null) {
-      states = await apiService.getStates(countryId: selectedCountryId!);
-    }
+          const SizedBox(width: 14),
 
-    showDialog(
-      context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            backgroundColor: ColorConstants.textfieldgrey,
-            title: const Text("Update District"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                DropdownButtonFormField<int>(
-                  value: selectedCountryId,
-                  hint: const Text("Select Country"),
-                  isExpanded: true,
-                  items: countries.map<DropdownMenuItem<int>>((c) {
-                    return DropdownMenuItem<int>(
-                      value: c['id'],
-                      child: Text(c['name']),
-                    );
-                  }).toList(),
-                  onChanged: (value) async {
-                    setDialogState(() {
-                      selectedCountryId = value;
-                      loadingStates = true;
-                      states.clear();
-                      selectedStateId = null;
-                    });
-
-                    final data = await apiService.getStates(countryId: value!);
-
-                    setDialogState(() {
-                      states = data;
-                      loadingStates = false;
-                    });
-                  },
+                Text(
+                  district['name'],
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-
-                const SizedBox(height: 10),
-
-                loadingStates
-                    ? const CircularProgressIndicator()
-                    : DropdownButtonFormField<int>(
-                        value: selectedStateId,
-                        hint: const Text("Select State"),
-                        isExpanded: true,
-                        items: states.map<DropdownMenuItem<int>>((s) {
-                          return DropdownMenuItem<int>(
-                            value: s['id'],
-                            child: Text(s['name']),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            selectedStateId = value;
-                          });
-                        },
-                      ),
-
-                const SizedBox(height: 10),
-                TextField(
-                  controller: districtctl,
-                  decoration: const InputDecoration(labelText: "District Name"),
+                const SizedBox(height: 4),
+                Text(
+                  "State : ${widget.stateName}",
+                  style: const TextStyle(fontSize: 12),
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
+          ),
+
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit, size: 18),
                 onPressed: () async {
-                  if (districtctl.text.isEmpty || selectedStateId == null)
-                    return;
-
-                  await apiService.updateDistrict(
-                    districtId: district['id'],
-                    name: districtctl.text.trim(),
-                    stateId: selectedStateId!,
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => UpdateDistrictScreen(
+                        districtId: district['id'],
+                        districtName: district['name'],
+                        stateId: widget.stateId,
+                      ),
+                    ),
                   );
-                  Navigator.pop(context);
-                  setState(() {
-                    districtfuture = apiService.districtList();
-                  });
 
-                  districtctl.clear();
-                  selectedStateId = null;
-                  selectedCountryId = null;
+                  if (result == true) {
+                    setState(() {
+                      districtfuture = apiService.getDistricts(
+                        stateId: widget.stateId,
+                      );
+                    });
+                  }
                 },
-                child: const Text("Update"),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, size: 18),
+                onPressed: () async {
+                  await apiService.deleteDistrict(districtId: district['id']);
+                  setState(() {
+                    districtfuture = apiService.getDistricts(
+                      stateId: widget.stateId,
+                    );
+                  });
+                },
               ),
             ],
-          );
-        },
+          ),
+        ],
       ),
-    );
-  }
-
-  void showAddDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: ColorConstants.textfieldgrey,
-              title: const Text("Add District"),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<int>(
-                    hint: const Text("Select Country"),
-                    value: selectedCountryId,
-                    isExpanded: true,
-                    items: countries.map<DropdownMenuItem<int>>((c) {
-                      return DropdownMenuItem<int>(
-                        value: c['id'],
-                        child: Text(c['name']),
-                      );
-                    }).toList(),
-                    onChanged: (value) async {
-                      setDialogState(() {
-                        selectedCountryId = value;
-                        loadingStates = true;
-                        states.clear();
-                        selectedStateId = null;
-                      });
-
-                      final data = await apiService.getStates(
-                        countryId: value!,
-                      );
-
-                      setDialogState(() {
-                        states = data;
-                        loadingStates = false;
-                      });
-                    },
-                  ),
-
-                  const SizedBox(height: 10),
-                  loadingStates
-                      ? const CircularProgressIndicator()
-                      : DropdownButtonFormField<int>(
-                          hint: const Text("Select State"),
-                          value: selectedStateId,
-                          isExpanded: true,
-                          items: states.map<DropdownMenuItem<int>>((s) {
-                            return DropdownMenuItem<int>(
-                              value: s['id'],
-                              child: Text(s['name']),
-                            );
-                          }).toList(),
-                          onChanged: states.isEmpty
-                              ? null
-                              : (value) {
-                                  setDialogState(() {
-                                    selectedStateId = value;
-                                  });
-                                },
-                        ),
-
-                  const SizedBox(height: 10),
-
-                  TextField(
-                    controller: statectl,
-                    decoration: const InputDecoration(
-                      labelText: "District Name",
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (statectl.text.isEmpty || selectedStateId == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "Please select state and enter district",
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-
-                    final success = await apiService.addDistrict(
-                      name: statectl.text.trim(),
-                      stateId: selectedStateId!,
-                    );
-
-                    if (success) {
-                      Navigator.pop(context);
-                      setState(() {
-                        districtfuture = apiService.districtList();
-                      });
-                    }
-                  },
-                  child: const Text("Save"),
-                ),
-              ],
-            );
-          },
-        );
-      },
     );
   }
 }

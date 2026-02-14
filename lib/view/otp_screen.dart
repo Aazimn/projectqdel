@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/Admin/admin_screen.dart';
-import 'package:projectqdel/view/User/home_screen.dart';
 import 'package:projectqdel/view/User/registration_screen.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 
@@ -118,7 +116,7 @@ Future<void> otp() async {
                               "OTP sent to ",
                               style: TextStyle(
                                 fontSize: 20,
-                                // fontWeight: FontWeight.bold,
+                                
                               ),
                             ),
                             Text(

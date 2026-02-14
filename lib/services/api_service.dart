@@ -4,8 +4,7 @@ import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  final String baseurl =
-      "https://mounts-gravity-discharge-texts.trycloudflare.com";
+  final String baseurl = "https://infinite-cloth-favourites-roses.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -56,6 +55,8 @@ class ApiService {
     userType = prefs.getString('user_type');
   }
 
+
+
   Future<bool> login({required String phone}) async {
     Uri url = Uri.parse("$baseurl/api/qdel/request/otp/");
 
@@ -80,6 +81,8 @@ class ApiService {
     }
   }
 
+
+
   Future otp({required String phone, required String otp}) async {
     Uri url = Uri.parse("$baseurl/api/qdel/verify/otp/");
 
@@ -100,6 +103,8 @@ class ApiService {
     return null;
   }
 
+
+
   Future<List<dynamic>> getCountries() async {
     final url = Uri.parse("$baseurl/api/qdel/countries/add/");
     final response = await http.get(
@@ -115,6 +120,8 @@ class ApiService {
       throw Exception("Failed to load countries");
     }
   }
+
+
 
   Future<List<dynamic>> getStates({required int countryId}) async {
     final url = Uri.parse("$baseurl/api/qdel/states/add/?country=$countryId");
@@ -134,6 +141,8 @@ class ApiService {
     }
   }
 
+
+
   Future<List<dynamic>> getDistricts({required int stateId}) async {
     final url = Uri.parse("$baseurl/api/qdel/districts/add/?state=$stateId");
 
@@ -152,6 +161,8 @@ class ApiService {
     }
   }
 
+
+
   Future<bool> registration({
     required String phone,
     required String firstname,
@@ -163,12 +174,10 @@ class ApiService {
     required int? districtId,
   }) async {
     Uri url = Uri.parse("$baseurl/api/qdel/register/");
-
     var headers = {
       "Content-Type": "application/json",
       "Authorization": "Bearer ${ApiService.accessToken}",
     };
-
     var body = jsonEncode({
       "phone": phone,
       "first_name": firstname,
@@ -179,14 +188,13 @@ class ApiService {
       "state": stateId,
       "district": districtId,
     });
-
     final response = await http.post(url, headers: headers, body: body);
-
     logger.i("STATUS :: ${response.statusCode}");
     logger.i("BODY :: ${response.body}");
-
     return response.statusCode == 200 || response.statusCode == 201;
   }
+
+
 
   Future<List<dynamic>> countriesList() async {
     Uri url = Uri.parse("$baseurl/api/qdel/countries/add/");
@@ -208,13 +216,15 @@ class ApiService {
     }
   }
 
-  Future<bool> addCountry({required String name}) async {
+
+
+  Future<bool> addCountry({required String name, required String code}) async {
     Uri url = Uri.parse("$baseurl/api/qdel/countries/add/");
     var headers = {
       "Content-Type": "application/json",
       "Authorization": "Bearer ${ApiService.accessToken}",
     };
-    var body = jsonEncode({"name": name});
+    var body = jsonEncode({"name": name, "code": code});
     logger.i("TOKEN :: ${ApiService.accessToken}");
     logger.i("BODY SENT :: $body");
     final response = await http.post(url, headers: headers, body: body);
@@ -228,45 +238,42 @@ class ApiService {
       throw Exception("Failed to add country");
     }
   }
+
+
+
   Future<bool> updateCountry({
-  required int countryId,
-  required String name,
-}) async {
-  Uri url = Uri.parse(
-    "$baseurl/api/qdel/countries/update/$countryId/"
-  );
+    required int countryId,
+    required String name,
+    required String code,
+  }) async {
+    Uri url = Uri.parse("$baseurl/api/qdel/countries/update/$countryId/");
 
-  var headers = {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer ${ApiService.accessToken}",
-  };
+    var headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer ${ApiService.accessToken}",
+    };
 
-  var body = jsonEncode({
-    "name": name,
-  });
-  logger.i("UPDATE COUNTRY URL :: $url");
-  logger.i("TOKEN :: ${ApiService.accessToken}");
-  logger.i("BODY SENT :: $body");
-  final response = await http.put(
-    url,
-    headers: headers,
-    body: body,
-  );
-  logger.i("STATUS :: ${response.statusCode}");
-  logger.i("BODY :: ${response.body}");
-  if (response.statusCode == 200 || response.statusCode == 204) {
-    return true;
-  } else if (response.statusCode == 401) {
-    throw Exception("Unauthorized - Token expired");
-  } else {
-    try {
-      final data = jsonDecode(response.body);
-      throw Exception(data['detail'] ?? "Failed to update country");
-    } catch (_) {
-      throw Exception("Failed to update country");
+    var body = jsonEncode({"name": name, "code": code});
+    logger.i("UPDATE COUNTRY URL :: $url");
+    logger.i("TOKEN :: ${ApiService.accessToken}");
+    logger.i("BODY SENT :: $body");
+    final response = await http.put(url, headers: headers, body: body);
+    logger.i("STATUS :: ${response.statusCode}");
+    logger.i("BODY :: ${response.body}");
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return true;
+    } else if (response.statusCode == 401) {
+      throw Exception("Unauthorized - Token expired");
+    } else {
+      try {
+        final data = jsonDecode(response.body);
+        throw Exception(data['detail'] ?? "Failed to update country");
+      } catch (_) {
+        throw Exception("Failed to update country");
+      }
     }
   }
-}
+
 
 
   Future<bool> deleteCountry({required int countryId}) async {
@@ -287,6 +294,7 @@ class ApiService {
       throw Exception("Failed to delete country");
     }
   }
+
 
   Future<List<dynamic>> statesList() async {
     Uri url = Uri.parse("$baseurl/api/qdel/states/add/");
@@ -332,45 +340,35 @@ class ApiService {
   }
 
   Future<bool> updateState({
-  required int stateId,
-  required String name,
-  required int countryId,
-}) async {
-  Uri url = Uri.parse(
-    "$baseurl/api/qdel/states/update/$stateId/"
-  );
-  var headers = {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer ${ApiService.accessToken}",
-  };
-  var body = jsonEncode({
-    "name": name,
-    "country": countryId,
-  });
-  logger.i("UPDATE STATE URL :: $url");
-  logger.i("TOKEN :: ${ApiService.accessToken}");
-  logger.i("BODY SENT :: $body");
-  final response = await http.put(
-    url,
-    headers: headers,
-    body: body,
-  );
-  logger.i("STATUS :: ${response.statusCode}");
-  logger.i("BODY :: ${response.body}");
-  if (response.statusCode == 200 || response.statusCode == 204) {
-    return true;
-  } else if (response.statusCode == 401) {
-    throw Exception("Unauthorized - Token expired");
-  } else {
-    try {
-      final data = jsonDecode(response.body);
-      throw Exception(data['detail'] ?? "Failed to update state");
-    } catch (_) {
-      throw Exception("Failed to update state");
+    required int stateId,
+    required String name,
+    required int countryId,
+  }) async {
+    Uri url = Uri.parse("$baseurl/api/qdel/states/update/$stateId/");
+    var headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer ${ApiService.accessToken}",
+    };
+    var body = jsonEncode({"name": name, "country": countryId});
+    logger.i("UPDATE STATE URL :: $url");
+    logger.i("TOKEN :: ${ApiService.accessToken}");
+    logger.i("BODY SENT :: $body");
+    final response = await http.put(url, headers: headers, body: body);
+    logger.i("STATUS :: ${response.statusCode}");
+    logger.i("BODY :: ${response.body}");
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return true;
+    } else if (response.statusCode == 401) {
+      throw Exception("Unauthorized - Token expired");
+    } else {
+      try {
+        final data = jsonDecode(response.body);
+        throw Exception(data['detail'] ?? "Failed to update state");
+      } catch (_) {
+        throw Exception("Failed to update state");
+      }
     }
   }
-}
-
 
   Future<bool> deleteState({required int stateId}) async {
     Uri url = Uri.parse("$baseurl/api/qdel/states/update/$stateId/");
@@ -442,45 +440,35 @@ class ApiService {
   }
 
   Future<bool> updateDistrict({
-  required int districtId,
-  required String name,
-  required int stateId,
-}) async {
-  Uri url = Uri.parse(
-    "$baseurl/api/qdel/districts/update/$districtId/"
-  );
-  var headers = {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer ${ApiService.accessToken}",
-  };
-  var body = jsonEncode({
-    "name": name,
-    "state": stateId,
-  });
-  logger.i("UPDATE DISTRICT URL :: $url");
-  logger.i("TOKEN :: ${ApiService.accessToken}");
-  logger.i("BODY SENT :: $body");
-  final response = await http.put(
-    url,
-    headers: headers,
-    body: body,
-  );
-  logger.i("STATUS :: ${response.statusCode}");
-  logger.i("BODY :: ${response.body}");
-  if (response.statusCode == 200 || response.statusCode == 204) {
-    return true;
-  } else if (response.statusCode == 401) {
-    throw Exception("Unauthorized - Token expired");
-  } else {
-    try {
-      final data = jsonDecode(response.body);
-      throw Exception(data['detail'] ?? "Failed to update district");
-    } catch (_) {
-      throw Exception("Failed to update district");
+    required int districtId,
+    required String name,
+    required int stateId,
+  }) async {
+    Uri url = Uri.parse("$baseurl/api/qdel/districts/update/$districtId/");
+    var headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer ${ApiService.accessToken}",
+    };
+    var body = jsonEncode({"name": name, "state": stateId});
+    logger.i("UPDATE DISTRICT URL :: $url");
+    logger.i("TOKEN :: ${ApiService.accessToken}");
+    logger.i("BODY SENT :: $body");
+    final response = await http.put(url, headers: headers, body: body);
+    logger.i("STATUS :: ${response.statusCode}");
+    logger.i("BODY :: ${response.body}");
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return true;
+    } else if (response.statusCode == 401) {
+      throw Exception("Unauthorized - Token expired");
+    } else {
+      try {
+        final data = jsonDecode(response.body);
+        throw Exception(data['detail'] ?? "Failed to update district");
+      } catch (_) {
+        throw Exception("Failed to update district");
+      }
     }
   }
-}
-
 
   Future<bool> deleteDistrict({required int districtId}) async {
     Uri url = Uri.parse("$baseurl/api/qdel/districts/update/$districtId/");

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/Admin/admin_screen.dart';
+import 'package:projectqdel/view/Admin/dashboard_screen.dart';
 import 'package:projectqdel/view/User/home_screen.dart';
 import 'package:projectqdel/view/login_screen.dart';
 
@@ -18,7 +18,7 @@ class _SplashScreenState extends State<SplashScreen> {
     splash();
   }
 
-   Future<void> splash() async {
+  Future<void> splash() async {
     await Future.delayed(const Duration(seconds: 2));
 
     await ApiService.loadSession();
@@ -36,17 +36,14 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     if (ApiService.userType == "admin") {
-      _go(const AdminScreen());
+      _go(const DashboardScreen());
     } else {
       _go(const HomeScreen());
     }
   }
 
   void _go(Widget page) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => page),
-    );
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => page));
   }
 
   @override
