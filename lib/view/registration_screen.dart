@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
+import 'package:projectqdel/model/carrier_model.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:projectqdel/view/carrier/carrier_upload.dart';
+import 'package:projectqdel/view/login_screen.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -19,10 +22,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   int? selectedCountryId;
   int? selectedStateId;
   int? selectedDistrictId;
+  List allStates = [];
+  List allDistricts = [];
 
   List countries = [];
   List states = [];
   List districts = [];
+  Map<int, List> stateCache = {};
+  Map<int, List> districtCache = {};
 
   Future<void> loadCountries() async {
     try {
@@ -56,13 +63,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   @override
   void initState() {
     super.initState();
-    loadCountries();
+    init();
+  }
+
+  Future<void> init() async {
+    await ApiService.loadSession();
+    await loadCountries();
   }
 
   Future<void> register() async {
-    if (!_formkey.currentState!.validate()) {
-      return;
-    }
+    if (!_formkey.currentState!.validate()) return;
 
     if (_customertype.isEmpty) {
       ScaffoldMessenger.of(
@@ -71,6 +81,31 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
 
+    if (_customertype == 'client') {
+      await _registerUser();
+    } else if (_customertype == 'carrier') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CarrierUploadScreen(
+            registrationData: CarrierRegistrationData(
+              phone: widget.phone,
+              firstname: _firstName.text.trim(),
+              lastname: _lastName.text.trim(),
+              email: _email.text.trim(),
+              userType: _customertype,
+              countryId: selectedCountryId,
+              stateId: selectedStateId,
+              districtId: selectedDistrictId,
+              isExistingUser: false,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _registerUser() async {
     bool status = await apiService.registration(
       firstname: _firstName.text.trim(),
       lastname: _lastName.text.trim(),
@@ -83,13 +118,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
 
     if (status) {
+      await ApiService.saveSession(
+        token: ApiService.accessToken!,
+        userType: "client",
+        approvalStatus: "approved", 
+        phone: widget.phone,
+        firstTime: false,
+      );
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Registration successful")));
 
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => SplashScreen()),
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
+        (_) => false,
       );
     } else {
       ScaffoldMessenger.of(
@@ -150,12 +194,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                   style: TextStyle(fontSize: 18),
                                 ),
                                 SizedBox(width: 15),
-                                Text(
-                                  "change",
-                                  style: TextStyle(
-                                    color: ColorConstants.deeporange,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                                InkWell(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => LoginScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: Text(
+                                    "change",
+                                    style: TextStyle(
+                                      color: ColorConstants.deeporange,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -237,7 +291,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                                 DropdownButtonFormField<int>(
                                   isExpanded: true,
-                                  value: selectedCountryId,
+                                  initialValue: selectedCountryId,
                                   hint: const Text("Select Country"),
                                   items: countries.map<DropdownMenuItem<int>>((
                                     c,
@@ -254,55 +308,89 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                       selectedCountryId = value;
                                       selectedStateId = null;
                                       selectedDistrictId = null;
-                                      states.clear();
-                                      districts.clear();
+
+                                      states = []; 
+                                      districts = []; 
                                     });
-
-                                    print("Selected country ID: $value");
-
                                     final data = await apiService.getStates(
                                       countryId: value,
                                     );
+                                    print("STATES API RESULT: $data");
 
-                                    print("States response: $data");
+                                    if (!stateCache.containsKey(value)) {
+                                      final data = await apiService.getStates(
+                                        countryId: value,
+                                      );
+                                      stateCache[value] = data;
+                                    }
 
                                     setState(() {
-                                      states = data ?? [];
-                                    });
+                                      final selectedCountryName = countries
+                                          .firstWhere(
+                                            (c) => c['id'] == value,
+                                          )['name'];
 
-                                    print("States length: ${states.length}");
+                                      states = stateCache[value]!
+                                          .where(
+                                            (s) =>
+                                                s['country'] ==
+                                                selectedCountryName,
+                                          )
+                                          .toList();
+                                    });
                                   },
                                 ),
                                 DropdownButtonFormField<int>(
                                   value: selectedStateId,
                                   hint: const Text("Select State"),
-                                  items: states.map<DropdownMenuItem<int>>((s) {
-                                    return DropdownMenuItem<int>(
-                                      value: s['id'],
-                                      child: Text(s['name']),
-                                    );
-                                  }).toList(),
-                                  onChanged: states.isEmpty
-                                      ? null
-                                      : (value) async {
-                                          setState(() {
-                                            selectedStateId = value;
-                                            selectedDistrictId = null;
-                                            districts.clear();
-                                          });
+                                  items: selectedCountryId == null
+                                      ? []
+                                      : states.map<DropdownMenuItem<int>>((s) {
+                                          return DropdownMenuItem<int>(
+                                            value: s['id'],
+                                            child: Text(s['name']),
+                                          );
+                                        }).toList(),
+                                  onChanged: (value) async {
+                                    if (value == null) return;
 
-                                          final data = await apiService
-                                              .getDistricts(stateId: value!);
-                                          setState(() {
-                                            districts = data;
-                                          });
-                                        },
+                                    setState(() {
+                                      selectedStateId = value;
+                                      selectedDistrictId = null;
+                                      districts = [];
+                                    });
+
+                                    if (!districtCache.containsKey(value)) {
+                                      final data = await apiService
+                                          .getDistricts(stateId: value);
+                                      districtCache[value] = data;
+                                    }
+
+                                    final selectedStateName = states.firstWhere(
+                                      (s) => s['id'] == value,
+                                    )['name'];
+
+                                    setState(() {
+                                      districts = districtCache[value]!
+                                          .where(
+                                            (d) =>
+                                                d['state_name'] ==
+                                                selectedStateName,
+                                          )
+                                          .toList();
+                                    });
+                                  },
                                 ),
-
                                 DropdownButtonFormField<int>(
                                   value: selectedDistrictId,
-                                  hint: const Text("Select District"),
-                                  items: districts.isEmpty
+                                  hint: Text(
+                                    selectedStateId == null
+                                        ? "Select State First"
+                                        : districts.isEmpty
+                                        ? "No district added yet"
+                                        : "Select District",
+                                  ),
+                                  items: selectedStateId == null
                                       ? []
                                       : districts.map<DropdownMenuItem<int>>((
                                           d,
@@ -312,16 +400,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                             child: Text(d['name']),
                                           );
                                         }).toList(),
-                                  onChanged: districts.isEmpty
+                                  onChanged: selectedStateId == null
                                       ? null
                                       : (value) {
                                           setState(() {
                                             selectedDistrictId = value;
                                           });
                                         },
-                                  validator: (value) => value == null
-                                      ? "District required"
-                                      : null,
                                 ),
                               ],
                             ),

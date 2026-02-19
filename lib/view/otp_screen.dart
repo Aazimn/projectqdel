@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/User/registration_screen.dart';
+import 'package:projectqdel/view/registration_screen.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 
 class OtpScreen extends StatefulWidget {
@@ -21,6 +21,7 @@ class _OtpScreenState extends State<OtpScreen> {
   final c6 = TextEditingController();
   final _formkey = GlobalKey<FormState>();
   ApiService apiService = ApiService();
+  bool _isVerifying = false;
 
   @override
   void dispose() {
@@ -33,43 +34,71 @@ class _OtpScreenState extends State<OtpScreen> {
     c6.dispose();
   }
 
+  Future<void> otp() async {
+  if (_isVerifying) return;
 
-Future<void> otp() async {
-  String fullotp =
-      c1.text + c2.text + c3.text + c4.text + c5.text + c6.text;
+  setState(() => _isVerifying = true);
 
-  if (fullotp.length != 6) return;
+  try {
+    final fullotp =
+        c1.text + c2.text + c3.text + c4.text + c5.text + c6.text;
 
-  final data =
-      await apiService.otp(phone: widget.phone, otp: fullotp);
+    if (fullotp.length != 6) return;
 
-  if (data == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Invalid OTP")),
-    );
-    return;
-  }
+    final Map<String, dynamic>? data =
+        await apiService.otp(phone: widget.phone, otp: fullotp);
 
-  await ApiService.setToken(data['access']);
-  await ApiService.setUserType(data['user']['user_type']);
-  await ApiService.setFirstTime(data['first_time']);
+    if (data == null) {
+      throw Exception("OTP failed");
+    }
 
-  if (data['first_time'] == true) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => RegistrationScreen(phone: widget.phone),
-      ),
-    );
-  } else {
+    final bool isFirstTime = data['first_time'] == true;
+
+    if (isFirstTime) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RegistrationScreen(phone: widget.phone),
+        ),
+      );
+      return;
+    }
+
+    final accessToken = data['access'];
+    final user = data['user'];
+
+    if (accessToken == null || user == null) {
+      throw Exception("Invalid session data");
+    }
+
+    await ApiService.saveSession(
+  token: data['access'],
+  userType: data['user']['user_type']
+      .toString()
+      .toLowerCase(),
+  approvalStatus: data['user']['approval_status'] ?? "pending",
+  phone: data['user']['phone'],
+  firstTime: data['first_time'] ?? false,
+);
+
+    if (!mounted) return;
+
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const SplashScreen()),
-      (route) => false,
+      (_) => false,
     );
+  } catch (e) {
+    debugPrint("OTP ERROR: $e");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.toString())),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _isVerifying = false);
+    }
   }
 }
-
 
   @override
   Widget build(BuildContext context) {
@@ -114,10 +143,7 @@ Future<void> otp() async {
                           children: [
                             Text(
                               "OTP sent to ",
-                              style: TextStyle(
-                                fontSize: 20,
-                                
-                              ),
+                              style: TextStyle(fontSize: 20),
                             ),
                             Text(
                               widget.phone,
@@ -128,11 +154,16 @@ Future<void> otp() async {
                             ),
                           ],
                         ),
-                        Text(
-                          "change",
-                          style: TextStyle(
-                            color: ColorConstants.deeporange,
-                            fontWeight: FontWeight.bold,
+                        InkWell(
+                          onTap: () {
+                            Navigator.pop(context);
+                          },
+                          child: Text(
+                            "change",
+                            style: TextStyle(
+                              color: ColorConstants.deeporange,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -239,4 +270,3 @@ Widget _otpBox({
     ),
   );
 }
-

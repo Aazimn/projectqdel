@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/dashboard_screen.dart';
-import 'package:projectqdel/view/User/home_screen.dart';
+import 'package:projectqdel/view/carrier/rejected_screen.dart';
+import 'package:projectqdel/view/carrier/status_pending.dart';
+import 'package:projectqdel/view/User/user_dashboard.dart';
+import 'package:projectqdel/view/carrier/carrier_dashboard.dart';
 import 'package:projectqdel/view/login_screen.dart';
+
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,6 +16,8 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  ApiService apiService = ApiService();
+
   @override
   void initState() {
     super.initState();
@@ -19,27 +25,57 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> splash() async {
-    await Future.delayed(const Duration(seconds: 2));
-
     await ApiService.loadSession();
 
-    if (!mounted) return;
+    final token = ApiService.accessToken;
+    final userType = ApiService.userType?.toLowerCase();
+    String? status = ApiService.approvalStatus?.toLowerCase();
 
-    if (ApiService.accessToken == null) {
-      _go(const LoginScreen());
+    if (userType == "carrier") {
+      status = await ApiService().checkApprovalStatus();
+
+      if (status != null) {
+        await ApiService.setApprovalStatus(status);
+      }
+    }
+
+    debugPrint("TOKEN=$token | TYPE=$userType | STATUS=$status");
+
+    if (token == null || userType == null) {
+      go(const LoginScreen());
       return;
     }
 
-    if (ApiService.isFirstTime == true) {
-      _go(const LoginScreen());
-      return;
-    }
+    switch (userType) {
+      case "admin":
+        go(const DashboardScreen());
+        break;
 
-    if (ApiService.userType == "admin") {
-      _go(const DashboardScreen());
-    } else {
-      _go(const HomeScreen());
+      case "client":
+        go(const UserDashboard());
+        break;
+
+      case "carrier":
+        if (status == "approved") {
+          go(const CarrierDashboard());
+        } else if (status == "pending") {
+          go(StatusPending(phone: ApiService.phone!));
+        } else {
+          go(const RejectedScreen());
+        }
+        break;
+
+      default:
+        go(const LoginScreen());
     }
+  }
+
+  void go(Widget page) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => page),
+      (_) => false,
+    );
   }
 
   void _go(Widget page) {

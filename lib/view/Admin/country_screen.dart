@@ -65,81 +65,89 @@ class _CountryScreenState extends State<CountryScreen> {
     });
   }
 
+  Widget _header(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          height: 130,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xffE53935), Color(0xffF0625F)],
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(40),
+              bottomRight: Radius.circular(40),
+            ),
+          ),
+        ),
+
+        Positioned(
+          top: 45,
+          left: 16,
+          child: _circleButton(
+            Icons.arrow_back_ios_new,
+            () => Navigator.pop(context),
+          ),
+        ),
+        Positioned(
+          top: 45,
+          right: 16,
+          child: _circleButton(Icons.more_horiz, () {}),
+        ),
+        const Positioned(
+          top: 60,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Text(
+              "Manage Countries",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _circleButton(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 38,
+        width: 38,
+        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+        child: Icon(icon, color: Colors.red, size: 18),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: ColorConstants.bgred,
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-        child: Container(
-          height: 56,
-          decoration: BoxDecoration(
-            color: ColorConstants.red,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: ColorConstants.red.withOpacity(0.45),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AddCountryScreen()),
-              );
-              if (result == true) fetchCountries();
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.save, color: Colors.white),
-                SizedBox(width: 10),
-                Text(
-                  "Add New Country",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      appBar: AppBar(
+      backgroundColor: ColorConstants.bg,
+      floatingActionButton: FloatingActionButton(
         backgroundColor: ColorConstants.red,
-        automaticallyImplyLeading: false,
-        title: const Center(
-          child: Text(
-            "Manage Countries",
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 25,
-            ),
-          ),
-        ),
-        actions: [
-          Text(
-            "QDEL",
-            style: TextStyle(
-              color: ColorConstants.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-        actionsPadding: EdgeInsets.only(right: 20),
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => AddCountryScreen()),
+          );
+
+          if (result == true) {
+            fetchCountries();
+          }
+        },
+        child: const Text("Add"),
       ),
       body: Column(
         children: [
+          _header(context),
           Padding(
             padding: const EdgeInsets.all(10),
             child: TextField(
@@ -173,132 +181,155 @@ class _CountryScreenState extends State<CountryScreen> {
                           horizontal: 14,
                           vertical: 8,
                         ),
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => StateScreen(
-                                  countryId: country['id'],
-                                  countryName: country['name'],
-                                ),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(22),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  height: 38,
-                                  width: 38,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Center(
-                                    child: Text(
-                                      "🌍",
-                                      style: TextStyle(fontSize: 20),
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        country['name'],
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w700,
-                                          color: ColorConstants.white,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        "Code: +${country['code'] ?? ''}",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: ColorConstants.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  height: 30,
-                                  width: 30,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(Icons.edit, size: 15),
-                                    onPressed: () async {
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => UpdateCountryScreen(
-                                            countryId: country['id'],
-                                            name: country['name'],
-                                            code: country['code'],
-                                          ),
-                                        ),
-                                      );
-
-                                      if (result == true) {
-                                        fetchCountries();
-                                      }
-                                    },
-                                  ),
-                                ),
-
-                                const SizedBox(width: 8),
-                                Container(
-                                  height: 30,
-                                  width: 30,
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade50,
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      size: 15,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () async {
-                                      await apiService.deleteCountry(
-                                        countryId: country['id'],
-                                      );
-                                      fetchCountries();
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        child: countryCard(country),
                       );
                     },
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget countryCard(Map country) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StateScreen(
+              countryId: country['id'],
+              countryName: country['name'],
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: ColorConstants.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: ColorConstants.bgred),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: ColorConstants.red.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.public, color: Colors.red, size: 22),
+                ),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        country['name'].toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: ColorConstants.bgred,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    "+${country['code'] ?? ''}",
+                    style: const TextStyle(
+                      color: Colors.green,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            Divider(color: Colors.grey.shade200),
+
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => UpdateCountryScreen(
+                            countryId: country['id'],
+                            name: country['name'],
+                            code: country['code'],
+                          ),
+                        ),
+                      );
+
+                      if (result == true) {
+                        fetchCountries();
+                      }
+                    },
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text("Update"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: ColorConstants.green,
+                      side: BorderSide(color: ColorConstants.green),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await apiService.deleteCountry(countryId: country['id']);
+                      fetchCountries();
+                    },
+                    icon: const Icon(Icons.delete, size: 18),
+                    label: const Text("Delete"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: BorderSide(color: Colors.red.withOpacity(0.4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

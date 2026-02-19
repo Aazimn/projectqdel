@@ -51,10 +51,71 @@ class _StateScreenState extends State<StateScreen> {
     }
   }
 
+  Widget _header(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          height: 130,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xffE53935), Color(0xffF0625F)],
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(40),
+              bottomRight: Radius.circular(40),
+            ),
+          ),
+        ),
+
+        Positioned(
+          top: 45,
+          left: 16,
+          child: _circleButton(
+            Icons.arrow_back_ios_new,
+            () => Navigator.pop(context),
+          ),
+        ),
+        Positioned(
+          top: 45,
+          right: 16,
+          child: _circleButton(Icons.more_horiz, () {}),
+        ),
+        const Positioned(
+          top: 60,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Text(
+              "Manage States",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _circleButton(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 38,
+        width: 38,
+        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+        child: Icon(icon, color: Colors.red, size: 18),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorConstants.bgred,
+      backgroundColor: ColorConstants.bg,
       floatingActionButton: FloatingActionButton(
         backgroundColor: ColorConstants.red,
         onPressed: () async {
@@ -74,34 +135,9 @@ class _StateScreenState extends State<StateScreen> {
         },
         child: const Text("Add"),
       ),
-
-      appBar: AppBar(
-        backgroundColor: ColorConstants.red,
-        automaticallyImplyLeading: false,
-        title: Center(
-          child: Text(
-            "States of ${widget.countryName}",
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-            ),
-          ),
-        ),
-        actions: [
-          Text(
-            "QDEL",
-            style: TextStyle(
-              color: ColorConstants.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-        actionsPadding: EdgeInsets.only(right: 20),
-      ),
       body: Column(
         children: [
+          _header(context),
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
@@ -110,7 +146,7 @@ class _StateScreenState extends State<StateScreen> {
                 hintText: "Search state...",
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: ColorConstants.textfieldgrey,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15),
                   borderSide: BorderSide.none,
@@ -171,8 +207,9 @@ class _StateScreenState extends State<StateScreen> {
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: ColorConstants.white,
           borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: ColorConstants.bgred),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.06),
@@ -184,7 +221,6 @@ class _StateScreenState extends State<StateScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🔹 Top Row
             Row(
               children: [
                 Container(
@@ -207,10 +243,18 @@ class _StateScreenState extends State<StateScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        state['name'],
+                        state['name'].toUpperCase(),
                         style: const TextStyle(
-                          fontSize: 17,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
+                          color: ColorConstants.black,
+                        ),
+                      ),
+                      Text(
+                        "Country: ${widget.countryName}",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: ColorConstants.black,
                         ),
                       ),
                     ],
@@ -231,15 +275,13 @@ class _StateScreenState extends State<StateScreen> {
 
                     style: TextStyle(
                       color: Colors.green,
-                      fontSize: 11,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ],
             ),
-
-            const SizedBox(height: 14),
 
             Divider(color: Colors.grey.shade200),
 
@@ -269,8 +311,8 @@ class _StateScreenState extends State<StateScreen> {
                     icon: const Icon(Icons.edit, size: 18),
                     label: const Text("Update"),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black87,
-                      side: BorderSide(color: Colors.grey.shade300),
+                      foregroundColor: ColorConstants.green,
+                      side: BorderSide(color: ColorConstants.green),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),

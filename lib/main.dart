@@ -1,6 +1,11 @@
+
+
+
 import 'package:flutter/material.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/splash_screen.dart';
+import 'package:projectqdel/view/user_settings.dart';
+import 'package:projectqdel/view/usertype_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +19,9 @@ class Myapp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: SplashScreen(), debugShowCheckedModeBanner: false);
+    return MaterialApp(
+      home: SplashScreen(),
+      debugShowCheckedModeBanner: false,
+    );
   }
 }

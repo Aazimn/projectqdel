@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/otp_screen.dart';
-import 'package:projectqdel/view/splash_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

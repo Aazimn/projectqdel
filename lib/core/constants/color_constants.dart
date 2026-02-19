@@ -17,4 +17,6 @@ class ColorConstants {
   static const Color darkblue = Color.fromARGB(255, 7, 49, 83);
   static const Color darkgrey = Color.fromARGB(255, 87, 87, 87);
   static const Color bgred = Color.fromARGB(255, 102, 40, 36);
+  static Color bgcard = Colors.black.withOpacity(0.25);
+  static Color bg = const Color(0xffF6F7F9);
 }
