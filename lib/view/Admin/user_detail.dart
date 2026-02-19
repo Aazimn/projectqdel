@@ -74,37 +74,37 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     );
   }
 
-  Widget _approvalActions() {
-    final status = user.approvalStatus.toLowerCase();
+  // Widget _approvalActions() {
+  //   final status = user.approvalStatus.toLowerCase();
 
-    if (status == "approved") {
-      return _actionBtn("Reject User", Colors.red, () {
-        _updateApproval(false);
-      });
-    }
+  //   if (status == "approved") {
+  //     return _actionBtn("Reject User", Colors.red, () {
+  //       _updateApproval(false);
+  //     });
+  //   }
 
-    if (status == "rejected") {
-      return _actionBtn("Approve User", Colors.green, () {
-        _updateApproval(true);
-      });
-    }
+  //   if (status == "rejected") {
+  //     return _actionBtn("Approve User", Colors.green, () {
+  //       _updateApproval(true);
+  //     });
+  //   }
 
-    return Row(
-      children: [
-        Expanded(
-          child: _actionBtn("Approve", Colors.green, () {
-            _updateApproval(true);
-          }),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _actionBtn("Reject", Colors.red, () {
-            _updateApproval(false);
-          }),
-        ),
-      ],
-    );
-  }
+  //   return Row(
+  //     children: [
+  //       Expanded(
+  //         child: _actionBtn("Approve", Colors.green, () {
+  //           _updateApproval(true);
+  //         }),
+  //       ),
+  //       const SizedBox(width: 10),
+  //       Expanded(
+  //         child: _actionBtn("Reject", Colors.red, () {
+  //           _updateApproval(false);
+  //         }),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _actionBtn(String text, Color color, VoidCallback onTap) {
     return ElevatedButton(

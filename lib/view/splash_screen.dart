@@ -78,9 +78,9 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 
-  void _go(Widget page) {
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => page));
-  }
+  // void _go(Widget page) {
+  //   Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => page));
+  // }
 
   @override
   Widget build(BuildContext context) {
