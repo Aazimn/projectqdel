@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/splash_screen.dart';
@@ -317,7 +318,16 @@ class _UserSettingsState extends State<UserSettings> {
     return _card(
       title: "Account",
       leading: const Icon(Icons.logout, color: Colors.red),
-      children: [_divider(), _actionBtn("Log Out", Colors.red, _confirmLogout)],
+      children: [
+        Text(
+          "Ending your session will require you to log in again.",
+          style: TextStyle(color: ColorConstants.darkgrey
+          ),
+        ),
+        _divider(),
+
+        _actionBtn("Log Out", Colors.red, _confirmLogout),
+      ],
     );
   }
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:projectqdel/view/carrier/carrier_homescreen.dart';
+import 'package:projectqdel/view/Carrier/carrier_homescreen.dart';
 import 'package:projectqdel/view/user_settings.dart';
 
 class CarrierDashboard extends StatefulWidget {

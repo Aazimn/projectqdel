@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:projectqdel/view/User/home_screen.dart';
+import 'package:projectqdel/view/Client/home_screen.dart';
+import 'package:projectqdel/view/Client/order_adding.dart';
 import 'package:projectqdel/view/user_settings.dart';
 
 class UserDashboard extends StatefulWidget {
@@ -14,7 +15,7 @@ class _UserDashboardState extends State<UserDashboard> {
 
   final List<Widget> _pages = const [
     HomeScreen(),
-    HomeScreen(),
+    AddShipmentScreen(),
     HomeScreen(),
     UserSettings(),
   ];

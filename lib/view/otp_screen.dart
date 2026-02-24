@@ -35,70 +35,69 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Future<void> otp() async {
-  if (_isVerifying) return;
+    if (_isVerifying) return;
 
-  setState(() => _isVerifying = true);
+    setState(() => _isVerifying = true);
 
-  try {
-    final fullotp =
-        c1.text + c2.text + c3.text + c4.text + c5.text + c6.text;
+    try {
+      final fullotp = c1.text + c2.text + c3.text + c4.text + c5.text + c6.text;
 
-    if (fullotp.length != 6) return;
+      if (fullotp.length != 6) return;
 
-    final Map<String, dynamic>? data =
-        await apiService.otp(phone: widget.phone, otp: fullotp);
-
-    if (data == null) {
-      throw Exception("OTP failed");
-    }
-
-    final bool isFirstTime = data['first_time'] == true;
-
-    if (isFirstTime) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => RegistrationScreen(phone: widget.phone),
-        ),
+      final Map<String, dynamic>? data = await apiService.otp(
+        phone: widget.phone,
+        otp: fullotp,
       );
-      return;
-    }
 
-    final accessToken = data['access'];
-    final user = data['user'];
+      if (data == null) {
+        throw Exception("OTP failed");
+      }
 
-    if (accessToken == null || user == null) {
-      throw Exception("Invalid session data");
-    }
+      final bool isFirstTime = data['first_time'] == true;
 
-    await ApiService.saveSession(
-  token: data['access'],
-  userType: data['user']['user_type']
-      .toString()
-      .toLowerCase(),
-  approvalStatus: data['user']['approval_status'] ?? "pending",
-  phone: data['user']['phone'],
-  firstTime: data['first_time'] ?? false,
-);
+      if (isFirstTime) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RegistrationScreen(phone: widget.phone),
+          ),
+        );
+        return;
+      }
 
-    if (!mounted) return;
+      final accessToken = data['access'];
+      final user = data['user'];
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const SplashScreen()),
-      (_) => false,
-    );
-  } catch (e) {
-    debugPrint("OTP ERROR: $e");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(e.toString())),
-    );
-  } finally {
-    if (mounted) {
-      setState(() => _isVerifying = false);
+      if (accessToken == null || user == null) {
+        throw Exception("Invalid session data");
+      }
+
+      await ApiService.saveSession(
+        token: data['access'],
+        userType: data['user']['user_type'].toString().toLowerCase(),
+        approvalStatus: data['user']['approval_status'] ?? "pending",
+        phone: data['user']['phone'],
+        firstTime: data['first_time'] ?? false,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
+        (_) => false,
+      );
+    } catch (e) {
+      debugPrint("OTP ERROR: $e");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) {
+        setState(() => _isVerifying = false);
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {

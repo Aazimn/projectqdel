@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/carrier/approved_screen.dart';
-import 'package:projectqdel/view/carrier/rejected_screen.dart';
+import 'package:projectqdel/view/Carrier/approved_screen.dart';
+import 'package:projectqdel/view/Carrier/rejected_screen.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 
 class StatusPending extends StatefulWidget {

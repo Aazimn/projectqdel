@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/model/carrier_model.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/carrier/carrier_upload.dart';
+import 'package:projectqdel/view/Carrier/carrier_upload.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 
 class UsertypeScreen extends StatefulWidget {

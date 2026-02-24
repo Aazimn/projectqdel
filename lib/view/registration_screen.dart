@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/carrier_model.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/carrier/carrier_upload.dart';
+import 'package:projectqdel/view/Carrier/carrier_upload.dart';
 import 'package:projectqdel/view/login_screen.dart';
 import 'package:projectqdel/view/splash_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegistrationScreen extends StatefulWidget {
   final String phone;
@@ -121,10 +122,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       await ApiService.saveSession(
         token: ApiService.accessToken!,
         userType: "client",
-        approvalStatus: "approved", 
+        approvalStatus: "approved",
         phone: widget.phone,
         firstTime: false,
       );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('country', selectedCountryId!);
+      await prefs.setInt('state', selectedStateId!);
+      await prefs.setInt('district', selectedDistrictId!);
 
       ScaffoldMessenger.of(
         context,
@@ -309,8 +314,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                       selectedStateId = null;
                                       selectedDistrictId = null;
 
-                                      states = []; 
-                                      districts = []; 
+                                      states = [];
+                                      districts = [];
                                     });
                                     final data = await apiService.getStates(
                                       countryId: value,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
-import 'package:projectqdel/view/carrier/carrier_dashboard.dart';
+import 'package:projectqdel/view/Carrier/carrier_dashboard.dart';
 
 class AccountApprovedScreen extends StatelessWidget {
   const AccountApprovedScreen({super.key});

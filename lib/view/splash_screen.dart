@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/dashboard_screen.dart';
-import 'package:projectqdel/view/carrier/rejected_screen.dart';
-import 'package:projectqdel/view/carrier/status_pending.dart';
-import 'package:projectqdel/view/User/user_dashboard.dart';
-import 'package:projectqdel/view/carrier/carrier_dashboard.dart';
+import 'package:projectqdel/view/Carrier/rejected_screen.dart';
+import 'package:projectqdel/view/Carrier/status_pending.dart';
+import 'package:projectqdel/view/Client/user_dashboard.dart';
+import 'package:projectqdel/view/Carrier/carrier_dashboard.dart';
 import 'package:projectqdel/view/login_screen.dart';
 
 

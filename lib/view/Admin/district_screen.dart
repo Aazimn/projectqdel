@@ -255,7 +255,6 @@ class _DistrictScreenState extends State<DistrictScreen> {
                     ],
                   ),
                 ),
-
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -263,7 +262,6 @@ class _DistrictScreenState extends State<DistrictScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: Colors.green.withOpacity(0.15),
-
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
