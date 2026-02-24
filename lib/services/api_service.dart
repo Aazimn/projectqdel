@@ -909,6 +909,7 @@ class ApiService {
   Future<int?> addReceiverAddress({
     required int productId,
     required int receiverId,
+    required int senderAddressId,
     required String receiverName,
     required String receiverPhone,
     required String address,
@@ -925,6 +926,7 @@ class ApiService {
     final payload = {
       "product_id": productId,
       "receiver": receiverId,
+      "address_id": senderAddressId,
       "receiver_name": receiverName.trim(),
       "receiver_phone": receiverPhone.trim(),
       "address_text": address.trim(),

@@ -691,6 +691,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
           final receiverSuccess = await apiService.addReceiverAddress(
             productId: apiService.lastCreatedProductId!,
             receiverId: apiService.currentUserId!,
+            senderAddressId: addressId,
             receiverName: receiverNameCtrl.text,
             receiverPhone: receiverPhoneCtrl.text,
             address: receiverAddressCtrl.text,

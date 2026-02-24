@@ -102,7 +102,6 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     try {
       final data = await apiService.getReceiverAddressByPickupId(
         widget.receiverAddressId,
-        
       );
 
       if (!mounted) return;
@@ -625,8 +624,8 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
 
     final success = await apiService.updateReceiverAddress(
       addressId: widget.receiverAddressId,
-        productId: receiverAddress?['product'],   // 🔥 REQUIRED
-  receiverId: receiverAddress?['receiver'],
+      productId: receiverAddress?['product'], // 🔥 REQUIRED
+      receiverId: receiverAddress?['receiver'],
 
       receiverName: receiverNameCtrl.text.trim().isEmpty
           ? (receiverAddress?['receiver_name'] ?? "").toString()
@@ -746,16 +745,16 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
           : senderLandmarkCtrl.text.trim(),
 
       district: senderDistrictCtrl.text.trim().isEmpty
-          ? int.tryParse(senderAddress?['district']?.toString() ?? '')
-          : int.tryParse(senderDistrictCtrl.text.trim()),
+          ? (senderAddress?['district'] ?? "")
+          : senderDistrictCtrl.text.trim(),
 
       state: senderStateCtrl.text.trim().isEmpty
-          ? int.tryParse(senderAddress?['state']?.toString() ?? '')
-          : int.tryParse(senderStateCtrl.text.trim()),
+          ? (senderAddress?['state'] ?? "")
+          : senderStateCtrl.text.trim(),
 
       country: senderCountryCtrl.text.trim().isEmpty
-          ? int.tryParse(senderAddress?['country']?.toString() ?? '')
-          : int.tryParse(senderCountryCtrl.text.trim()),
+          ? (senderAddress?['country'] ?? "")
+          : senderCountryCtrl.text.trim(),
 
       zipCode: senderZipCtrl.text.trim().isEmpty
           ? (senderAddress?['zip_code'] ?? "").toString()
