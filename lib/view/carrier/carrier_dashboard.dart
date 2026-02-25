@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/view/Carrier/carrier_homescreen.dart';
+import 'package:projectqdel/view/Carrier/map_screen_pickup.dart';
 import 'package:projectqdel/view/user_settings.dart';
 
 class CarrierDashboard extends StatefulWidget {
@@ -14,7 +15,7 @@ class _CarrierDashboardState extends State<CarrierDashboard> {
 
   final List<Widget> _pages = const [
     CarrierHomescreen(),
-    CarrierHomescreen(),
+    CarrierMapScreen(),
     CarrierHomescreen(),
     UserSettings(),
   ];

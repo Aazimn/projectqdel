@@ -716,7 +716,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
               builder: (_) => OrderPlacedScreen(
                 productId: apiService.lastCreatedProductId!,
                 senderAddressId: addressId,
-                receiverAddressId: receiverSuccess,
+                pickupId: receiverSuccess,
               ),
             ),
           );

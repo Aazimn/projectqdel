@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
+import 'package:projectqdel/model/order_model.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,7 +11,7 @@ class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
   final String baseurl =
-      "https://investing-activists-battle-airline.trycloudflare.com";
+      "https://africa-computers-stewart-brand.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -853,7 +855,6 @@ class ApiService {
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
 
-        // adjust key based on API response
         return decoded["data"] ?? decoded;
       }
     } catch (e) {
@@ -924,9 +925,9 @@ class ApiService {
     final url = Uri.parse("$baseurl/api/qdel/users/sent/request/");
 
     final payload = {
-      "product_id": productId,
+      "product": productId,
       "receiver": receiverId,
-      "address_id": senderAddressId,
+      "sender": senderAddressId,
       "receiver_name": receiverName.trim(),
       "receiver_phone": receiverPhone.trim(),
       "address_text": address.trim(),
@@ -936,7 +937,6 @@ class ApiService {
       "zip_code": zipCode.trim(),
     };
 
-    // optional
     if (landmark != null && landmark.trim().isNotEmpty) {
       payload["landmark"] = landmark.trim();
     }
@@ -1004,7 +1004,6 @@ class ApiService {
     required String phoneNumber,
     required String address,
     String? landmark,
-
     int? district,
     int? state,
     int? country,
@@ -1111,6 +1110,31 @@ class ApiService {
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
       return false;
+    }
+  }
+
+  Future<List<OrderModel>> getAllOrders() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseurl/api/qdel/user/view/all/orders/'),
+        headers: {'Authorization': "Bearer ${ApiService.accessToken}"},
+      );
+
+      debugPrint("💡 GET ORDERS STATUS => ${response.statusCode}");
+      debugPrint("💡 GET ORDERS BODY => ${response.body}");
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+
+        final List ordersJson = decoded['data']; // ✅ THIS LINE FIXES EVERYTHING
+
+        return ordersJson.map((e) => OrderModel.fromJson(e)).toList();
+      } else {
+        throw Exception("Failed to load orders");
+      }
+    } catch (e) {
+      debugPrint("⛔ GET ORDERS ERROR => $e");
+      rethrow;
     }
   }
 }

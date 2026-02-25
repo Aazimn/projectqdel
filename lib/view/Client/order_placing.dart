@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:lottie/lottie.dart';
+import 'package:projectqdel/view/Client/user_dashboard.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OrderPlacedScreen extends StatefulWidget {
   final int productId;
   final int senderAddressId;
-  final int receiverAddressId;
+  final int pickupId;
   const OrderPlacedScreen({
     super.key,
     required this.productId,
     required this.senderAddressId,
-    required this.receiverAddressId,
+    required this.pickupId,
   });
 
   @override
@@ -26,6 +28,9 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   int? id;
   Map<String, dynamic>? senderAddress;
   Map<String, dynamic>? receiverAddress;
+
+  bool isUserChangingCountry = false;
+  bool isUserChangingState = false;
 
   final TextEditingController nameCtrl = TextEditingController();
   final TextEditingController descCtrl = TextEditingController();
@@ -50,10 +55,192 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   final TextEditingController receiverCountryCtrl = TextEditingController();
   final TextEditingController receiverZipCtrl = TextEditingController();
 
+  List<dynamic> countries = [];
+  List<dynamic> states = [];
+  List<dynamic> districts = [];
+
+  int? selectedCountryId;
+  int? selectedStateId;
+  int? selectedDistrictId;
+
+  int? defaultCountryId;
+  int? defaultStateId;
+  int? defaultDistrictId;
+
+  bool isCountryLoading = false;
+  bool isStateLoading = false;
+  bool isDistrictLoading = false;
+
+  Map<int, List> stateCache = {};
+  Map<int, List> districtCache = {};
+
+  List<dynamic> receiverStates = [];
+  List<dynamic> receiverDistricts = [];
+
+  int? selectedReceiverCountryId;
+  int? selectedReceiverStateId;
+  int? selectedReceiverDistrictId;
+
+  bool isReceiverStateLoading = false;
+  bool isReceiverDistrictLoading = false;
+
   @override
   void initState() {
     super.initState();
+    _initDefaults();
     _startFlow();
+  }
+
+  Future<void> _loadReceiverStates(int countryId) async {
+    isReceiverStateLoading = true;
+    setState(() {});
+    try {
+      if (!stateCache.containsKey(countryId)) {
+        stateCache[countryId] = await apiService.getStates(
+          countryId: countryId,
+        );
+      }
+      final country = countries.firstWhere(
+        (c) => c['id'] == countryId,
+        orElse: () => null,
+      );
+      if (country == null) {
+        debugPrint("Country not found for ID: $countryId");
+        receiverStates = [];
+      } else {
+        final countryName = country['name'];
+        debugPrint("Filtering states for country name: $countryName");
+        receiverStates = stateCache[countryId]!
+            .where((s) => s['country'] == countryName)
+            .toList();
+      }
+      debugPrint(
+        "Loaded ${receiverStates.length} states for country $countryId",
+      );
+      debugPrint(
+        "States: ${receiverStates.map((s) => '${s['id']}: ${s['name']}').toList()}",
+      );
+    } catch (e) {
+      debugPrint("Receiver State load error: $e");
+    }
+    isReceiverStateLoading = false;
+  }
+
+  Future<void> _loadReceiverDistricts(int stateId) async {
+    isReceiverDistrictLoading = true;
+    setState(() {});
+    try {
+      if (!districtCache.containsKey(stateId)) {
+        districtCache[stateId] = await apiService.getDistricts(
+          stateId: stateId,
+        );
+      }
+      receiverDistricts = districtCache[stateId]!
+          .where((d) => d['state'] == stateId)
+          .toList();
+      debugPrint(
+        "Loaded ${receiverDistricts.length} districts for state $stateId",
+      );
+      debugPrint(
+        "Districts: ${receiverDistricts.map((d) => '${d['id']}: ${d['name']}').toList()}",
+      );
+    } catch (e) {
+      debugPrint("Receiver District load error: $e");
+    }
+    isReceiverDistrictLoading = false;
+  }
+
+  bool isInitializingDefaults = true;
+
+  int? savedCountryId;
+  int? savedStateId;
+  int? savedDistrictId;
+
+  Future<void> _initDefaults() async {
+    isInitializingDefaults = true;
+    final prefs = await SharedPreferences.getInstance();
+    apiService.currentUserId = prefs.getInt('user_id');
+    savedCountryId = prefs.getInt('country');
+    savedStateId = prefs.getInt('state');
+    savedDistrictId = prefs.getInt('district');
+    debugPrint(
+      "Saved IDs => country:$savedCountryId state:$savedStateId district:$savedDistrictId",
+    );
+    await _loadCountries();
+    isInitializingDefaults = false;
+    setState(() {});
+  }
+
+
+  Future<void> _loadCountries() async {
+    setState(() => isCountryLoading = true);
+    try {
+      countries = await apiService.getCountries();
+    } catch (e) {
+      debugPrint("Country load error: $e");
+    }
+    setState(() => isCountryLoading = false);
+  }
+
+
+  Future<void> _loadStates(int countryId) async {
+    setState(() {
+      isStateLoading = true;
+      states = [];
+      selectedStateId = null;
+      selectedDistrictId = null;
+      districts = [];
+    });
+    try {
+      if (!stateCache.containsKey(countryId)) {
+        stateCache[countryId] = await apiService.getStates(
+          countryId: countryId,
+        );
+      }
+      final country = countries.firstWhere(
+        (c) => c['id'] == countryId,
+        orElse: () => null,
+      );
+      if (country == null) {
+        debugPrint("Country not found for ID: $countryId");
+        states = [];
+      } else {
+        final countryName = country['name'];
+        debugPrint("Filtering states for country name: $countryName");
+        states = stateCache[countryId]!
+            .where((s) => s['country'] == countryName)
+            .toList();
+      }
+
+      debugPrint("Loaded ${states.length} states for country $countryId");
+    } catch (e) {
+      debugPrint("State load error: $e");
+    }
+  }
+
+
+
+  Future<void> _loadDistricts(int stateId) async {
+    setState(() {
+      isDistrictLoading = true;
+      districts = [];
+    });
+    try {
+      if (!districtCache.containsKey(stateId)) {
+        districtCache[stateId] = await apiService.getDistricts(
+          stateId: stateId,
+        );
+      }
+      districts = districtCache[stateId]!
+          .where((d) => d['state'] == stateId)
+          .toList();
+      debugPrint("Loaded ${districts.length} districts for state $stateId");
+      debugPrint(
+        "Districts: ${districts.map((d) => '${d['id']}: ${d['name']}').toList()}",
+      );
+    } catch (e) {
+      debugPrint("District load error: $e");
+    }
   }
 
   void _fillControllers() {
@@ -65,13 +252,10 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
 
   Future<void> _startFlow() async {
     await Future.delayed(const Duration(seconds: 3));
-
     if (!mounted) return;
-
     setState(() {
       showSuccessAnimation = false;
     });
-
     await Future.wait([
       _loadProduct(),
       _loadSenderAddress(),
@@ -81,44 +265,97 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
 
   Future<void> _loadSenderAddress() async {
     final data = await apiService.getSenderAddressById(widget.senderAddressId);
-
     if (!mounted || data == null) return;
 
     setState(() {
       senderAddress = data;
     });
-
     senderNameCtrl.text = data['sender_name'] ?? '';
     senderPhoneCtrl.text = data['phone_number'] ?? '';
     senderAddressCtrl.text = data['address'] ?? '';
     senderLandmarkCtrl.text = data['landmark'] ?? '';
-    senderDistrictCtrl.text = data['district']?.toString() ?? '';
-    senderStateCtrl.text = data['state']?.toString() ?? '';
-    senderCountryCtrl.text = data['country']?.toString() ?? '';
     senderZipCtrl.text = data['zip_code'] ?? '';
+    senderCountryCtrl.text = data['country'] ?? '';
+    senderStateCtrl.text = data['state'] ?? '';
+    senderDistrictCtrl.text = data['district'] ?? '';
+
+    if (countries.isEmpty) {
+      await _loadCountries();
+    }
+    final countryName = data['country'];
+    if (countryName != null && countryName.isNotEmpty) {
+      final country = countries.firstWhere(
+        (c) => c['name'].toLowerCase() == countryName.toLowerCase(),
+        orElse: () => null,
+      );
+      if (country != null) {
+        setState(() {
+          selectedCountryId = country['id'];
+        });
+        await _loadStates(selectedCountryId!);
+        final stateName = data['state'];
+        if (stateName != null && stateName.isNotEmpty) {
+          final state = states.firstWhere(
+            (s) => s['name'].toLowerCase() == stateName.toLowerCase(),
+            orElse: () => null,
+          );
+          if (state != null) {
+            setState(() {
+              selectedStateId = state['id'];
+            });
+            await _loadDistricts(selectedStateId!);
+            final districtName = data['district'];
+            if (districtName != null && districtName.isNotEmpty) {
+              final district = districts.firstWhere(
+                (d) => d['name'].toLowerCase() == districtName.toLowerCase(),
+                orElse: () => null,
+              );
+              if (district != null) {
+                setState(() {
+                  selectedDistrictId = district['id'];
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    setState(() {});
   }
 
   Future<void> _loadReceiverAddress() async {
     try {
       final data = await apiService.getReceiverAddressByPickupId(
-        widget.receiverAddressId,
+        widget.pickupId,
       );
-
       if (!mounted) return;
-
       setState(() {
         receiverAddress = data!['data'];
       });
-
       receiverNameCtrl.text = receiverAddress?['receiver_name'] ?? '';
       receiverPhoneCtrl.text = receiverAddress?['receiver_phone'] ?? '';
       receiverAddressCtrl.text = receiverAddress?['address_text'] ?? '';
       receiverLandmarkCtrl.text = receiverAddress?['landmark'] ?? '';
-      receiverDistrictCtrl.text =
-          receiverAddress?['district']?.toString() ?? '';
-      receiverStateCtrl.text = receiverAddress?['state']?.toString() ?? '';
-      receiverCountryCtrl.text = receiverAddress?['country']?.toString() ?? '';
       receiverZipCtrl.text = receiverAddress?['zip_code'] ?? '';
+      setState(() {
+        selectedReceiverCountryId = receiverAddress?['country'];
+        selectedReceiverStateId = receiverAddress?['state'];
+        selectedReceiverDistrictId = receiverAddress?['district'];
+        receiverCountryCtrl.text = receiverAddress?['country_name'] ?? '';
+        receiverStateCtrl.text = receiverAddress?['state_name'] ?? '';
+        receiverDistrictCtrl.text = receiverAddress?['district_name'] ?? '';
+      });
+      if (selectedReceiverCountryId != null) {
+        await _loadReceiverStates(selectedReceiverCountryId!);
+      }
+      if (selectedReceiverStateId != null) {
+        await _loadReceiverDistricts(selectedReceiverStateId!);
+      }
+      debugPrint("Receiver Country ID: $selectedReceiverCountryId");
+      debugPrint("Receiver State ID: $selectedReceiverStateId");
+      debugPrint("Receiver District ID: $selectedReceiverDistrictId");
+      setState(() {});
     } catch (e) {
       if (!mounted) return;
       debugPrint("Receiver address error: $e");
@@ -144,15 +381,12 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   Future<void> _loadProduct() async {
     try {
       final data = await apiService.getProductById(widget.productId);
-
       if (!mounted) return;
-
       if (data == null) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("Failed to load product")));
       }
-
       setState(() {
         product = data;
         loading = false;
@@ -160,9 +394,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       _fillControllers();
     } catch (e) {
       if (!mounted) return;
-
       setState(() => loading = false);
-
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -172,43 +404,49 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   Widget _orderPlacedContent() {
     return Column(
       children: [
-        _header(),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _searchingCard(),
-                const SizedBox(height: 16),
-                _orderSummary(),
-                const SizedBox(height: 16),
-                _detailsCard(
-                  title: "SENDER DETAILS",
-                  name: senderAddress?['sender_name'] ?? "—",
-                  phone: senderAddress?['phone_number'] ?? "—",
-                  address: senderAddress?['address'] ?? "—",
-                  landmark: senderAddress?['landmark'],
-                  district: senderAddress?['district']?.toString(),
-                  state: senderAddress?['state']?.toString(),
-                  country: senderAddress?['country']?.toString(),
-                  zip: senderAddress?['zip_code'],
-                  onEdit: _openEditSenderSheet,
+                _header(),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _searchingCard(),
+                      const SizedBox(height: 16),
+                      _orderSummary(),
+                      const SizedBox(height: 16),
+                      _detailsCard(
+                        title: "SENDER DETAILS",
+                        name: senderAddress?['sender_name'] ?? "—",
+                        phone: senderAddress?['phone_number'] ?? "—",
+                        address: senderAddress?['address'] ?? "—",
+                        landmark: senderAddress?['landmark'],
+                        district: senderDistrictCtrl.text,
+                        state: senderStateCtrl.text,
+                        country: senderCountryCtrl.text,
+                        zip: senderZipCtrl.text,
+                        onEdit: _openEditSenderSheet,
+                      ),
+                      const SizedBox(height: 16),
+                      _detailsCard(
+                        title: "RECEIVER DETAILS",
+                        name: receiverAddress?['receiver_name'] ?? "—",
+                        phone: receiverAddress?['receiver_phone'] ?? "—",
+                        address: receiverAddress?['address_text'] ?? "—",
+                        landmark: receiverAddress?['landmark'],
+                        district: receiverDistrictCtrl.text,
+                        state: receiverStateCtrl.text,
+                        country: receiverCountryCtrl.text,
+                        zip: receiverZipCtrl.text,
+                        onEdit: _openEditReceiverSheet,
+                      ),
+                      const SizedBox(height: 16),
+                      _cancelOrderSection(context),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
-                _detailsCard(
-                  title: "RECEIVER DETAILS",
-                  name: receiverAddress?['receiver_name'] ?? "—",
-                  phone: receiverAddress?['receiver_phone'] ?? "—",
-                  address: receiverAddress?['address_text'] ?? "—",
-                  landmark: receiverAddress?['landmark'],
-                  district: receiverAddress?['district']?.toString(),
-                  state: receiverAddress?['state']?.toString(),
-                  country: receiverAddress?['country']?.toString(),
-                  zip: receiverAddress?['zip_code'],
-                  onEdit: _openEditReceiverSheet,
-                ),
-                const SizedBox(height: 16),
-                _cancelOrderSection(context),
               ],
             ),
           ),
@@ -222,13 +460,11 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FB),
-      body: SafeArea(
-        child: showSuccessAnimation
-            ? _successLottie()
-            : loading
-            ? const Center(child: CircularProgressIndicator())
-            : _orderPlacedContent(),
-      ),
+      body: showSuccessAnimation
+          ? _successLottie()
+          : loading
+          ? const Center(child: CircularProgressIndicator())
+          : _orderPlacedContent(),
     );
   }
 
@@ -245,11 +481,15 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
           CircleAvatar(
             radius: 28,
             backgroundColor: Colors.white,
-            child: Icon(Icons.check, color: Color(0xFFE53935), size: 32),
+            child: Icon(
+              Icons.hourglass_top,
+              color: Color(0xFFE53935),
+              size: 30,
+            ),
           ),
           SizedBox(height: 12),
           Text(
-            "Order Placed Successfully!",
+            "Waiting for Delivery Partner",
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,
@@ -258,7 +498,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
           ),
           SizedBox(height: 6),
           Text(
-            "Order ID: #SHP-92834012",
+            "We're confirming the nearest available rider",
             style: TextStyle(color: Colors.white70),
           ),
         ],
@@ -319,7 +559,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                 ),
                 SizedBox(height: 6),
                 Text(
-                  "We’re finding the nearest available rider for you",
+                  "We're finding the nearest available rider for you",
                   style: TextStyle(color: Colors.black54),
                 ),
               ],
@@ -426,12 +666,10 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-
               _textField("Product Name", nameCtrl),
               _textField("Description", descCtrl),
               _textField("Weight (kg)", weightCtrl, isNumber: true),
               _textField("Volume (cm³)", volumeCtrl, isNumber: true),
-
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _updateProduct,
@@ -471,7 +709,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   }
 
   Future<void> _updateProduct() async {
-    Navigator.pop(context); // close bottom sheet
+    Navigator.pop(context);
 
     final success = await apiService.updateProduct(
       productId: widget.productId,
@@ -480,13 +718,9 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       actualWeight: weightCtrl.text.trim(),
       volume: volumeCtrl.text.trim(),
     );
-
     if (!mounted) return;
-
     if (success) {
-      await _loadProduct(); // refresh UI
-
-      // ✅ clear old snackbars + show new one
+      await _loadProduct();
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -551,11 +785,12 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
             address.toUpperCase(),
             style: const TextStyle(color: Colors.grey),
           ),
-          if (district != null) Text("District: $district"),
-          if (state != null) Text("State: $state"),
-          if (country != null) Text("Country: $country"),
-          if (zip != null) Text("Zip: $zip"),
-          if (landmark != null) ...[
+          if (district != null && district.isNotEmpty)
+            Text("District: $district"),
+          if (state != null && state.isNotEmpty) Text("State: $state"),
+          if (country != null && country.isNotEmpty) Text("Country: $country"),
+          if (zip != null && zip.isNotEmpty) Text("Zip: $zip"),
+          if (landmark != null && landmark.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
               landmark.toUpperCase(),
@@ -575,45 +810,112 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
-        return SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-              left: 16,
-              right: 16,
-              top: 20,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "Edit Receiver Address",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                  left: 16,
+                  right: 16,
+                  top: 20,
                 ),
-                const SizedBox(height: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Edit Receiver Address",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _textField("Receiver Name", receiverNameCtrl),
+                    _textField("Phone", receiverPhoneCtrl, isNumber: true),
+                    _textField("Address", receiverAddressCtrl),
+                    _textField("Landmark", receiverLandmarkCtrl),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: apiDropdown(
+                            hint: "Country",
+                            items: countries,
+                            loading: isCountryLoading,
+                            selectedId: selectedReceiverCountryId,
+                            onChanged: (value) async {
+                              if (value == null) return;
+                              final countryId = value['id'];
+                              setModalState(() {
+                                selectedReceiverCountryId = countryId;
+                                receiverCountryCtrl.text = value['name'];
+                                selectedReceiverStateId = null;
+                                selectedReceiverDistrictId = null;
+                                receiverStates.clear();
+                                receiverDistricts.clear();
+                                receiverStateCtrl.clear();
+                                receiverDistrictCtrl.clear();
+                              });
 
-                _textField("Receiver Name", receiverNameCtrl),
-                _textField("Phone", receiverPhoneCtrl, isNumber: true),
-                _textField("Address", receiverAddressCtrl),
-                _textField("Landmark", receiverLandmarkCtrl),
-                _textField("District ID", receiverDistrictCtrl, isNumber: true),
-                _textField("State ID", receiverStateCtrl, isNumber: true),
-                _textField("Country ID", receiverCountryCtrl, isNumber: true),
-                _textField("Zip Code", receiverZipCtrl),
-
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _updateReceiverAddress,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    minimumSize: const Size(double.infinity, 48),
-                  ),
-                  child: const Text("Update Address"),
+                              await _loadReceiverStates(countryId);
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: apiDropdown(
+                            hint: "State",
+                            items: receiverStates,
+                            loading: isReceiverStateLoading,
+                            selectedId: selectedReceiverStateId,
+                            onChanged: (value) async {
+                              if (value == null) return;
+                              final stateId = value['id'];
+                              setModalState(() {
+                                selectedReceiverStateId = stateId;
+                                receiverStateCtrl.text = value['name'];
+                                selectedReceiverDistrictId = null;
+                                receiverDistricts = [];
+                                receiverDistrictCtrl.clear();
+                                isReceiverDistrictLoading = true;
+                              });
+                              await _loadReceiverDistricts(stateId);
+                              setState(() {
+                                isReceiverDistrictLoading = false;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    apiDropdown(
+                      hint: "District",
+                      items: selectedReceiverStateId == null
+                          ? []
+                          : receiverDistricts,
+                      loading: isReceiverDistrictLoading,
+                      selectedId: selectedReceiverDistrictId,
+                      onChanged: (value) {
+                        setModalState(() {
+                          selectedReceiverDistrictId = value["id"];
+                          receiverDistrictCtrl.text = value["name"];
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _updateReceiverAddress,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        minimumSize: const Size(double.infinity, 48),
+                      ),
+                      child: const Text("Update Address"),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -623,9 +925,9 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     Navigator.pop(context);
 
     final success = await apiService.updateReceiverAddress(
-      addressId: widget.receiverAddressId,
-      productId: receiverAddress?['product'], // 🔥 REQUIRED
-      receiverId: receiverAddress?['receiver'],
+      addressId: widget.pickupId,
+      productId: widget.productId,
+      receiverId: apiService.currentUserId,
 
       receiverName: receiverNameCtrl.text.trim().isEmpty
           ? (receiverAddress?['receiver_name'] ?? "").toString()
@@ -643,18 +945,9 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
           ? (receiverAddress?['landmark'] ?? "").toString()
           : receiverLandmarkCtrl.text.trim(),
 
-      district: receiverDistrictCtrl.text.trim().isEmpty
-          ? int.tryParse(receiverAddress?['district']?.toString() ?? '')
-          : int.tryParse(receiverDistrictCtrl.text.trim()),
-
-      state: receiverStateCtrl.text.trim().isEmpty
-          ? int.tryParse(receiverAddress?['state']?.toString() ?? '')
-          : int.tryParse(receiverStateCtrl.text.trim()),
-
-      country: receiverCountryCtrl.text.trim().isEmpty
-          ? int.tryParse(receiverAddress?['country']?.toString() ?? '')
-          : int.tryParse(receiverCountryCtrl.text.trim()),
-
+      district: selectedReceiverDistrictId,
+      state: selectedReceiverStateId,
+      country: selectedReceiverCountryId,
       zipCode: receiverZipCtrl.text.trim().isEmpty
           ? (receiverAddress?['zip_code'] ?? "").toString()
           : receiverZipCtrl.text.trim(),
@@ -678,45 +971,120 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
-        return SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-              left: 16,
-              right: 16,
-              top: 20,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "Edit Sender Address",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                  left: 16,
+                  right: 16,
+                  top: 20,
                 ),
-                const SizedBox(height: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Edit Sender Address",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-                _textField("Sender Name", senderNameCtrl),
-                _textField("Phone Number", senderPhoneCtrl, isNumber: true),
-                _textField("Address", senderAddressCtrl),
-                _textField("Landmark", senderLandmarkCtrl),
-                _textField("District ID", senderDistrictCtrl, isNumber: true),
-                _textField("State ID", senderStateCtrl, isNumber: true),
-                _textField("Country ID", senderCountryCtrl, isNumber: true),
-                _textField("Zip Code", senderZipCtrl),
+                    _textField("Sender Name", senderNameCtrl),
+                    _textField("Phone Number", senderPhoneCtrl, isNumber: true),
+                    _textField("Address", senderAddressCtrl),
+                    _textField("Landmark", senderLandmarkCtrl),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: apiDropdown(
+                            hint: "Country",
+                            items: countries,
+                            loading: isCountryLoading,
+                            selectedId: selectedCountryId,
+                            onChanged: (value) async {
+                              if (value == null) return;
+                              final countryId = value['id'];
+                              setModalState(() {
+                                selectedCountryId = countryId;
+                                senderCountryCtrl.text = value['name'];
+                                selectedStateId = null;
+                                selectedDistrictId = null;
+                                states = [];
+                                districts = [];
+                                senderStateCtrl.clear();
+                                senderDistrictCtrl.clear();
+                                isStateLoading =
+                                    true; 
+                              });
+                              await _loadStates(countryId);
+                              setState(() {
+                                isStateLoading = false;
+                              });
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: apiDropdown(
+                            hint: "State",
+                            items: states,
+                            loading: isStateLoading,
+                            selectedId: selectedStateId,
+                            onChanged: (value) async {
+                              if (value == null) return;
+                              final stateId = value['id'];
 
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _updateSenderAddress,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    minimumSize: const Size(double.infinity, 48),
-                  ),
-                  child: const Text("Update Address"),
+                              setModalState(() {
+                                selectedStateId = stateId;
+                                senderStateCtrl.text = value['name'];
+                                selectedDistrictId = null;
+                                districts = [];
+                                senderDistrictCtrl.clear();
+                                isDistrictLoading =
+                                    true;
+                              });
+
+                              await _loadDistricts(stateId);
+
+                              setState(() {
+                                isDistrictLoading = false;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    apiDropdown(
+                      hint: "District",
+                      items: selectedStateId == null ? [] : districts,
+                      loading: isDistrictLoading,
+                      selectedId: selectedDistrictId,
+                      onChanged: (value) {
+                        setModalState(() {
+                          selectedDistrictId = value["id"];
+                          senderDistrictCtrl.text = value["name"];
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _updateSenderAddress,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        minimumSize: const Size(double.infinity, 48),
+                      ),
+                      child: const Text("Update Address"),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -725,53 +1093,77 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   Future<void> _updateSenderAddress() async {
     Navigator.pop(context);
 
-    final success = await apiService.updateSenderAddress(
-      addressId: widget.senderAddressId,
+    debugPrint("🟡 UPDATE SENDER STARTED");
+    debugPrint("➡️ senderAddressId: ${widget.senderAddressId}");
 
-      senderName: senderNameCtrl.text.trim().isEmpty
-          ? (senderAddress?['sender_name'] ?? "").toString()
-          : senderNameCtrl.text.trim(),
+    final updatedSenderName = senderNameCtrl.text.trim().isEmpty
+        ? (senderAddress?['sender_name'] ?? "").toString()
+        : senderNameCtrl.text.trim();
 
-      phoneNumber: senderPhoneCtrl.text.trim().isEmpty
-          ? (senderAddress?['phone_number'] ?? "").toString()
-          : senderPhoneCtrl.text.trim(),
+    final updatedPhone = senderPhoneCtrl.text.trim().isEmpty
+        ? (senderAddress?['phone_number'] ?? "").toString()
+        : senderPhoneCtrl.text.trim();
 
-      address: senderAddressCtrl.text.trim().isEmpty
-          ? (senderAddress?['address'] ?? "").toString()
-          : senderAddressCtrl.text.trim(),
+    final updatedAddress = senderAddressCtrl.text.trim().isEmpty
+        ? (senderAddress?['address'] ?? "").toString()
+        : senderAddressCtrl.text.trim();
 
-      landmark: senderLandmarkCtrl.text.trim().isEmpty
-          ? (senderAddress?['landmark'] ?? "").toString()
-          : senderLandmarkCtrl.text.trim(),
+    final updatedLandmark = senderLandmarkCtrl.text.trim().isEmpty
+        ? (senderAddress?['landmark'] ?? "").toString()
+        : senderLandmarkCtrl.text.trim();
 
-      district: senderDistrictCtrl.text.trim().isEmpty
-          ? (senderAddress?['district'] ?? "")
-          : senderDistrictCtrl.text.trim(),
+    final updatedZip = senderZipCtrl.text.trim().isEmpty
+        ? (senderAddress?['zip_code'] ?? "").toString()
+        : senderZipCtrl.text.trim();
 
-      state: senderStateCtrl.text.trim().isEmpty
-          ? (senderAddress?['state'] ?? "")
-          : senderStateCtrl.text.trim(),
+    debugPrint("📦 DATA BEING SENT:");
+    debugPrint("senderName: $updatedSenderName");
+    debugPrint("phoneNumber: $updatedPhone");
+    debugPrint("address: $updatedAddress");
+    debugPrint("landmark: $updatedLandmark");
+    debugPrint("zipCode: $updatedZip");
+    debugPrint("districtId: $selectedDistrictId");
+    debugPrint("stateId: $selectedStateId");
+    debugPrint("countryId: $selectedCountryId");
 
-      country: senderCountryCtrl.text.trim().isEmpty
-          ? (senderAddress?['country'] ?? "")
-          : senderCountryCtrl.text.trim(),
-
-      zipCode: senderZipCtrl.text.trim().isEmpty
-          ? (senderAddress?['zip_code'] ?? "").toString()
-          : senderZipCtrl.text.trim(),
-    );
-
-    if (!mounted) return;
-
-    if (success) {
-      await _loadSenderAddress();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Sender updated successfully")),
+    try {
+      final success = await apiService.updateSenderAddress(
+        addressId: widget.senderAddressId,
+        senderName: updatedSenderName,
+        phoneNumber: updatedPhone,
+        address: updatedAddress,
+        landmark: updatedLandmark,
+        district: selectedDistrictId,
+        state: selectedStateId,
+        country: selectedCountryId,
+        zipCode: updatedZip,
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to update sender address")),
-      );
+
+      debugPrint("🟢 API RESULT: $success");
+
+      if (!mounted) return;
+
+      if (success) {
+        debugPrint("✅ Sender update success → Reloading sender...");
+        await _loadSenderAddress();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Sender updated successfully")),
+        );
+      } else {
+        debugPrint("❌ Sender update FAILED");
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to update sender address")),
+        );
+      }
+    } catch (e) {
+      debugPrint("🔥 EXCEPTION IN UPDATE SENDER:");
+      debugPrint(e.toString());
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error updating sender: $e")));
     }
   }
 
@@ -780,7 +1172,13 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       padding: const EdgeInsets.all(16),
       child: ElevatedButton.icon(
         onPressed: () {
-          Navigator.pop(context);
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const UserDashboard(initialIndex: 2),
+            ),
+            (route) => false, 
+          );
         },
         icon: const Icon(Icons.list, color: ColorConstants.white),
         label: const Text(
@@ -801,7 +1199,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
       color: Colors.white,
-      border: BoxBorder.all(color: ColorConstants.bgred),
+      border: Border.all(color: ColorConstants.bgred),
       borderRadius: BorderRadius.circular(16),
       boxShadow: [
         BoxShadow(
@@ -865,21 +1263,15 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     if (product == null) {
       return const Icon(Icons.inventory_2, color: Colors.grey);
     }
-
     final images = product!['images'];
-
     if (images == null || images.isEmpty) {
       return const Icon(Icons.inventory_2, color: Colors.grey);
     }
-
     final imagePath = images[0]['image'];
-
     if (imagePath == null || imagePath.isEmpty) {
       return const Icon(Icons.inventory_2, color: Colors.grey);
     }
-
     final imageUrl = "${apiService.baseurl}$imagePath";
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Image.network(
@@ -888,6 +1280,57 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
         errorBuilder: (context, error, stackTrace) {
           return const Icon(Icons.broken_image, color: Colors.grey);
         },
+      ),
+    );
+  }
+
+  Widget apiDropdown({
+    required String hint,
+    required List<dynamic> items,
+    required bool loading,
+    required int? selectedId,
+    required Function(dynamic) onChanged,
+  }) {
+    final bool hasValidValue =
+        selectedId != null && items.any((item) => item['id'] == selectedId);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: DropdownButtonFormField<int>(
+        key: ValueKey('${hint}_${selectedId}_${items.length}'),
+        value: hasValidValue ? selectedId : null,
+        isExpanded: true,
+        hint: Text(hint),
+        items: items
+            .map<DropdownMenuItem<int>>(
+              (item) => DropdownMenuItem<int>(
+                value: item['id'],
+                child: Text(item['name']),
+              ),
+            )
+            .toList(),
+        onChanged: loading || items.isEmpty
+            ? null
+            : (id) {
+                final selectedItem = items.firstWhere((e) => e['id'] == id);
+                onChanged(selectedItem);
+              },
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: const Color(0xffEFF1F7),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.red),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.red, width: 2),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.red),
+          ),
+        ),
       ),
     );
   }

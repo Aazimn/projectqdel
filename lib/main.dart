@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/Client/view_allOrders.dart';
+import 'package:projectqdel/view/Carrier/map_screen_pickup.dart';
 import 'package:projectqdel/view/splash_screen.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
