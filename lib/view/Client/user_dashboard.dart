@@ -62,9 +62,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:projectqdel/view/Client/all_recentOrders.dart';
+import 'package:projectqdel/view/Client/client_sett.dart';
 import 'package:projectqdel/view/Client/home_screen.dart';
 import 'package:projectqdel/view/Client/order_adding.dart';
-import 'package:projectqdel/view/user_settings.dart';
+import 'package:projectqdel/view/Client/client_settings.dart';
 
 class UserDashboard extends StatefulWidget {
   final int initialIndex;
@@ -82,7 +83,7 @@ class _UserDashboardState extends State<UserDashboard> {
     HomeScreen(), // index 0
     AddShipmentScreen(), // index 1
     MyOrdersScreen(), // index 2
-    UserSettings(), // index 3
+    ClientSettingsDashboard(), // index 3
   ];
 
   @override

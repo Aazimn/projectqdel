@@ -54,11 +54,11 @@ class _UserSettingsState extends State<UserSettings> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (user == null) {
-      return const Scaffold(
-        body: Center(child: Text("Failed to load profile")),
-      );
-    }
+    // if (user == null) {
+    //   return const Scaffold(
+    //     body: Center(child: Text("Failed to load profile")),
+    //   );
+    // }
     return Scaffold(
       backgroundColor: const Color(0xffF6F7F9),
       body: Column(
@@ -185,16 +185,77 @@ class _UserSettingsState extends State<UserSettings> {
     );
   }
 
+  // Widget _profileInfo() {
+  //   return Column(
+  //     children: [
+  //       Text(
+  //         "${user!.firstName} ${user!.lastName}".toUpperCase(),
+  //         style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+  //       ),
+  //     ],
+  //   );
+  // }
+
   Widget _profileInfo() {
+    final name = user != null
+        ? "${user!.firstName} ${user!.lastName}"
+        : "GUEST USER";
+
     return Column(
       children: [
         Text(
-          "${user!.firstName} ${user!.lastName}".toUpperCase(),
+          name.toUpperCase(),
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
+        if (user == null)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+              "Profile data not available",
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ),
       ],
     );
   }
+
+  // Widget _personalDetailsCard() {
+  //   return _card(
+  //     title: "Personal Details",
+  //     leading: const Icon(Icons.person, color: Colors.red),
+  //     children: [
+  //       _divider(),
+  //       _infoRow(
+  //         Icons.badge,
+  //         "FULL NAME",
+  //         "${user!.firstName} ${user!.lastName}".toUpperCase(),
+  //       ),
+  //       _divider(),
+  //       _infoRow(Icons.email, "EMAIL ADDRESS", user!.email),
+  //       _divider(),
+  //       _infoRow(Icons.phone, "PHONE NUMBER", user!.phone),
+  //       const SizedBox(height: 12),
+  //       _divider(),
+
+  //       Row(
+  //         mainAxisAlignment: MainAxisAlignment.center,
+  //         children: [
+  //           _actionBtn("Change User Type", Colors.red, () async {
+  //             await Navigator.push(
+  //               context,
+  //               MaterialPageRoute(
+  //                 builder: (_) => UsertypeScreen(currentUser: user!),
+  //               ),
+  //             );
+  //             loadProfile();
+  //           }),
+  //           SizedBox(width: 20),
+  //           _actionBtn("Edit Profile", Colors.red, _openEditProfileDialog),
+  //         ],
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _personalDetailsCard() {
     return _card(
@@ -205,31 +266,40 @@ class _UserSettingsState extends State<UserSettings> {
         _infoRow(
           Icons.badge,
           "FULL NAME",
-          "${user!.firstName} ${user!.lastName}".toUpperCase(),
+          user != null
+              ? "${user!.firstName} ${user!.lastName}".toUpperCase()
+              : "--",
         ),
         _divider(),
-        _infoRow(Icons.email, "EMAIL ADDRESS", user!.email),
+        _infoRow(Icons.email, "EMAIL ADDRESS", user?.email ?? "--"),
         _divider(),
-        _infoRow(Icons.phone, "PHONE NUMBER", user!.phone),
+        _infoRow(Icons.phone, "PHONE NUMBER", user?.phone ?? "--"),
         const SizedBox(height: 12),
         _divider(),
 
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _actionBtn("Change User Type", Colors.red, () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => UsertypeScreen(currentUser: user!),
-                ),
-              );
-              loadProfile();
-            }),
-            SizedBox(width: 20),
-            _actionBtn("Edit Profile", Colors.red, _openEditProfileDialog),
-          ],
-        ),
+        /// 🔒 Disable buttons when no user
+        if (user != null)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _actionBtn("Change User Type", Colors.red, () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => UsertypeScreen(currentUser: user!),
+                  ),
+                );
+                loadProfile();
+              }),
+              const SizedBox(width: 20),
+              _actionBtn("Edit Profile", Colors.red, _openEditProfileDialog),
+            ],
+          )
+        else
+          const Text(
+            "Profile actions unavailable",
+            style: TextStyle(color: Colors.grey),
+          ),
       ],
     );
   }
@@ -253,6 +323,7 @@ class _UserSettingsState extends State<UserSettings> {
   }
 
   void _openEditProfileDialog() {
+    if (user == null) return;
     _firstNameCtrl.text = user!.firstName;
     _lastNameCtrl.text = user!.lastName;
     _emailCtrl.text = user!.email;
@@ -321,8 +392,7 @@ class _UserSettingsState extends State<UserSettings> {
       children: [
         Text(
           "Ending your session will require you to log in again.",
-          style: TextStyle(color: ColorConstants.darkgrey
-          ),
+          style: TextStyle(color: ColorConstants.darkgrey),
         ),
         _divider(),
 

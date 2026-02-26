@@ -1,9 +1,11 @@
 import 'dart:io';
-import 'package:geolocator/geolocator.dart';
+// import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:projectqdel/view/Client/map_picker.dart';
 import 'package:projectqdel/view/Client/order_placing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,6 +22,12 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   final picker = ImagePicker();
   bool isUserChangingCountry = false;
   bool isUserChangingState = false;
+
+  double? senderLat;
+  double? senderLng;
+
+  double? receiverLat;
+  double? receiverLng;
   final TextEditingController nameCtrl = TextEditingController();
   final TextEditingController descCtrl = TextEditingController();
   final TextEditingController volumeCtrl = TextEditingController();
@@ -73,35 +81,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   int? savedCountryId;
   int? savedStateId;
   int? savedDistrictId;
-
-  Future<Position?> _getReceiverLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Please turn ON location")));
-      return null;
-    }
-
-    permission = await Geolocator.checkPermission();
-
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Location permission permanently denied")),
-      );
-      return null;
-    }
-    return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-  }
 
   Future<void> _loadReceiverStates(int countryId) async {
     isReceiverStateLoading = true;
@@ -346,6 +325,27 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
               controller: senderZipCtrl,
               keyboardType: TextInputType.number,
             ),
+            TextButton.icon(
+              icon: const Icon(Icons.map),
+              label: Text(
+                senderLat == null
+                    ? "Select Pickup Location on Map"
+                    : "Pickup Location Selected",
+              ),
+              onPressed: () async {
+                final LatLng? result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MapPickerScreen()),
+                );
+
+                if (result != null) {
+                  setState(() {
+                    senderLat = result.latitude;
+                    senderLng = result.longitude;
+                  });
+                }
+              },
+            ),
             SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -443,6 +443,27 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
               "000000",
               controller: receiverZipCtrl,
               keyboardType: TextInputType.number,
+            ),
+            TextButton.icon(
+              icon: const Icon(Icons.map),
+              label: Text(
+                receiverLat == null
+                    ? "Select Delivery Location on Map"
+                    : "Delivery Location Selected",
+              ),
+              onPressed: () async {
+                final LatLng? result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MapPickerScreen()),
+                );
+
+                if (result != null) {
+                  setState(() {
+                    receiverLat = result.latitude;
+                    receiverLng = result.longitude;
+                  });
+                }
+              },
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -652,6 +673,8 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             state: selectedStateId,
             country: selectedCountryId,
             zipCode: senderZipCtrl.text,
+            latitude: senderLat.toString(),
+            longitude: senderLng.toString(),
           );
           if (addressId == null) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -659,13 +682,13 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             );
             return;
           }
-          final position = await _getReceiverLocation();
-          String? latitude;
-          String? longitude;
-          if (position != null) {
-            latitude = position.latitude.toString();
-            longitude = position.longitude.toString();
-          }
+          // final position = await _getReceiverLocation();
+          // String? latitude;
+          // String? longitude;
+          // if (position != null) {
+          //   latitude = position.latitude.toString();
+          //   longitude = position.longitude.toString();
+          // }
           if (apiService.lastCreatedProductId == null ||
               apiService.currentUserId == null) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -687,11 +710,28 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             );
             return;
           }
+          if (senderLat == null || senderLng == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Please select pickup location on map"),
+              ),
+            );
+            return;
+          }
+
+          if (receiverLat == null || receiverLng == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Please select delivery location on map"),
+              ),
+            );
+            return;
+          }
 
           final receiverSuccess = await apiService.addReceiverAddress(
-            productId: apiService.lastCreatedProductId!,
-            receiverId: apiService.currentUserId!,
-            senderAddressId: addressId,
+            // productId: apiService.lastCreatedProductId!,
+            // receiverId: apiService.currentUserId!,
+            // senderAddressId: addressId,
             receiverName: receiverNameCtrl.text,
             receiverPhone: receiverPhoneCtrl.text,
             address: receiverAddressCtrl.text,
@@ -700,8 +740,8 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             state: selectedReceiverStateId,
             country: selectedReceiverCountryId,
             zipCode: receiverZipCtrl.text,
-            latitude: latitude,
-            longitude: longitude,
+            latitude: receiverLat.toString(),
+            longitude: receiverLng.toString(),
           );
 
           if (receiverSuccess == null) {
@@ -734,7 +774,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
       clipBehavior: Clip.none,
       children: [
         Container(
-          height: 150,
+          height: 110,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [Color(0xffE53935), Color(0xffF0625F)],
@@ -745,21 +785,13 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             ),
           ),
         ),
-        Positioned(
-          top: 45,
-          left: 16,
-          child: _circleButton(
-            Icons.arrow_back_ios_new,
-            () => Navigator.pop(context),
-          ),
-        ),
         const Positioned(
-          top: 60,
+          top: 50,
           left: 0,
           right: 0,
           child: Center(
             child: Text(
-              "Select Your Role",
+              "Add your Product",
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 25,
@@ -772,17 +804,17 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     );
   }
 
-  Widget _circleButton(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 38,
-        width: 38,
-        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-        child: Icon(icon, color: Colors.red, size: 18),
-      ),
-    );
-  }
+  // Widget _circleButton(IconData icon, VoidCallback onTap) {
+  //   return GestureDetector(
+  //     onTap: onTap,
+  //     child: Container(
+  //       height: 38,
+  //       width: 38,
+  //       decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+  //       child: Icon(icon, color: Colors.red, size: 18),
+  //     ),
+  //   );
+  // }
 
   void _showImageSourceSheet() {
     showModalBottomSheet(

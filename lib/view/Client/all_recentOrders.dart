@@ -9,29 +9,32 @@ class MyOrdersScreen extends StatefulWidget {
 }
 
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
-  int _selectedTab = 0; 
+  int _selectedTab = 0;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xffF6F8FB),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _header(),
-              const SizedBox(height: 20),
-              _tabs(),
-              const SizedBox(height: 20),
-              Expanded(
-                child: _selectedTab == 0
-                    ? _ongoingOrders()
-                    : _completedOrders(),
+      body: Column(
+        children: [
+          _header(context),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _tabs(),
+                  // const SizedBox(height: 20),
+                  Expanded(
+                    child: _selectedTab == 0
+                        ? _ongoingOrders()
+                        : _completedOrders(),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -40,6 +43,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
+        // border: BoxBorder.all(color: ColorConstants.red),
         color: const Color(0xffEEF2F7),
         borderRadius: BorderRadius.circular(14),
       ),
@@ -150,17 +154,36 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     );
   }
 
-  Widget _header() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _header(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        const Text(
-          "My Orders",
-          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+        Container(
+          height: 110,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xffE53935), Color(0xffF0625F)],
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(40),
+              bottomRight: Radius.circular(40),
+            ),
+          ),
         ),
-        CircleAvatar(
-          backgroundColor: Colors.white,
-          child: Icon(Icons.search, color: Colors.grey[700]),
+        const Positioned(
+          top: 50,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Text(
+              "My Orders",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 25,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -359,7 +382,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: BoxBorder.all(color: ColorConstants.bgred),
+        border: BoxBorder.all(color: ColorConstants.red),
       ),
       child: child,
     );

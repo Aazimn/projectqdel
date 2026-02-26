@@ -10,8 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl =
-      "https://africa-computers-stewart-brand.trycloudflare.com";
+  final String baseurl = "https://gold-chairs-help.loca.lt";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -873,6 +872,8 @@ class ApiService {
     required int? state,
     required int? country,
     required String zipCode,
+    required String? latitude,
+    required String? longitude,
   }) async {
     final url = Uri.parse("$baseurl/api/qdel/users/addresses/");
 
@@ -891,6 +892,8 @@ class ApiService {
         "state": state,
         "country": country,
         "zip_code": zipCode,
+        "latitude": latitude,
+        "longitude": longitude,
       }),
     );
 
@@ -908,9 +911,9 @@ class ApiService {
   }
 
   Future<int?> addReceiverAddress({
-    required int productId,
-    required int receiverId,
-    required int senderAddressId,
+    // required int productId,
+    // required int receiverId,
+    // required int senderAddressId,
     required String receiverName,
     required String receiverPhone,
     required String address,
@@ -919,15 +922,15 @@ class ApiService {
     required int? state,
     required int? country,
     required String zipCode,
-    String? latitude,
-    String? longitude,
+    required String? latitude,
+    required String? longitude,
   }) async {
-    final url = Uri.parse("$baseurl/api/qdel/users/sent/request/");
+    final url = Uri.parse("$baseurl/api/qdel/receiver/address/");
 
     final payload = {
-      "product": productId,
-      "receiver": receiverId,
-      "sender": senderAddressId,
+      // "product": productId,
+      // "receiver": receiverId,
+      // "sender": senderAddressId,
       "receiver_name": receiverName.trim(),
       "receiver_phone": receiverPhone.trim(),
       "address_text": address.trim(),
@@ -1008,6 +1011,8 @@ class ApiService {
     int? state,
     int? country,
     String? zipCode,
+    required String latitude,
+    required String longitude,
   }) async {
     final url = Uri.parse("$baseurl/api/qdel/users/addresses/$addressId/");
 
@@ -1027,6 +1032,8 @@ class ApiService {
           "state": state,
           "country": country,
           "zip_code": zipCode,
+          "latitude": latitude,
+          "longitude": longitude,
         }),
       );
 
@@ -1043,9 +1050,7 @@ class ApiService {
   Future<Map<String, dynamic>?> getReceiverAddressByPickupId(
     int pickupId,
   ) async {
-    final url = Uri.parse(
-      "$baseurl/api/qdel/users/sent/request/update/$pickupId/",
-    );
+    final url = Uri.parse("$baseurl/api/qdel/receiver/address/$pickupId/");
 
     try {
       final response = await http.get(
@@ -1081,10 +1086,10 @@ class ApiService {
     int? state,
     int? country,
     String? zipCode,
+    required String latitude,
+    required String longitude,
   }) async {
-    final url = Uri.parse(
-      "$baseurl/api/qdel/users/sent/request/update/$addressId/",
-    );
+    final url = Uri.parse("$baseurl/api/qdel/receiver/address/$addressId/");
 
     try {
       final response = await http.put(
@@ -1104,6 +1109,8 @@ class ApiService {
           "state": state,
           "country": country,
           "zip_code": zipCode,
+          "latitude": latitude,
+          "longitude": longitude,
         }),
       );
 

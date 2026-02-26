@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:lottie/lottie.dart';
+import 'package:projectqdel/view/Client/map_picker.dart';
 import 'package:projectqdel/view/Client/user_dashboard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -31,6 +32,12 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
 
   bool isUserChangingCountry = false;
   bool isUserChangingState = false;
+
+  double? senderLatitude;
+  double? senderLongitude;
+
+  double? receiverLatitude;
+  double? receiverLongitude;
 
   final TextEditingController nameCtrl = TextEditingController();
   final TextEditingController descCtrl = TextEditingController();
@@ -171,7 +178,6 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     setState(() {});
   }
 
-
   Future<void> _loadCountries() async {
     setState(() => isCountryLoading = true);
     try {
@@ -181,7 +187,6 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     }
     setState(() => isCountryLoading = false);
   }
-
 
   Future<void> _loadStates(int countryId) async {
     setState(() {
@@ -217,8 +222,6 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       debugPrint("State load error: $e");
     }
   }
-
-
 
   Future<void> _loadDistricts(int stateId) async {
     setState(() {
@@ -278,6 +281,8 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     senderCountryCtrl.text = data['country'] ?? '';
     senderStateCtrl.text = data['state'] ?? '';
     senderDistrictCtrl.text = data['district'] ?? '';
+    senderLatitude = double.tryParse(data['latitude']?.toString() ?? '');
+    senderLongitude = double.tryParse(data['longitude']?.toString() ?? '');
 
     if (countries.isEmpty) {
       await _loadCountries();
@@ -338,6 +343,12 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       receiverAddressCtrl.text = receiverAddress?['address_text'] ?? '';
       receiverLandmarkCtrl.text = receiverAddress?['landmark'] ?? '';
       receiverZipCtrl.text = receiverAddress?['zip_code'] ?? '';
+      receiverLatitude = double.tryParse(
+        receiverAddress?['latitude']?.toString() ?? '',
+      );
+      receiverLongitude = double.tryParse(
+        receiverAddress?['longitude']?.toString() ?? '',
+      );
       setState(() {
         selectedReceiverCountryId = receiverAddress?['country'];
         selectedReceiverStateId = receiverAddress?['state'];
@@ -945,6 +956,9 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
           ? (receiverAddress?['landmark'] ?? "").toString()
           : receiverLandmarkCtrl.text.trim(),
 
+      latitude: receiverLatitude.toString(),
+      longitude: receiverLongitude.toString(),
+
       district: selectedReceiverDistrictId,
       state: selectedReceiverStateId,
       country: selectedReceiverCountryId,
@@ -997,6 +1011,34 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                     _textField("Phone Number", senderPhoneCtrl, isNumber: true),
                     _textField("Address", senderAddressCtrl),
                     _textField("Landmark", senderLandmarkCtrl),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.map),
+                      label: const Text("Pick location from map"),
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MapPickerScreen(),
+                          ),
+                        );
+
+                        if (result != null) {
+                          setState(() {
+                            senderLatitude = result.latitude;
+                            senderLongitude = result.longitude;
+                          });
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                "Location selected: ${senderLatitude!.toStringAsFixed(5)}, "
+                                "${senderLongitude!.toStringAsFixed(5)}",
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
                     Row(
                       children: [
                         Expanded(
@@ -1017,8 +1059,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                                 districts = [];
                                 senderStateCtrl.clear();
                                 senderDistrictCtrl.clear();
-                                isStateLoading =
-                                    true; 
+                                isStateLoading = true;
                               });
                               await _loadStates(countryId);
                               setState(() {
@@ -1043,8 +1084,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                                 selectedDistrictId = null;
                                 districts = [];
                                 senderDistrictCtrl.clear();
-                                isDistrictLoading =
-                                    true;
+                                isDistrictLoading = true;
                               });
 
                               await _loadDistricts(stateId);
@@ -1137,6 +1177,8 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
         state: selectedStateId,
         country: selectedCountryId,
         zipCode: updatedZip,
+        latitude: senderLatitude.toString(),
+        longitude: senderLongitude.toString(),
       );
 
       debugPrint("🟢 API RESULT: $success");
@@ -1146,13 +1188,11 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       if (success) {
         debugPrint("✅ Sender update success → Reloading sender...");
         await _loadSenderAddress();
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Sender updated successfully")),
         );
       } else {
         debugPrint("❌ Sender update FAILED");
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Failed to update sender address")),
         );
@@ -1166,7 +1206,6 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       ).showSnackBar(SnackBar(content: Text("Error updating sender: $e")));
     }
   }
-
   Widget _bottomButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -1177,7 +1216,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
             MaterialPageRoute(
               builder: (_) => const UserDashboard(initialIndex: 2),
             ),
-            (route) => false, 
+            (route) => false,
           );
         },
         icon: const Icon(Icons.list, color: ColorConstants.white),
