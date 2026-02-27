@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
@@ -13,12 +14,47 @@ class CarrierMapScreen extends StatefulWidget {
 }
 
 class _CarrierMapScreenState extends State<CarrierMapScreen> {
-  late Future<List<OrderModel>> ordersFuture;
+  bool isLocationEnabled = false;
+  bool isCheckingLocation = true;
+  LatLng? carrierLocation;
+  Future<List<OrderModel>>? ordersFuture;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _checkLocationAndFetch();
+  }
 
   @override
   void initState() {
     super.initState();
-    ordersFuture = ApiService().getAllOrders();
+    _checkLocationAndFetch();
+  }
+
+  Future<void> _checkLocationAndFetch() async {
+    setState(() {
+      isCheckingLocation = true;
+    });
+
+    final location = await ApiService().getCarrierCurrentLocation();
+
+    if (!mounted) return;
+
+    if (location == null) {
+      setState(() {
+        isLocationEnabled = false;
+        carrierLocation = null;
+        ordersFuture = null;
+        isCheckingLocation = false;
+      });
+    } else {
+      setState(() {
+        isLocationEnabled = true;
+        carrierLocation = location;
+        ordersFuture = ApiService().getAllOrders();
+        isCheckingLocation = false;
+      });
+    }
   }
 
   @override
@@ -26,31 +62,87 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: ColorConstants.red,
-        title: Center(
+        title: const Center(
           child: Text(
             "Pickup Orders",
             style: TextStyle(
-              color: ColorConstants.white,
+              color: Colors.white,
               fontWeight: FontWeight.bold,
               fontSize: 25,
             ),
           ),
         ),
       ),
-      body: FutureBuilder<List<OrderModel>>(
-        future: ordersFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
 
-          if (snapshot.hasError) {
-            return const Center(child: Text("Failed to load orders"));
-          }
+      body: isCheckingLocation
+          ? const Center(child: CircularProgressIndicator())
+          : (!isLocationEnabled ? _locationOffUI() : _mapWithOrders()),
+    );
+  }
 
-          final orders = snapshot.data ?? [];
-          final markers = orders
-              .where((o) => _hasValidLocation(o))
+  Widget _locationOffUI() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.location_off, size: 80, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text(
+              "Location access is required to view pickup orders.\nPlease enable GPS.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () async {
+                setState(() => isCheckingLocation = true);
+
+                final enabled = await _enableLocation();
+
+                if (enabled) {
+                  await _checkLocationAndFetch(); // 🔥 reload map automatically
+                } else {
+                  setState(() => isCheckingLocation = false);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ColorConstants.red,
+              ),
+              child: const Text(
+                "Enable Location",
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _mapWithOrders() {
+    return FutureBuilder<List<OrderModel>>(
+      future: ordersFuture,
+      builder: (context, snapshot) {
+        final orders = snapshot.data ?? []; // 👈 empty if error / loading
+
+        final markers = <Marker>[
+          // 🧍 Carrier marker (ALWAYS)
+          Marker(
+            point: carrierLocation!,
+            width: 40,
+            height: 40,
+            child: const Icon(
+              Icons.person_pin_circle,
+              color: Colors.blue,
+              size: 40,
+            ),
+          ),
+
+          // 📦 Order markers (ONLY if valid)
+          ...orders
+              .where(_hasValidLocation)
               .map(
                 (order) => Marker(
                   point: LatLng(
@@ -68,25 +160,21 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                     ),
                   ),
                 ),
-              )
-              .toList();
-
-          return FlutterMap(
-            options: const MapOptions(
-              initialCenter: LatLng(9.931233, 76.267303),
-              initialZoom: 13,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                    "https://api.maptiler.com/maps/topo-v4/{z}/{x}/{y}.png?key=smYymRDsqSZrgB4sO5oG",
-                userAgentPackageName: 'com.example.projectqdel',
               ),
-              MarkerLayer(markers: markers),
-            ],
-          );
-        },
-      ),
+        ];
+
+        return FlutterMap(
+          options: MapOptions(initialCenter: carrierLocation!, initialZoom: 13),
+          children: [
+            TileLayer(
+              urlTemplate:
+                  "https://api.maptiler.com/maps/topo-v4/{z}/{x}/{y}.png?key=smYymRDsqSZrgB4sO5oG",
+              userAgentPackageName: 'com.example.projectqdel',
+            ),
+            MarkerLayer(markers: markers),
+          ],
+        );
+      },
     );
   }
 
@@ -131,7 +219,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                       ),
                     ),
                   ),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -167,6 +254,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                         children: [
                           const Icon(
                             Icons.circle,
+
                             size: 10,
                             color: Colors.black,
                           ),
@@ -266,5 +354,31 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
         );
       },
     );
+  }
+
+  Future<bool> _enableLocation() async {
+    // 1️⃣ Check if GPS is enabled
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      await Geolocator.openLocationSettings();
+      return false;
+    }
+
+    // 2️⃣ Check permission
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      await Geolocator.openAppSettings();
+      return false;
+    }
+
+    return true;
   }
 }

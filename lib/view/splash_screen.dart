@@ -3,10 +3,9 @@ import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/dashboard_screen.dart';
 import 'package:projectqdel/view/Carrier/rejected_screen.dart';
 import 'package:projectqdel/view/Carrier/status_pending.dart';
-import 'package:projectqdel/view/Client/user_dashboard.dart';
+import 'package:projectqdel/view/Client/client_dashboard.dart';
 import 'package:projectqdel/view/Carrier/carrier_dashboard.dart';
 import 'package:projectqdel/view/login_screen.dart';
-
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -52,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen> {
         break;
 
       case "client":
-        go(const UserDashboard());
+        go(const ClientDashboard());
         break;
 
       case "carrier":

@@ -172,7 +172,7 @@ class _StateScreenState extends State<StateScreen> {
                     child: Text(
                       "No States found",
                       style: TextStyle(
-                        color: ColorConstants.white,
+                        color: ColorConstants.black,
                         fontSize: 18,
                       ),
                     ),

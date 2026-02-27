@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/view/Carrier/carrier_homescreen.dart';
+import 'package:projectqdel/view/Carrier/carrier_settings.dart';
 import 'package:projectqdel/view/Carrier/map_screen_pickup.dart';
-import 'package:projectqdel/view/Client/client_settings.dart';
+import 'package:projectqdel/view/Client/client_profile.dart';
 
 class CarrierDashboard extends StatefulWidget {
   const CarrierDashboard({super.key});
@@ -17,7 +18,7 @@ class _CarrierDashboardState extends State<CarrierDashboard> {
     CarrierHomescreen(),
     CarrierMapScreen(),
     CarrierHomescreen(),
-    UserSettings(),
+    CarrierSettings(),
   ];
 
   @override

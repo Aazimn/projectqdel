@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 import 'package:logger/logger.dart';
 import 'package:projectqdel/model/order_model.dart';
 import 'package:projectqdel/model/user_models.dart';
@@ -10,7 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl = "https://gold-chairs-help.loca.lt";
+  final String baseurl =
+      "https://briefing-mathematics-tel-spiritual.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -911,9 +914,6 @@ class ApiService {
   }
 
   Future<int?> addReceiverAddress({
-    // required int productId,
-    // required int receiverId,
-    // required int senderAddressId,
     required String receiverName,
     required String receiverPhone,
     required String address,
@@ -926,11 +926,7 @@ class ApiService {
     required String? longitude,
   }) async {
     final url = Uri.parse("$baseurl/api/qdel/receiver/address/");
-
     final payload = {
-      // "product": productId,
-      // "receiver": receiverId,
-      // "sender": senderAddressId,
       "receiver_name": receiverName.trim(),
       "receiver_phone": receiverPhone.trim(),
       "address_text": address.trim(),
@@ -943,15 +939,12 @@ class ApiService {
     if (landmark != null && landmark.trim().isNotEmpty) {
       payload["landmark"] = landmark.trim();
     }
-
     if (latitude != null && latitude.isNotEmpty) {
       payload["latitude"] = latitude;
     }
-
     if (longitude != null && longitude.isNotEmpty) {
       payload["longitude"] = longitude;
     }
-
     final response = await http.post(
       url,
       headers: {
@@ -969,6 +962,28 @@ class ApiService {
       return data["data"]["id"];
     }
     return null;
+  }
+
+  Future<List<dynamic>> getReceiverAddresses() async {
+    final url = Uri.parse("$baseurl/api/qdel/receiver/address/");
+
+    final response = await http.get(
+      url,
+      headers: {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      },
+    );
+
+    logger.i("GET RECEIVER ADDRESSES STATUS => ${response.statusCode}");
+    logger.i("GET RECEIVER ADDRESSES BODY => ${response.body}");
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data["data"] as List<dynamic>;
+    }
+
+    return [];
   }
 
   static Future<void> setUserId(int id) async {
@@ -999,6 +1014,69 @@ class ApiService {
     }
 
     return null;
+  }
+
+  Future<List<Map<String, dynamic>>> getSenderAddresses() async {
+    final url = Uri.parse("$baseurl/api/qdel/users/addresses/");
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
+
+      logger.i("GET SENDER ADDRESSES STATUS => ${response.statusCode}");
+      logger.i("GET SENDER ADDRESSES BODY => ${response.body}");
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+
+        // Backend usually returns a list
+        if (decoded is List) {
+          return List<Map<String, dynamic>>.from(decoded);
+        }
+
+        // 🔥 ADD THIS BLOCK
+        if (decoded is Map && decoded["data"] is List) {
+          return List<Map<String, dynamic>>.from(decoded["data"]);
+        }
+
+        // fallback
+        if (decoded is Map && decoded["results"] is List) {
+          return List<Map<String, dynamic>>.from(decoded["results"]);
+        }
+      }
+    } catch (e) {
+      logger.e("GET SENDER ADDRESSES ERROR => $e");
+    }
+
+    return [];
+  }
+
+  Future<bool> deleteSenderAddress({required int addressId}) async {
+    final url = Uri.parse("$baseurl/api/qdel/users/addresses/$addressId/");
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
+
+      logger.i("DELETE SENDER STATUS => ${response.statusCode}");
+      logger.i("DELETE SENDER BODY => ${response.body}");
+
+      // 204 = No Content (most common for delete)
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      logger.e("DELETE SENDER ERROR => $e");
+      return false;
+    }
   }
 
   Future<bool> updateSenderAddress({
@@ -1120,6 +1198,25 @@ class ApiService {
     }
   }
 
+  Future<bool> deleteReceiverAddress({required int addressId}) async {
+    final url = Uri.parse("$baseurl/api/qdel/receiver/address/$addressId/");
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
+
+      // Most APIs return 204 for successful delete
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<List<OrderModel>> getAllOrders() async {
     try {
       final response = await http.get(
@@ -1143,5 +1240,35 @@ class ApiService {
       debugPrint("⛔ GET ORDERS ERROR => $e");
       rethrow;
     }
+  }
+
+  Future<LatLng?> getCarrierCurrentLocation() async {
+    // 1. Check if location service is enabled
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return null;
+    }
+
+    // 2. Check permission
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return null;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return null;
+    }
+
+    // 3. Get current position
+    final Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+
+    // 4. Convert to LatLng
+    return LatLng(position.latitude, position.longitude);
   }
 }

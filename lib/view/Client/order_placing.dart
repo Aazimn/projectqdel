@@ -3,7 +3,7 @@ import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:lottie/lottie.dart';
 import 'package:projectqdel/view/Client/map_picker.dart';
-import 'package:projectqdel/view/Client/user_dashboard.dart';
+import 'package:projectqdel/view/Client/client_dashboard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OrderPlacedScreen extends StatefulWidget {
@@ -259,6 +259,8 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     setState(() {
       showSuccessAnimation = false;
     });
+    await _loadCountries();
+
     await Future.wait([
       _loadProduct(),
       _loadSenderAddress(),
@@ -334,6 +336,11 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       final data = await apiService.getReceiverAddressByPickupId(
         widget.pickupId,
       );
+      if (!mounted || data == null) return;
+
+      setState(() {
+        receiverAddress = data;
+      });
       if (!mounted) return;
       setState(() {
         receiverAddress = data!['data'];
@@ -787,27 +794,45 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
           const SizedBox(height: 12),
           Text(
             name.toUpperCase(),
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
           ),
-          const SizedBox(height: 4),
+          // const SizedBox(height: 2),
           Text(phone),
           const SizedBox(height: 8),
           Text(
             address.toUpperCase(),
-            style: const TextStyle(color: Colors.grey),
+            style: const TextStyle(color: Color.fromARGB(255, 117, 116, 116)),
           ),
-          if (district != null && district.isNotEmpty)
-            Text("District: $district"),
-          if (state != null && state.isNotEmpty) Text("State: $state"),
-          if (country != null && country.isNotEmpty) Text("Country: $country"),
-          if (zip != null && zip.isNotEmpty) Text("Zip: $zip"),
           if (landmark != null && landmark.isNotEmpty) ...[
-            const SizedBox(height: 6),
             Text(
               landmark.toUpperCase(),
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
+              style: const TextStyle(
+                color: Color.fromARGB(255, 117, 116, 116),
+                fontSize: 12,
+              ),
             ),
           ],
+          if (zip != null && zip.isNotEmpty)
+            Text(
+              "Zip: $zip",
+              style: const TextStyle(color: Color.fromARGB(255, 117, 116, 116)),
+            ),
+
+          if (district != null && district.isNotEmpty)
+            Text(
+              "District: $district",
+              style: const TextStyle(color: Color.fromARGB(255, 117, 116, 116)),
+            ),
+          if (state != null && state.isNotEmpty)
+            Text(
+              "State: $state",
+              style: const TextStyle(color: Color.fromARGB(255, 117, 116, 116)),
+            ),
+          if (country != null && country.isNotEmpty)
+            Text(
+              "Country: $country",
+              style: const TextStyle(color: Color.fromARGB(255, 117, 116, 116)),
+            ),
         ],
       ),
     );
@@ -846,6 +871,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                     _textField("Phone", receiverPhoneCtrl, isNumber: true),
                     _textField("Address", receiverAddressCtrl),
                     _textField("Landmark", receiverLandmarkCtrl),
+                    _textField("Zip Code", receiverZipCtrl, isNumber: true),
                     Row(
                       children: [
                         Expanded(
@@ -1011,6 +1037,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                     _textField("Phone Number", senderPhoneCtrl, isNumber: true),
                     _textField("Address", senderAddressCtrl),
                     _textField("Landmark", senderLandmarkCtrl),
+                    _textField("Zip Code", senderZipCtrl, isNumber: true),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.map),
                       label: const Text("Pick location from map"),
@@ -1206,6 +1233,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       ).showSnackBar(SnackBar(content: Text("Error updating sender: $e")));
     }
   }
+
   Widget _bottomButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -1214,7 +1242,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
-              builder: (_) => const UserDashboard(initialIndex: 2),
+              builder: (_) => const ClientDashboard(initialIndex: 2),
             ),
             (route) => false,
           );

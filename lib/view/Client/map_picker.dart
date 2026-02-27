@@ -15,10 +15,9 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   final MapController _mapController = MapController();
   final TextEditingController _searchCtrl = TextEditingController();
 
-  LatLng selectedLocation = LatLng(9.931233, 76.267303); // Kochi default
+  LatLng selectedLocation = LatLng(9.931233, 76.267303); 
   bool isSearching = false;
 
-  /// 🔍 Search place using OpenStreetMap (Nominatim)
   Future<void> _searchLocation(String query) async {
     if (query.isEmpty) return;
 
@@ -93,7 +92,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ],
           ),
 
-          /// 🔍 SEARCH BAR
           Positioned(
             top: 12,
             left: 16,
@@ -132,7 +130,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ),
           ),
 
-          /// ✅ CONFIRM BUTTON
           Positioned(
             bottom: 20,
             left: 16,

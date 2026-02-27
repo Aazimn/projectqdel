@@ -170,7 +170,12 @@ class _CountryScreenState extends State<CountryScreen> {
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredCountries.isEmpty
-                ? const Center(child: Text("No countries found"))
+                ? const Center(
+                    child: Text(
+                      "No countries found",
+                      style: TextStyle(color: ColorConstants.black),
+                    ),
+                  )
                 : ListView.builder(
                     itemCount: _filteredCountries.length,
                     itemBuilder: (context, index) {

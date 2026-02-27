@@ -382,7 +382,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: BoxBorder.all(color: ColorConstants.red),
+        border: BoxBorder.all(color: ColorConstants.black),
       ),
       child: child,
     );

@@ -157,7 +157,12 @@ class _DistrictScreenState extends State<DistrictScreen> {
                 }
 
                 if (!snapshot.hasData) {
-                  return const Center(child: Text("No districts added yet"));
+                  return const Center(
+                    child: Text(
+                      "No districts added yet",
+                      style: TextStyle(color: ColorConstants.black),
+                    ),
+                  );
                 }
 
                 final stateFiltered = snapshot.data!
@@ -177,7 +182,7 @@ class _DistrictScreenState extends State<DistrictScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: ColorConstants.white,
+                        color: ColorConstants.black,
                       ),
                     ),
                   );
