@@ -1,22 +1,47 @@
-class ReceiverDetails {
+class ReceiverAddress {
   final int id;
-  final String fullName;
-  final String email;
-  final String phone;
+  final String receiverName;
+  final String phoneNumber;
+  final String address;
+  final String landmark;
+  final String district;
+  final String state;
+  final String country;
+  final String zipCode;
+  final double? latitude;
+  final double? longitude;
 
-  ReceiverDetails({
+  ReceiverAddress({
     required this.id,
-    required this.fullName,
-    required this.email,
-    required this.phone,
+    required this.receiverName,
+    required this.phoneNumber,
+    required this.address,
+    required this.landmark,
+    required this.district,
+    required this.state,
+    required this.country,
+    required this.zipCode,
+    this.latitude,
+    this.longitude,
   });
 
-  factory ReceiverDetails.fromJson(Map<String, dynamic> json) {
-    return ReceiverDetails(
+  factory ReceiverAddress.fromJson(Map<String, dynamic> json) {
+    return ReceiverAddress(
       id: json['id'],
-      fullName: json['full_name'],
-      email: json['email'],
-      phone: json['phone'],
+      receiverName: json['receiver_name'] ?? '',
+      phoneNumber: json['phone_number'] ?? '',
+      address: json['address'] ?? '',
+      landmark: json['landmark'] ?? '',
+      district: json['district'] ?? '',
+      state: json['state'] ?? '',
+      country: json['country'] ?? '',
+      zipCode: json['zip_code'] ?? '',
+      latitude: json['latitude'] != null
+          ? double.tryParse(json['latitude'].toString())
+          : null,
+      longitude: json['longitude'] != null
+          ? double.tryParse(json['longitude'].toString())
+          : null,
     );
   }
 }

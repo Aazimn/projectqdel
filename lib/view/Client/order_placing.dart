@@ -142,9 +142,18 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
           stateId: stateId,
         );
       }
-      receiverDistricts = districtCache[stateId]!
-          .where((d) => d['state'] == stateId)
-          .toList();
+      final state = receiverStates.firstWhere(
+        (s) => s['id'] == stateId,
+        orElse: () => null,
+      );
+
+      if (state == null) {
+        receiverDistricts = [];
+      } else {
+        receiverDistricts = districtCache[stateId]!
+            .where((d) => d['state'] == stateId)
+            .toList();
+      }
       debugPrint(
         "Loaded ${receiverDistricts.length} districts for state $stateId",
       );
@@ -192,57 +201,62 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     setState(() {
       isStateLoading = true;
       states = [];
-      selectedStateId = null;
-      selectedDistrictId = null;
       districts = [];
     });
+
     try {
       if (!stateCache.containsKey(countryId)) {
         stateCache[countryId] = await apiService.getStates(
           countryId: countryId,
         );
       }
+
       final country = countries.firstWhere(
         (c) => c['id'] == countryId,
         orElse: () => null,
       );
-      if (country == null) {
-        debugPrint("Country not found for ID: $countryId");
-        states = [];
-      } else {
+
+      if (country != null) {
         final countryName = country['name'];
-        debugPrint("Filtering states for country name: $countryName");
+
         states = stateCache[countryId]!
             .where((s) => s['country'] == countryName)
             .toList();
       }
-
-      debugPrint("Loaded ${states.length} states for country $countryId");
     } catch (e) {
       debugPrint("State load error: $e");
     }
+
+    setState(() => isStateLoading = false);
   }
 
   Future<void> _loadDistricts(int stateId) async {
     setState(() {
       isDistrictLoading = true;
-      districts = [];
+      districts = []; // Clear sender districts
     });
+
     try {
       if (!districtCache.containsKey(stateId)) {
         districtCache[stateId] = await apiService.getDistricts(
           stateId: stateId,
         );
       }
-      districts = districtCache[stateId]!
-          .where((d) => d['state'] == stateId)
-          .toList();
+
+      // Get districts from cache and filter by state ID
+      districts = districtCache[stateId] ?? [];
+
       debugPrint("Loaded ${districts.length} districts for state $stateId");
       debugPrint(
         "Districts: ${districts.map((d) => '${d['id']}: ${d['name']}').toList()}",
       );
     } catch (e) {
       debugPrint("District load error: $e");
+      districts = [];
+    } finally {
+      setState(() {
+        isDistrictLoading = false;
+      });
     }
   }
 
@@ -256,25 +270,38 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   Future<void> _startFlow() async {
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
+
     setState(() {
       showSuccessAnimation = false;
+      loading = true;
     });
-    await _loadCountries();
 
-    await Future.wait([
-      _loadProduct(),
-      _loadSenderAddress(),
-      _loadReceiverAddress(),
-    ]);
+    await _loadProduct();
+    await _loadSenderAddress();
+    await _loadReceiverAddress();
+
+    if (!mounted) return;
+
+    setState(() {
+      loading = false;
+    });
   }
 
   Future<void> _loadSenderAddress() async {
-    final data = await apiService.getSenderAddressById(widget.senderAddressId);
-    if (!mounted || data == null) return;
+    final response = await apiService.getSenderAddressById(
+      widget.senderAddressId,
+    );
+
+    if (!mounted || response == null) return;
+
+    final data = response['data'];
 
     setState(() {
       senderAddress = data;
+      senderLatitude = double.tryParse(data['latitude']?.toString() ?? '');
+      senderLongitude = double.tryParse(data['longitude']?.toString() ?? '');
     });
+
     senderNameCtrl.text = data['sender_name'] ?? '';
     senderPhoneCtrl.text = data['phone_number'] ?? '';
     senderAddressCtrl.text = data['address'] ?? '';
@@ -283,101 +310,29 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     senderCountryCtrl.text = data['country'] ?? '';
     senderStateCtrl.text = data['state'] ?? '';
     senderDistrictCtrl.text = data['district'] ?? '';
-    senderLatitude = double.tryParse(data['latitude']?.toString() ?? '');
-    senderLongitude = double.tryParse(data['longitude']?.toString() ?? '');
-
-    if (countries.isEmpty) {
-      await _loadCountries();
-    }
-    final countryName = data['country'];
-    if (countryName != null && countryName.isNotEmpty) {
-      final country = countries.firstWhere(
-        (c) => c['name'].toLowerCase() == countryName.toLowerCase(),
-        orElse: () => null,
-      );
-      if (country != null) {
-        setState(() {
-          selectedCountryId = country['id'];
-        });
-        await _loadStates(selectedCountryId!);
-        final stateName = data['state'];
-        if (stateName != null && stateName.isNotEmpty) {
-          final state = states.firstWhere(
-            (s) => s['name'].toLowerCase() == stateName.toLowerCase(),
-            orElse: () => null,
-          );
-          if (state != null) {
-            setState(() {
-              selectedStateId = state['id'];
-            });
-            await _loadDistricts(selectedStateId!);
-            final districtName = data['district'];
-            if (districtName != null && districtName.isNotEmpty) {
-              final district = districts.firstWhere(
-                (d) => d['name'].toLowerCase() == districtName.toLowerCase(),
-                orElse: () => null,
-              );
-              if (district != null) {
-                setState(() {
-                  selectedDistrictId = district['id'];
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-
-    setState(() {});
   }
 
   Future<void> _loadReceiverAddress() async {
-    try {
-      final data = await apiService.getReceiverAddressByPickupId(
-        widget.pickupId,
-      );
-      if (!mounted || data == null) return;
+    final response = await apiService.getReceiverAddressByPickupId(
+      widget.pickupId,
+    );
 
-      setState(() {
-        receiverAddress = data;
-      });
-      if (!mounted) return;
-      setState(() {
-        receiverAddress = data!['data'];
-      });
-      receiverNameCtrl.text = receiverAddress?['receiver_name'] ?? '';
-      receiverPhoneCtrl.text = receiverAddress?['receiver_phone'] ?? '';
-      receiverAddressCtrl.text = receiverAddress?['address_text'] ?? '';
-      receiverLandmarkCtrl.text = receiverAddress?['landmark'] ?? '';
-      receiverZipCtrl.text = receiverAddress?['zip_code'] ?? '';
-      receiverLatitude = double.tryParse(
-        receiverAddress?['latitude']?.toString() ?? '',
-      );
-      receiverLongitude = double.tryParse(
-        receiverAddress?['longitude']?.toString() ?? '',
-      );
-      setState(() {
-        selectedReceiverCountryId = receiverAddress?['country'];
-        selectedReceiverStateId = receiverAddress?['state'];
-        selectedReceiverDistrictId = receiverAddress?['district'];
-        receiverCountryCtrl.text = receiverAddress?['country_name'] ?? '';
-        receiverStateCtrl.text = receiverAddress?['state_name'] ?? '';
-        receiverDistrictCtrl.text = receiverAddress?['district_name'] ?? '';
-      });
-      if (selectedReceiverCountryId != null) {
-        await _loadReceiverStates(selectedReceiverCountryId!);
-      }
-      if (selectedReceiverStateId != null) {
-        await _loadReceiverDistricts(selectedReceiverStateId!);
-      }
-      debugPrint("Receiver Country ID: $selectedReceiverCountryId");
-      debugPrint("Receiver State ID: $selectedReceiverStateId");
-      debugPrint("Receiver District ID: $selectedReceiverDistrictId");
-      setState(() {});
-    } catch (e) {
-      if (!mounted) return;
-      debugPrint("Receiver address error: $e");
-    }
+    if (!mounted || response == null) return;
+
+    final data = response['data'];
+
+    setState(() {
+      receiverAddress = data;
+    });
+
+    receiverNameCtrl.text = data['receiver_name'] ?? '';
+    receiverPhoneCtrl.text = data['receiver_phone'] ?? '';
+    receiverAddressCtrl.text = data['address_text'] ?? '';
+    receiverLandmarkCtrl.text = data['landmark'] ?? '';
+    receiverZipCtrl.text = data['zip_code'] ?? '';
+
+    receiverLatitude = double.tryParse(data['latitude']?.toString() ?? '');
+    receiverLongitude = double.tryParse(data['longitude']?.toString() ?? '');
   }
 
   Widget _successLottie() {
@@ -407,7 +362,6 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       }
       setState(() {
         product = data;
-        loading = false;
       });
       _fillControllers();
     } catch (e) {
@@ -420,6 +374,14 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   }
 
   Widget _orderPlacedContent() {
+    if (senderAddress == null || receiverAddress == null) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    debugPrint("🟢 senderAddress: $senderAddress");
+    debugPrint("🟢 receiverAddress: $receiverAddress");
     return Column(
       children: [
         Expanded(
@@ -435,16 +397,17 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                       const SizedBox(height: 16),
                       _orderSummary(),
                       const SizedBox(height: 16),
+
                       _detailsCard(
                         title: "SENDER DETAILS",
                         name: senderAddress?['sender_name'] ?? "—",
                         phone: senderAddress?['phone_number'] ?? "—",
                         address: senderAddress?['address'] ?? "—",
                         landmark: senderAddress?['landmark'],
-                        district: senderDistrictCtrl.text,
-                        state: senderStateCtrl.text,
-                        country: senderCountryCtrl.text,
-                        zip: senderZipCtrl.text,
+                        district: senderAddress?['district'],
+                        state: senderAddress?['state'],
+                        country: senderAddress?['country'],
+                        zip: senderAddress?['zip_code'],
                         onEdit: _openEditSenderSheet,
                       ),
                       const SizedBox(height: 16),
@@ -454,10 +417,10 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                         phone: receiverAddress?['receiver_phone'] ?? "—",
                         address: receiverAddress?['address_text'] ?? "—",
                         landmark: receiverAddress?['landmark'],
-                        district: receiverDistrictCtrl.text,
-                        state: receiverStateCtrl.text,
-                        country: receiverCountryCtrl.text,
-                        zip: receiverZipCtrl.text,
+                        district: receiverAddress?['district'],
+                        state: receiverAddress?['state'],
+                        country: receiverAddress?['country'],
+                        zip: receiverAddress?['zip_code'],
                         onEdit: _openEditReceiverSheet,
                       ),
                       const SizedBox(height: 16),
@@ -838,7 +801,8 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     );
   }
 
-  void _openEditReceiverSheet() {
+  Future<void> _openEditReceiverSheet() async {
+    await _setReceiverDropdownDefaults();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -872,6 +836,35 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                     _textField("Address", receiverAddressCtrl),
                     _textField("Landmark", receiverLandmarkCtrl),
                     _textField("Zip Code", receiverZipCtrl, isNumber: true),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.map),
+                      label: const Text("Pick location from map"),
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MapPickerScreen(),
+                          ),
+                        );
+
+                        if (result != null) {
+                          setState(() {
+                            receiverLatitude = result.latitude;
+                            receiverLongitude = result.longitude;
+                          });
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                "Location selected: "
+                                "${receiverLatitude!.toStringAsFixed(5)}, "
+                                "${receiverLongitude!.toStringAsFixed(5)}",
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
                     Row(
                       children: [
                         Expanded(
@@ -961,6 +954,14 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   Future<void> _updateReceiverAddress() async {
     Navigator.pop(context);
 
+    final safeReceiverLat =
+        receiverLatitude?.toString() ??
+        (receiverAddress?['latitude'] ?? "").toString();
+
+    final safeReceiverLng =
+        receiverLongitude?.toString() ??
+        (receiverAddress?['longitude'] ?? "").toString();
+
     final success = await apiService.updateReceiverAddress(
       addressId: widget.pickupId,
       productId: widget.productId,
@@ -982,12 +983,13 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
           ? (receiverAddress?['landmark'] ?? "").toString()
           : receiverLandmarkCtrl.text.trim(),
 
-      latitude: receiverLatitude.toString(),
-      longitude: receiverLongitude.toString(),
+      latitude: safeReceiverLat,
+      longitude: safeReceiverLng,
 
       district: selectedReceiverDistrictId,
       state: selectedReceiverStateId,
       country: selectedReceiverCountryId,
+
       zipCode: receiverZipCtrl.text.trim().isEmpty
           ? (receiverAddress?['zip_code'] ?? "").toString()
           : receiverZipCtrl.text.trim(),
@@ -1003,7 +1005,8 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     }
   }
 
-  void _openEditSenderSheet() {
+  Future<void> _openEditSenderSheet() async {
+    await _setSenderDropdownDefaults();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1116,7 +1119,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
 
                               await _loadDistricts(stateId);
 
-                              setState(() {
+                              setModalState(() {
                                 isDistrictLoading = false;
                               });
                             },
@@ -1126,7 +1129,9 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                     ),
                     apiDropdown(
                       hint: "District",
-                      items: selectedStateId == null ? [] : districts,
+                      items: selectedStateId == null
+                          ? []
+                          : districts, // Make sure this is 'districts', not 'receiverDistricts'
                       loading: isDistrictLoading,
                       selectedId: selectedDistrictId,
                       onChanged: (value) {
@@ -1136,7 +1141,6 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                         });
                       },
                     ),
-
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: _updateSenderAddress,
@@ -1400,6 +1404,114 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _setSenderDropdownDefaults() async {
+    if (senderAddress == null) return;
+
+    debugPrint("Setting sender defaults with address: $senderAddress");
+
+    final countryName = senderAddress?['country'];
+    final stateName = senderAddress?['state'];
+    final districtName = senderAddress?['district'];
+
+    debugPrint("Looking for country: $countryName");
+
+    final country = countries.firstWhere(
+      (c) => c['name'] == countryName,
+      orElse: () => null,
+    );
+
+    if (country != null) {
+      setState(() {
+        selectedCountryId = country['id'];
+        senderCountryCtrl.text = country['name'];
+      });
+
+      debugPrint("Found country: ${country['name']} with ID: ${country['id']}");
+      await _loadStates(selectedCountryId!);
+
+      debugPrint("Looking for state: $stateName in states: $states");
+      final state = states.firstWhere(
+        (s) => s['name'] == stateName,
+        orElse: () => null,
+      );
+
+      if (state != null) {
+        setState(() {
+          selectedStateId = state['id'];
+          senderStateCtrl.text = state['name'];
+        });
+
+        debugPrint("Found state: ${state['name']} with ID: ${state['id']}");
+        await _loadDistricts(selectedStateId!);
+
+        debugPrint(
+          "Looking for district: $districtName in districts: $districts",
+        );
+        final district = districts.firstWhere(
+          (d) => d['name'] == districtName,
+          orElse: () => null,
+        );
+
+        if (district != null) {
+          setState(() {
+            selectedDistrictId = district['id'];
+            senderDistrictCtrl.text = district['name'];
+          });
+          debugPrint(
+            "Found district: ${district['name']} with ID: ${district['id']}",
+          );
+        } else {
+          debugPrint("District not found: $districtName");
+        }
+      } else {
+        debugPrint("State not found: $stateName");
+      }
+    } else {
+      debugPrint("Country not found: $countryName");
+    }
+
+    setState(() {}); // Trigger rebuild
+  }
+
+  Future<void> _setReceiverDropdownDefaults() async {
+    if (receiverAddress == null) return;
+
+    final countryName = receiverAddress?['country'];
+    final stateName = receiverAddress?['state'];
+    final districtName = receiverAddress?['district'];
+
+    final country = countries.firstWhere(
+      (c) => c['name'] == countryName,
+      orElse: () => null,
+    );
+
+    if (country != null) {
+      selectedReceiverCountryId = country['id'];
+      await _loadReceiverStates(selectedReceiverCountryId!);
+
+      final state = receiverStates.firstWhere(
+        (s) => s['name'] == stateName,
+        orElse: () => null,
+      );
+
+      if (state != null) {
+        selectedReceiverStateId = state['id'];
+        await _loadReceiverDistricts(selectedReceiverStateId!);
+
+        final district = receiverDistricts.firstWhere(
+          (d) => d['name'] == districtName,
+          orElse: () => null,
+        );
+
+        if (district != null) {
+          selectedReceiverDistrictId = district['id'];
+        }
+      }
+    }
+
+    setState(() {});
   }
 }
 

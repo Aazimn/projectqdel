@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:lottie/lottie.dart' hide Marker;
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/model/order_model.dart';
@@ -18,6 +20,43 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
   bool isCheckingLocation = true;
   LatLng? carrierLocation;
   Future<List<OrderModel>>? ordersFuture;
+  static const double radiusKm = 5.0;
+  static const double radiusMeters = 5000;
+  StreamSubscription<Position>? _locationStream;
+
+  Future<void> _startLiveLocation() async {
+    _locationStream?.cancel();
+
+    _locationStream =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 50, // meters
+          ),
+        ).listen((position) {
+          setState(() {
+            carrierLocation = LatLng(position.latitude, position.longitude);
+          });
+        });
+  }
+
+  bool _isWithinRadius(OrderModel order) {
+    if (carrierLocation == null) return false;
+
+    final lat = order.senderAddress?.latitude;
+    final lng = order.senderAddress?.longitude;
+
+    if (lat == null || lng == null) return false;
+
+    final distance = Geolocator.distanceBetween(
+      carrierLocation!.latitude,
+      carrierLocation!.longitude,
+      lat,
+      lng,
+    );
+
+    return distance <= radiusMeters;
+  }
 
   @override
   void didChangeDependencies() {
@@ -54,7 +93,14 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
         ordersFuture = ApiService().getAllOrders();
         isCheckingLocation = false;
       });
+      _startLiveLocation();
     }
+  }
+
+  @override
+  void dispose() {
+    _locationStream?.cancel();
+    super.dispose();
   }
 
   @override
@@ -125,50 +171,184 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
     return FutureBuilder<List<OrderModel>>(
       future: ordersFuture,
       builder: (context, snapshot) {
-        final orders = snapshot.data ?? []; // 👈 empty if error / loading
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          print("Error loading orders: ${snapshot.error}");
+          return Center(child: Text("Error: ${snapshot.error}"));
+        }
+
+        final orders = snapshot.data ?? [];
+        print("Total orders received: ${orders.length}");
+
+        final validOrders = orders
+            .where(_hasValidLocation)
+            .where(_isWithinRadius)
+            .toList();
+
+        print("📦 Orders inside 5 km radius: ${validOrders.length}");
+        print("Orders with valid locations: ${validOrders.length}");
+        print(
+          "📍 Carrier location: ${carrierLocation?.latitude}, ${carrierLocation?.longitude}",
+        );
+
+        for (var i = 0; i < validOrders.length; i++) {
+          final order = validOrders[i];
+          print("🔍 Valid Order $i - ID: ${order.id}");
+          print("   Lat: ${order.senderAddress!.latitude}");
+          print("   Lng: ${order.senderAddress!.longitude}");
+          print("   Address: ${order.senderAddress!.address}");
+        }
+        if (validOrders.length > 1) {
+          for (var i = 0; i < validOrders.length; i++) {
+            for (var j = i + 1; j < validOrders.length; j++) {
+              final lat1 = validOrders[i].senderAddress!.latitude!;
+              final lng1 = validOrders[i].senderAddress!.longitude!;
+              final lat2 = validOrders[j].senderAddress!.latitude!;
+              final lng2 = validOrders[j].senderAddress!.longitude!;
+
+              final distance = (lat1 - lat2).abs() + (lng1 - lng2).abs();
+              print(
+                "📏 Distance between order ${validOrders[i].id} and ${validOrders[j].id}: $distance",
+              );
+
+              if (distance < 0.0001) {
+                print(
+                  "⚠️ Orders are VERY close together - markers might be overlapping!",
+                );
+              }
+            }
+          }
+        }
 
         final markers = <Marker>[
-          // 🧍 Carrier marker (ALWAYS)
           Marker(
             point: carrierLocation!,
-            width: 40,
-            height: 40,
-            child: const Icon(
-              Icons.person_pin_circle,
-              color: Colors.blue,
-              size: 40,
+            width: 50, 
+            height: 50,
+            child: Lottie.asset(
+              "assets/lottie_assets/carrier_location.json",
+              repeat: true,
+              animate: true,
+              fit: BoxFit.contain,
             ),
           ),
-
-          // 📦 Order markers (ONLY if valid)
-          ...orders
-              .where(_hasValidLocation)
-              .map(
-                (order) => Marker(
-                  point: LatLng(
-                    double.parse(order.latitude!),
-                    double.parse(order.longitude!),
-                  ),
-                  width: 40,
-                  height: 40,
-                  child: GestureDetector(
-                    onTap: () => _showOrderDetails(order),
-                    child: const Icon(
-                      Icons.location_pin,
-                      color: Colors.red,
-                      size: 40,
-                    ),
+        ];
+        for (var i = 0; i < validOrders.length; i++) {
+          final order = validOrders[i];
+          markers.add(
+            Marker(
+              key: Key('order_${order.id}'),
+              point: LatLng(
+                order.senderAddress!.latitude!,
+                order.senderAddress!.longitude!,
+              ),
+              width: 80,
+              height: 50,
+              child: GestureDetector(
+                onTap: () => _showOrderDetails(order),
+                child: Container(
+                  // decoration: BoxDecoration(
+                  //   color: ColorConstants.red.withOpacity(0.3),
+                  //   shape: BoxShape.circle,
+                  //   border: Border.all(color: ColorConstants.red, width: 2),
+                  // ),
+                  child: Lottie.asset(
+                    "assets/lottie_assets/location.json",
+                    repeat: true,
+                    animate: true,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
-        ];
+            ),
+          );
+        }
 
+        print("🎯 Total markers to display: ${markers.length}");
+
+        if (validOrders.isNotEmpty && carrierLocation != null) {
+          final allPoints = [
+            carrierLocation!,
+            ...validOrders.map(
+              (o) => LatLng(
+                o.senderAddress!.latitude!,
+                o.senderAddress!.longitude!,
+              ),
+            ),
+          ];
+
+          double minLat = allPoints
+              .map((p) => p.latitude)
+              .reduce((a, b) => a < b ? a : b);
+          double maxLat = allPoints
+              .map((p) => p.latitude)
+              .reduce((a, b) => a > b ? a : b);
+          double minLng = allPoints
+              .map((p) => p.longitude)
+              .reduce((a, b) => a < b ? a : b);
+          double maxLng = allPoints
+              .map((p) => p.longitude)
+              .reduce((a, b) => a > b ? a : b);
+
+          print(
+            "📍 Map bounds - Lat: $minLat to $maxLat, Lng: $minLng to $maxLng",
+          );
+          final centerLat = (minLat + maxLat) / 2;
+          final centerLng = (minLng + maxLng) / 2;
+          final latSpread = (maxLat - minLat).abs();
+          final lngSpread = (maxLng - minLng).abs();
+          final maxSpread = latSpread > lngSpread ? latSpread : lngSpread;
+
+          double zoomLevel;
+          if (maxSpread > 0.1)
+            zoomLevel = 11;
+          else if (maxSpread > 0.05)
+            zoomLevel = 12;
+          else if (maxSpread > 0.01)
+            zoomLevel = 13;
+          else if (maxSpread > 0.005)
+            zoomLevel = 14;
+          else
+            zoomLevel = 15;
+
+          print(
+            "📍 Map center: ($centerLat, $centerLng), Zoom: $zoomLevel, Spread: $maxSpread",
+          );
+
+          return FlutterMap(
+            options: MapOptions(
+              initialCenter: LatLng(centerLat, centerLng),
+              initialZoom: zoomLevel,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                userAgentPackageName: 'com.example.projectqdel',
+              ),
+              CircleLayer(
+                circles: [
+                  CircleMarker(
+                    point: carrierLocation!,
+                    radius: radiusMeters,
+                    useRadiusInMeter: true,
+                    color: Colors.blue.withOpacity(0.15),
+                    borderColor: Colors.blue,
+                    borderStrokeWidth: 2,
+                  ),
+                ],
+              ),
+              MarkerLayer(markers: markers),
+            ],
+          );
+        }
         return FlutterMap(
           options: MapOptions(initialCenter: carrierLocation!, initialZoom: 13),
           children: [
             TileLayer(
-              urlTemplate:
-                  "https://api.maptiler.com/maps/topo-v4/{z}/{x}/{y}.png?key=smYymRDsqSZrgB4sO5oG",
+              urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
               userAgentPackageName: 'com.example.projectqdel',
             ),
             MarkerLayer(markers: markers),
@@ -179,12 +359,21 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
   }
 
   bool _hasValidLocation(OrderModel order) {
-    if (order.latitude == null || order.longitude == null) return false;
+    if (order.senderAddress == null) {
+      print("Order ${order.id}: No senderAddress");
+      return false;
+    }
 
-    final lat = double.tryParse(order.latitude!);
-    final lng = double.tryParse(order.longitude!);
+    final lat = order.senderAddress?.latitude;
+    final lng = order.senderAddress?.longitude;
 
-    return lat != null && lng != null;
+    if (lat == null || lng == null) {
+      print("Order ${order.id}: Missing lat or lng");
+      return false;
+    }
+
+    print("✅ Order ${order.id}: Valid location - ($lat, $lng)");
+    return true;
   }
 
   void _showOrderDetails(OrderModel order) {
@@ -308,13 +497,21 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                             ),
                             SizedBox(height: 5),
                             Text(
-                              order.receiverName!.toUpperCase() ?? "Receiver",
+                              order.receiverAddress?.receiverName
+                                      .toUpperCase() ??
+                                  "Receiver",
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
+
                             Text(
-                              order.addressText!,
+                              order.receiverAddress != null
+                                  ? "${order.receiverAddress!.address}, "
+                                        "${order.receiverAddress!.district}, "
+                                        "${order.receiverAddress!.state}, "
+                                        "${order.receiverAddress!.country}"
+                                  : "Delivery address not available",
                               style: const TextStyle(color: Colors.black54),
                             ),
                           ],

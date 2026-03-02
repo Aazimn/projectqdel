@@ -13,7 +13,7 @@ class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
   final String baseurl =
-      "https://briefing-mathematics-tel-spiritual.trycloudflare.com";
+      "https://moon-playback-how-digit.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -1225,50 +1225,161 @@ class ApiService {
       );
 
       debugPrint("💡 GET ORDERS STATUS => ${response.statusCode}");
-      debugPrint("💡 GET ORDERS BODY => ${response.body}");
 
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-
-        final List ordersJson = decoded['data']; // ✅ THIS LINE FIXES EVERYTHING
-
-        return ordersJson.map((e) => OrderModel.fromJson(e)).toList();
-      } else {
-        throw Exception("Failed to load orders");
+      if (response.statusCode != 200) {
+        debugPrint("❌ HTTP Error: ${response.statusCode}");
+        debugPrint("❌ Response body: ${response.body}");
+        return [];
       }
+
+      // Try to parse the response
+      Map<String, dynamic> decoded;
+      try {
+        decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (e) {
+        debugPrint("❌ Failed to decode JSON: $e");
+        debugPrint("❌ Raw response: ${response.body}");
+        return [];
+      }
+
+      // Check if the response has the expected structure
+      if (decoded['status'] != 'success') {
+        debugPrint("⚠️ API returned non-success status: ${decoded['status']}");
+        return [];
+      }
+
+      final List ordersJson = decoded['data'];
+      if (ordersJson.isEmpty) {
+        debugPrint("📭 No orders found in response");
+        return [];
+      }
+
+      debugPrint("📦 Total orders from API: ${ordersJson.length}");
+
+      final List<OrderModel> orders = [];
+      int parseErrors = 0;
+
+      for (var orderJson in ordersJson) {
+        try {
+          // Try to parse each order individually
+          final order = OrderModel.fromJson(orderJson);
+          orders.add(order);
+
+          // Log useful info for debugging
+          debugPrint("✅ Order ${order.id} parsed successfully");
+
+          // Check if it has valid coordinates
+          if (order.senderAddress != null) {
+            final lat = order.senderAddress!.latitude;
+            final lng = order.senderAddress!.longitude;
+            if (lat != null && lng != null) {
+              debugPrint("   📍 Has coordinates: ($lat, $lng)");
+            } else {
+              debugPrint("   ⚠️ Missing coordinates");
+            }
+          } else {
+            debugPrint("   ⚠️ No sender address");
+          }
+        } catch (e, stackTrace) {
+          parseErrors++;
+          debugPrint(
+            "⚠️ Failed to parse order ${orderJson['id'] ?? 'unknown'}: $e",
+          );
+
+          // Log the problematic fields
+          if (orderJson.containsKey('product_details')) {
+            debugPrint("   product_details: ${orderJson['product_details']}");
+          }
+          if (orderJson.containsKey('sender_address')) {
+            debugPrint("   sender_address: ${orderJson['sender_address']}");
+          }
+
+          // Optionally log full stack trace for debugging
+          if (parseErrors <= 3) {
+            // Only log first 3 stack traces to avoid spam
+            debugPrint("   Stack trace: $stackTrace");
+          }
+
+          continue; // Skip this order and continue with next
+        }
+      }
+
+      debugPrint(
+        "✅ Successfully parsed ${orders.length} out of ${ordersJson.length} orders",
+      );
+      if (parseErrors > 0) {
+        debugPrint("⚠️ Failed to parse $parseErrors orders");
+      }
+
+      return orders;
     } catch (e) {
       debugPrint("⛔ GET ORDERS ERROR => $e");
-      rethrow;
+      // Return empty list instead of rethrowing to prevent app crash
+      return [];
     }
   }
 
   Future<LatLng?> getCarrierCurrentLocation() async {
-    // 1. Check if location service is enabled
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return null;
     }
-
-    // 2. Check permission
     LocationPermission permission = await Geolocator.checkPermission();
-
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         return null;
       }
     }
-
     if (permission == LocationPermission.deniedForever) {
       return null;
     }
-
-    // 3. Get current position
     final Position position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );
-
-    // 4. Convert to LatLng
     return LatLng(position.latitude, position.longitude);
+  }
+
+  Future<Map<String, dynamic>?> createPickupRequest({
+    required int receiverId,
+    required int productId,
+    required int senderAddressId,
+    int? receiverAddressId, // optional
+  }) async {
+    final url = Uri.parse("$baseurl/api/qdel/users/sent/request/");
+
+    final body = {
+      "receiver": receiverId,
+      "product": productId,
+      "address": senderAddressId,
+      "receiver_address": receiverAddressId, // can be null
+    };
+
+    logger.i("CREATE PICKUP URL => $url");
+    logger.i("CREATE PICKUP BODY => $body");
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode(body),
+      );
+
+      logger.i("CREATE PICKUP STATUS => ${response.statusCode}");
+      logger.i("CREATE PICKUP RESPONSE => ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else {
+        logger.e("CREATE PICKUP FAILED => ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      logger.e("CREATE PICKUP ERROR => $e");
+      return null;
+    }
   }
 }

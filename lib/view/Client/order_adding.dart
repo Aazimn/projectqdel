@@ -25,6 +25,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   bool isSenderLoading = false;
   int? selectedSenderAddressId;
   int? selectedReceiverAddressId;
+  bool isCreatingShipment = false;
 
   Future<void> _loadSenderAddresses() async {
     setState(() => isSenderLoading = true);
@@ -108,6 +109,17 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   }
 
   Future<void> _applyReceiverAddress(Map<String, dynamic> addr) async {
+    selectedReceiverAddressId = addr["id"];
+
+    receiverNameCtrl.text = addr["receiver_name"] ?? "";
+    debugPrint("Sender name now => ${receiverNameCtrl.text}");
+    receiverPhoneCtrl.text = addr["receiver_phone"] ?? "";
+    receiverAddressCtrl.text = addr["address_text"] ?? "";
+    receiverLandmarkCtrl.text = addr["landmark"] ?? "";
+    receiverZipCtrl.text = addr["zip_code"] ?? "";
+
+    receiverLat = double.tryParse(addr["latitude"] ?? "");
+    receiverLng = double.tryParse(addr["longitude"] ?? "");
     receiverCountryCtrl.text = addr["country"] ?? "";
     receiverStateCtrl.text = addr["state"] ?? "";
     receiverDistrictCtrl.text = addr["district"] ?? "";
@@ -212,14 +224,24 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     if (!stateCache.containsKey(countryId)) {
       stateCache[countryId] = await apiService.getStates(countryId: countryId);
     }
-    receiverStates = stateCache[countryId]!;
+
+    final countryName = countries.firstWhere(
+      (c) => c['id'] == countryId,
+    )['name'];
+
+    receiverStates = stateCache[countryId]!
+        .where((s) => s['country'] == countryName)
+        .toList();
   }
 
   Future<void> _loadReceiverDistricts(int stateId) async {
     if (!districtCache.containsKey(stateId)) {
       districtCache[stateId] = await apiService.getDistricts(stateId: stateId);
     }
-    receiverDistricts = districtCache[stateId]!;
+
+    receiverDistricts = districtCache[stateId]!
+        .where((d) => d['state'] == stateId)
+        .toList();
   }
 
   @override
@@ -305,7 +327,9 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     setState(() {});
     try {
       if (!stateCache.containsKey(0)) {
-        stateCache[countryId] = await apiService.getStates(countryId: countryId);
+        stateCache[countryId] = await apiService.getStates(
+          countryId: countryId,
+        );
       }
       final countryName = countries.firstWhere(
         (c) => c['id'] == countryId,
@@ -325,7 +349,9 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     setState(() {});
     try {
       if (!districtCache.containsKey(0)) {
-        districtCache[stateId] = await apiService.getDistricts(stateId: stateId);
+        districtCache[stateId] = await apiService.getDistricts(
+          stateId: stateId,
+        );
       }
       districts = districtCache[stateId]!
           .where((d) => d['state'] == stateId)
@@ -502,7 +528,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
               style: TextStyle(fontWeight: FontWeight.w400),
             ),
             SizedBox(height: 5),
-            Text(receiverAddressCtrl.text),
+            Text(receiverDistrictCtrl.text),
             Text(receiverLandmarkCtrl.text),
             Text(receiverZipCtrl.text),
             Text(receiverPhoneCtrl.text),
@@ -670,22 +696,40 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                           );
                           return;
                         }
-                        // ➕ CREATE NEW RECEIVER (your existing flow)
-                        await apiService.addReceiverAddress(
-                          receiverName: receiverNameCtrl.text,
-                          receiverPhone: receiverPhoneCtrl.text,
-                          address: receiverAddressCtrl.text,
-                          landmark: receiverLandmarkCtrl.text,
-                          district: selectedReceiverDistrictId,
-                          state: selectedReceiverStateId,
-                          country: selectedReceiverCountryId,
-                          zipCode: receiverZipCtrl.text,
-                          latitude: receiverLat.toString(),
-                          longitude: receiverLng.toString(),
-                        );
+
+                        // ➕ CREATE NEW RECEIVER and capture the returned ID
+                        final receiverAddressId = await apiService
+                            .addReceiverAddress(
+                              receiverName: receiverNameCtrl.text,
+                              receiverPhone: receiverPhoneCtrl.text,
+                              address: receiverAddressCtrl.text,
+                              landmark: receiverLandmarkCtrl.text,
+                              district: selectedReceiverDistrictId,
+                              state: selectedReceiverStateId,
+                              country: selectedReceiverCountryId,
+                              zipCode: receiverZipCtrl.text,
+                              latitude: receiverLat.toString(),
+                              longitude: receiverLng.toString(),
+                            );
+
+                        if (receiverAddressId != null) {
+                          selectedReceiverAddressId = receiverAddressId;
+                          debugPrint(
+                            "Created receiver address ID: $selectedReceiverAddressId",
+                          );
+
+                          // Also store this as the receiver ID if your backend expects the same ID
+                          // selectedReceiverUserId = receiverAddressId; // Only if receiver ID = address ID
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Failed to save receiver address"),
+                            ),
+                          );
+                          return;
+                        }
 
                         isReceiverCompleted = true;
-
                         Navigator.pop(context);
                         await _loadReceiverAddresses();
                       },
@@ -926,8 +970,13 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                           return;
                         }
 
-                        isSenderCompleted = true;
-                        Navigator.pop(context);
+                        // ✅ Fix: Use Navigator.pop(context) instead of rootNavigator
+                        Navigator.pop(context); // This closes the bottom sheet
+
+                        setState(() {
+                          isSenderCompleted = true;
+                        });
+
                         await _loadSenderAddresses();
                       },
                     ),
@@ -939,6 +988,57 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
         );
       },
     );
+  }
+
+  void _resetSenderForm() {
+    senderNameCtrl.clear();
+    senderPhoneCtrl.clear();
+    senderAddressCtrl.clear();
+    senderLandmarkCtrl.clear();
+    senderZipCtrl.clear();
+
+    senderLat = null;
+    senderLng = null;
+
+    selectedCountryId = savedCountryId;
+    selectedStateId = savedStateId;
+    selectedDistrictId = savedDistrictId;
+
+    states.clear();
+    districts.clear();
+
+    if (savedCountryId != null) {
+      senderCountryCtrl.text = countries.firstWhere(
+        (c) => c['id'] == savedCountryId,
+      )['name'];
+    } else {
+      senderCountryCtrl.clear();
+    }
+
+    senderStateCtrl.clear();
+    senderDistrictCtrl.clear();
+  }
+
+  void _resetReceiverForm() {
+    receiverNameCtrl.clear();
+    receiverPhoneCtrl.clear();
+    receiverAddressCtrl.clear();
+    receiverLandmarkCtrl.clear();
+    receiverZipCtrl.clear();
+
+    receiverLat = null;
+    receiverLng = null;
+
+    selectedReceiverCountryId = savedCountryId;
+    selectedReceiverStateId = savedStateId;
+    selectedReceiverDistrictId = savedDistrictId;
+
+    receiverStates.clear();
+    receiverDistricts.clear();
+
+    receiverCountryCtrl.text = senderCountryCtrl.text;
+    receiverStateCtrl.clear();
+    receiverDistrictCtrl.clear();
   }
 
   Widget _sheetHeader(String title) {
@@ -1071,10 +1171,10 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                             child: ListTile(
                               contentPadding: EdgeInsets.all(12),
                               leading: CircleAvatar(
-                                backgroundColor: Colors.red.shade50,
+                                backgroundColor: Colors.green.shade50,
                                 child: Icon(
                                   Icons.person_pin_circle,
-                                  color: Colors.red,
+                                  color: Colors.green,
                                 ),
                               ),
                               title: Text(
@@ -1142,8 +1242,11 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                                   Icon(Icons.chevron_right),
                                 ],
                               ),
-                              onTap: () {
-                                _applySenderAddress(addr);
+                              onTap: () async {
+                                await _applySenderAddress(addr);
+                                setState(() {
+                                  isSenderCompleted = true;
+                                });
                                 Navigator.pop(context);
                               },
                             ),
@@ -1158,6 +1261,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                   title: const Text("Add new sender address"),
                   onTap: () {
                     Navigator.pop(context);
+                    _resetSenderForm();
                     _openSenderBottomSheet();
                   },
                 ),
@@ -1260,7 +1364,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                                   SizedBox(height: 4),
                                   Text(addr["address_text"] ?? ""),
                                   Text(
-                                    "${addr["district_name"]}, ${addr["state_name"]}",
+                                    "${addr["district"]}, ${addr["state"]},${addr["district"]}",
                                     style: TextStyle(
                                       color: Colors.grey.shade600,
                                     ),
@@ -1312,9 +1416,16 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                                   Icon(Icons.chevron_right),
                                 ],
                               ),
-                              onTap: () {
-                                _applyReceiverAddress(addr);
+                              onTap: () async {
+                                selectedReceiverAddressId = addr["id"];
+                                await _applyReceiverAddress(addr);
+                                setState(() {
+                                  isReceiverCompleted = true;
+                                });
                                 Navigator.pop(context);
+                                debugPrint(
+                                  "Receiver address ID => $selectedReceiverAddressId",
+                                );
                               },
                             ),
                           ),
@@ -1328,6 +1439,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                   title: const Text("Add new receiver address"),
                   onTap: () {
                     Navigator.pop(context);
+                    _resetReceiverForm();
                     _openReceiverBottomSheet();
                   },
                 ),
@@ -1459,94 +1571,147 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             borderRadius: BorderRadius.circular(14),
           ),
         ),
-        onPressed: () async {
-          if (nameCtrl.text.isEmpty ||
-              volumeCtrl.text.isEmpty ||
-              senderAddressCtrl.text.isEmpty ||
-              senderDistrictCtrl.text.isEmpty ||
-              senderStateCtrl.text.isEmpty ||
-              senderCountryCtrl.text.isEmpty ||
-              senderZipCtrl.text.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Please fill all required fields")),
-            );
-            return;
-          }
-          final productSuccess = await apiService.addProduct(
-            name: nameCtrl.text,
-            description: descCtrl.text,
-            volume: volumeCtrl.text,
-            actualWeight: weightCtrl.text,
-            image: productImage,
-          );
-          if (!productSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Product creation failed")),
-            );
-            return;
-          }
-          if (apiService.lastCreatedProductId == null ||
-              apiService.currentUserId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("User session error. Please login again"),
-              ),
-            );
-            return;
-          }
-          if (selectedReceiverCountryId == null ||
-              selectedReceiverStateId == null ||
-              selectedReceiverDistrictId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  "Please select receiver country, state and district",
-                ),
-              ),
-            );
-            return;
-          }
-          if (senderLat == null || senderLng == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Please select pickup location on map"),
-              ),
-            );
-            return;
-          }
+        onPressed: isCreatingShipment
+            ? null
+            : () async {
+                if (nameCtrl.text.isEmpty ||
+                    volumeCtrl.text.isEmpty ||
+                    senderAddressCtrl.text.isEmpty ||
+                    senderDistrictCtrl.text.isEmpty ||
+                    senderStateCtrl.text.isEmpty ||
+                    senderCountryCtrl.text.isEmpty ||
+                    senderZipCtrl.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Please fill all required fields"),
+                    ),
+                  );
+                  return;
+                }
+                final productSuccess = await apiService.addProduct(
+                  name: nameCtrl.text,
+                  description: descCtrl.text,
+                  volume: volumeCtrl.text,
+                  actualWeight: weightCtrl.text,
+                  image: productImage,
+                );
+                if (!productSuccess) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Product creation failed")),
+                  );
+                  return;
+                }
+                if (apiService.lastCreatedProductId == null ||
+                    apiService.currentUserId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("User session error. Please login again"),
+                    ),
+                  );
+                  return;
+                }
+                if (selectedReceiverCountryId == null ||
+                    selectedReceiverStateId == null ||
+                    selectedReceiverDistrictId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Please select receiver country, state and district",
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                if (senderLat == null || senderLng == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Please select pickup location on map"),
+                    ),
+                  );
+                  return;
+                }
 
-          if (receiverLat == null || receiverLng == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Please select delivery location on map"),
+                if (receiverLat == null || receiverLng == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Please select delivery location on map"),
+                    ),
+                  );
+                  return;
+                }
+                // if (!isSenderCompleted || !isReceiverCompleted) {
+                //   ScaffoldMessenger.of(context).showSnackBar(
+                //     const SnackBar(
+                //       content: Text("Please add sender & receiver address"),
+                //     ),
+                //   );
+                //   return;
+                // }
+                if (selectedSenderAddressId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Please select a sender address"),
+                    ),
+                  );
+                  return;
+                }
+
+                if (selectedReceiverAddressId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Please select a receiver address"),
+                    ),
+                  );
+                  return;
+                }
+                if (!mounted) return;
+                setState(() => isCreatingShipment = true);
+
+                final pickupResponse = await apiService.createPickupRequest(
+                  receiverId: selectedReceiverAddressId!,
+                  productId: apiService.lastCreatedProductId!,
+                  senderAddressId: selectedSenderAddressId!,
+                  receiverAddressId: selectedReceiverAddressId!,
+                );
+
+                setState(() => isCreatingShipment = false);
+
+                if (pickupResponse == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Failed to create shipment")),
+                  );
+                  return;
+                }
+
+                // OPTIONAL: extract pickup id if backend returns it
+                final pickupId = pickupResponse["id"];
+
+                if (!mounted) return;
+
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => OrderPlacedScreen(
+                      productId: apiService.lastCreatedProductId!,
+                      senderAddressId: selectedSenderAddressId!,
+                      pickupId: pickupId ?? selectedReceiverAddressId!,
+                    ),
+                  ),
+                );
+              },
+        child: isCreatingShipment
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Text(
+                "Create Shipment",
+                style: TextStyle(fontSize: 16, color: Colors.white),
               ),
-            );
-            return;
-          }
-          if (!isSenderCompleted || !isReceiverCompleted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Please add sender & receiver address"),
-              ),
-            );
-            return;
-          }
-          if (!mounted) return;
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => OrderPlacedScreen(
-                productId: apiService.lastCreatedProductId!,
-                senderAddressId: selectedSenderAddressId!,
-                pickupId: selectedReceiverAddressId!,
-              ),
-            ),
-          );
-        },
-        child: const Text(
-          "Create Shipment",
-          style: TextStyle(fontSize: 16, color: Colors.white),
-        ),
       ),
     );
   }

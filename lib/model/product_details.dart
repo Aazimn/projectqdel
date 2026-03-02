@@ -1,32 +1,25 @@
 import 'package:projectqdel/model/product_image.dart';
 
 class ProductDetails {
-  final int id;
-  final String name;
-  final String description;
-  final String volume;
-  final double actualWeight;
-  final List<ProductImage> images;
+  final String? description;
+  final String? volume;
+  final double? actualWeight;
+  // Remove id, name, images if they're not in the response
+  // Or make them optional with defaults
 
   ProductDetails({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.volume,
-    required this.actualWeight,
-    required this.images,
+    this.description,
+    this.volume,
+    this.actualWeight,
   });
 
   factory ProductDetails.fromJson(Map<String, dynamic> json) {
     return ProductDetails(
-      id: json['id'],
-      name: json['name'],
-      description: json['description'],
-      volume: json['volume'],
-      actualWeight: (json['actual_weight'] as num).toDouble(),
-      images: (json['images'] as List)
-          .map((e) => ProductImage.fromJson(e))
-          .toList(),
+      description: json['description'] as String?,
+      volume: json['volume'] as String?,
+      actualWeight: json['actual_weight'] != null 
+          ? (json['actual_weight'] as num).toDouble() 
+          : null,
     );
   }
 }
