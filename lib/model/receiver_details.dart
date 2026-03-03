@@ -1,8 +1,8 @@
 class ReceiverDetails {
-  final int id;
-  final String fullName;
-  final String email;
-  final String phone;
+  final int? id;
+  final String? fullName;
+  final String? email;
+  final String? phone;
 
   ReceiverDetails({
     required this.id,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:logger/web.dart';
 import 'package:lottie/lottie.dart' hide Marker;
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
@@ -18,9 +19,9 @@ class CarrierMapScreen extends StatefulWidget {
 class _CarrierMapScreenState extends State<CarrierMapScreen> {
   bool isLocationEnabled = false;
   bool isCheckingLocation = true;
+  bool isAcceptingOrder = false;
   LatLng? carrierLocation;
   Future<List<OrderModel>>? ordersFuture;
-  static const double radiusKm = 5.0;
   static const double radiusMeters = 5000;
   StreamSubscription<Position>? _locationStream;
 
@@ -31,7 +32,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.high,
-            distanceFilter: 50, // meters
+            distanceFilter: 50,
           ),
         ).listen((position) {
           setState(() {
@@ -148,7 +149,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                 final enabled = await _enableLocation();
 
                 if (enabled) {
-                  await _checkLocationAndFetch(); // 🔥 reload map automatically
+                  await _checkLocationAndFetch();
                 } else {
                   setState(() => isCheckingLocation = false);
                 }
@@ -226,7 +227,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
         final markers = <Marker>[
           Marker(
             point: carrierLocation!,
-            width: 50, 
+            width: 50,
             height: 50,
             child: Lottie.asset(
               "assets/lottie_assets/carrier_location.json",
@@ -474,7 +475,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                             ),
                             SizedBox(height: 5),
                             Text(
-                              order.senderDetails!.fullName.toUpperCase(),
+                              order.senderAddress!.senderName.toUpperCase(),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -525,9 +526,11 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
+                      onPressed: isAcceptingOrder
+                          ? null
+                          : () {
+                              _acceptOrder(order.id);
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ColorConstants.green,
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -535,13 +538,22 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        "Accept order",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: ColorConstants.white,
-                        ),
-                      ),
+                      child: isAcceptingOrder
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              "Accept order",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: ColorConstants.white,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -577,5 +589,42 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
     }
 
     return true;
+  }
+
+  Future<void> _acceptOrder(int pickupId) async {
+    setState(() {
+      isAcceptingOrder = true;
+    });
+
+    try {
+      final response = await ApiService().acceptOrder(pickupId: pickupId);
+
+      if (!mounted) return;
+
+      if (response != null) {
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Order accepted successfully"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // 🔄 Refresh orders (remove accepted order)
+        setState(() {
+          ordersFuture = ApiService().getAllOrders();
+        });
+      } else {
+        Logger().e("Failed to accept order");
+      }
+    } catch (e) {
+      Logger().e("Error accepting order: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          isAcceptingOrder = false;
+        });
+      }
+    }
   }
 }

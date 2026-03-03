@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:lottie/lottie.dart';
 import 'package:projectqdel/view/Client/map_picker.dart';
 import 'package:projectqdel/view/Client/client_dashboard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -203,19 +202,16 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       states = [];
       districts = [];
     });
-
     try {
       if (!stateCache.containsKey(countryId)) {
         stateCache[countryId] = await apiService.getStates(
           countryId: countryId,
         );
       }
-
       final country = countries.firstWhere(
         (c) => c['id'] == countryId,
         orElse: () => null,
       );
-
       if (country != null) {
         final countryName = country['name'];
 
@@ -226,14 +222,13 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     } catch (e) {
       debugPrint("State load error: $e");
     }
-
     setState(() => isStateLoading = false);
   }
 
   Future<void> _loadDistricts(int stateId) async {
     setState(() {
       isDistrictLoading = true;
-      districts = []; // Clear sender districts
+      districts = [];
     });
 
     try {
@@ -242,8 +237,6 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
           stateId: stateId,
         );
       }
-
-      // Get districts from cache and filter by state ID
       districts = districtCache[stateId] ?? [];
 
       debugPrint("Loaded ${districts.length} districts for state $stateId");
@@ -288,68 +281,129 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   }
 
   Future<void> _loadSenderAddress() async {
-    final response = await apiService.getSenderAddressById(
-      widget.senderAddressId,
-    );
+    final response = await apiService.getSenderDetails(widget.pickupId);
 
     if (!mounted || response == null) return;
 
-    final data = response['data'];
+    final sender = response['sender_details'];
+    final address = response['sender_address'];
+
+    if (sender == null && address == null) return;
+
+    final combined = <String, dynamic>{};
+
+    if (sender != null) {
+      combined['sender_name'] = address['sender_name'] ?? '';
+      combined['phone_number'] = address['phone_number'] ?? '';
+    }
+    if (address != null) {
+      combined['address'] = address['address'] ?? '';
+      combined['landmark'] = address['landmark'] ?? '';
+      combined['zip_code'] = address['zip_code'] ?? '';
+      combined['district'] = address['district'] ?? '';
+      combined['state'] = address['state'] ?? '';
+      combined['country'] = address['country'] ?? '';
+      senderLatitude = double.tryParse(address['latitude']?.toString() ?? '');
+      senderLongitude = double.tryParse(address['longitude']?.toString() ?? '');
+    }
 
     setState(() {
-      senderAddress = data;
-      senderLatitude = double.tryParse(data['latitude']?.toString() ?? '');
-      senderLongitude = double.tryParse(data['longitude']?.toString() ?? '');
+      senderAddress = combined;
     });
 
-    senderNameCtrl.text = data['sender_name'] ?? '';
-    senderPhoneCtrl.text = data['phone_number'] ?? '';
-    senderAddressCtrl.text = data['address'] ?? '';
-    senderLandmarkCtrl.text = data['landmark'] ?? '';
-    senderZipCtrl.text = data['zip_code'] ?? '';
-    senderCountryCtrl.text = data['country'] ?? '';
-    senderStateCtrl.text = data['state'] ?? '';
-    senderDistrictCtrl.text = data['district'] ?? '';
+    senderNameCtrl.text = combined['sender_name'] ?? '';
+    senderPhoneCtrl.text = combined['phone_number'] ?? '';
+    senderAddressCtrl.text = combined['address'] ?? '';
+    senderLandmarkCtrl.text = combined['landmark'] ?? '';
+    senderZipCtrl.text = combined['zip_code'] ?? '';
   }
 
   Future<void> _loadReceiverAddress() async {
-    final response = await apiService.getReceiverAddressByPickupId(
-      widget.pickupId,
-    );
+    final response = await apiService.getReceiverDetails(widget.pickupId);
 
     if (!mounted || response == null) return;
 
-    final data = response['data'];
+    final receiver = response['receiver_details'];
+    final address = response['receiver_address'];
+
+    if (receiver == null && address == null) {
+      debugPrint("⚠️ Receiver not available yet");
+      return;
+    }
+    Map<String, dynamic> combinedAddress = {};
+
+    if (receiver != null) {
+      combinedAddress['receiver_name'] = receiver['full_name'] ?? '';
+      combinedAddress['receiver_phone'] = receiver['phone'] ?? '';
+    }
+
+    if (address != null) {
+      combinedAddress['address_text'] = address['address_text'] ?? '';
+      combinedAddress['landmark'] = address['landmark'] ?? '';
+      combinedAddress['zip_code'] = address['zip_code'] ?? '';
+      combinedAddress['district'] = address['district'] ?? '';
+      combinedAddress['state'] = address['state'] ?? '';
+      combinedAddress['country'] = address['country'] ?? '';
+
+      receiverLatitude = double.tryParse(address['latitude']?.toString() ?? '');
+      receiverLongitude = double.tryParse(
+        address['longitude']?.toString() ?? '',
+      );
+    }
 
     setState(() {
-      receiverAddress = data;
+      receiverAddress = combinedAddress;
     });
-
-    receiverNameCtrl.text = data['receiver_name'] ?? '';
-    receiverPhoneCtrl.text = data['receiver_phone'] ?? '';
-    receiverAddressCtrl.text = data['address_text'] ?? '';
-    receiverLandmarkCtrl.text = data['landmark'] ?? '';
-    receiverZipCtrl.text = data['zip_code'] ?? '';
-
-    receiverLatitude = double.tryParse(data['latitude']?.toString() ?? '');
-    receiverLongitude = double.tryParse(data['longitude']?.toString() ?? '');
+    receiverNameCtrl.text = combinedAddress['receiver_name'] ?? '';
+    receiverPhoneCtrl.text = combinedAddress['receiver_phone'] ?? '';
+    receiverAddressCtrl.text = combinedAddress['address_text'] ?? '';
+    receiverLandmarkCtrl.text = combinedAddress['landmark'] ?? '';
+    receiverZipCtrl.text = combinedAddress['zip_code'] ?? '';
   }
+  // Future<void> _loadReceiverAddress() async {
+  //   final response = await apiService.getReceiverAddressByPickupId(
+  //     widget.pickupId,
+  //   );
 
-  Widget _successLottie() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Lottie.asset('assets/lottie_assets/successful.json', repeat: false),
-          const SizedBox(height: 20),
-          const Text(
-            "Order Placed Successfully!",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
+  //   if (!mounted) return;
+
+  //   // 🚨 Receiver address not found (404 or null)
+  //   if (response == null || response['status'] == 'error') {
+  //     debugPrint("⚠️ Receiver address not found, allowing empty form");
+
+  //     setState(() {
+  //       receiverAddress = null;
+  //     });
+
+  //     // CLEAR CONTROLLERS (important)
+  //     receiverNameCtrl.clear();
+  //     receiverPhoneCtrl.clear();
+  //     receiverAddressCtrl.clear();
+  //     receiverLandmarkCtrl.clear();
+  //     receiverZipCtrl.clear();
+
+  //     receiverLatitude = null;
+  //     receiverLongitude = null;
+
+  //     return;
+  //   }
+
+  //   final data = response['data'];
+  //   if (data == null) return;
+
+  //   setState(() {
+  //     receiverAddress = data;
+  //   });
+
+  //   receiverNameCtrl.text = data['receiver_name'] ?? '';
+  //   receiverPhoneCtrl.text = data['receiver_phone'] ?? '';
+  //   receiverAddressCtrl.text = data['address_text'] ?? '';
+  //   receiverLandmarkCtrl.text = data['landmark'] ?? '';
+  //   receiverZipCtrl.text = data['zip_code'] ?? '';
+
+  //   receiverLatitude = double.tryParse(data['latitude']?.toString() ?? '');
+  //   receiverLongitude = double.tryParse(data['longitude']?.toString() ?? '');
+  // }
 
   Future<void> _loadProduct() async {
     try {
@@ -374,7 +428,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   }
 
   Widget _orderPlacedContent() {
-    if (senderAddress == null || receiverAddress == null) {
+    if (senderAddress == null) {
       return const Padding(
         padding: EdgeInsets.all(32),
         child: Center(child: CircularProgressIndicator()),
@@ -442,8 +496,6 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FB),
       body: showSuccessAnimation
-          ? _successLottie()
-          : loading
           ? const Center(child: CircularProgressIndicator())
           : _orderPlacedContent(),
     );
@@ -759,7 +811,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
             name.toUpperCase(),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
           ),
-          // const SizedBox(height: 2),
+
           Text(phone),
           const SizedBox(height: 8),
           Text(
@@ -1129,9 +1181,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                     ),
                     apiDropdown(
                       hint: "District",
-                      items: selectedStateId == null
-                          ? []
-                          : districts, // Make sure this is 'districts', not 'receiverDistricts'
+                      items: selectedStateId == null ? [] : districts,
                       loading: isDistrictLoading,
                       selectedId: selectedDistrictId,
                       onChanged: (value) {
@@ -1237,6 +1287,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       ).showSnackBar(SnackBar(content: Text("Error updating sender: $e")));
     }
   }
+  
 
   Widget _bottomButton(BuildContext context) {
     return Padding(

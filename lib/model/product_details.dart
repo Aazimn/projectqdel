@@ -1,11 +1,7 @@
-import 'package:projectqdel/model/product_image.dart';
-
 class ProductDetails {
   final String? description;
   final String? volume;
   final double? actualWeight;
-  // Remove id, name, images if they're not in the response
-  // Or make them optional with defaults
 
   ProductDetails({
     this.description,

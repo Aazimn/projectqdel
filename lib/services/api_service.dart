@@ -13,7 +13,7 @@ class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
   final String baseurl =
-      "https://moon-playback-how-digit.trycloudflare.com";
+      "https://cumulative-plugin-sky-fallen.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -907,7 +907,7 @@ class ApiService {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       final decoded = jsonDecode(responseBody);
-      return decoded["address_id"]; // ✅ FIXED
+      return decoded["address_id"];
     }
 
     return null;
@@ -1033,18 +1033,12 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-
-        // Backend usually returns a list
         if (decoded is List) {
           return List<Map<String, dynamic>>.from(decoded);
         }
-
-        // 🔥 ADD THIS BLOCK
         if (decoded is Map && decoded["data"] is List) {
           return List<Map<String, dynamic>>.from(decoded["data"]);
         }
-
-        // fallback
         if (decoded is Map && decoded["results"] is List) {
           return List<Map<String, dynamic>>.from(decoded["results"]);
         }
@@ -1070,8 +1064,6 @@ class ApiService {
 
       logger.i("DELETE SENDER STATUS => ${response.statusCode}");
       logger.i("DELETE SENDER BODY => ${response.body}");
-
-      // 204 = No Content (most common for delete)
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
       logger.e("DELETE SENDER ERROR => $e");
@@ -1209,8 +1201,6 @@ class ApiService {
           "Content-Type": "application/json",
         },
       );
-
-      // Most APIs return 204 for successful delete
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
       return false;
@@ -1232,7 +1222,6 @@ class ApiService {
         return [];
       }
 
-      // Try to parse the response
       Map<String, dynamic> decoded;
       try {
         decoded = jsonDecode(response.body) as Map<String, dynamic>;
@@ -1242,7 +1231,6 @@ class ApiService {
         return [];
       }
 
-      // Check if the response has the expected structure
       if (decoded['status'] != 'success') {
         debugPrint("⚠️ API returned non-success status: ${decoded['status']}");
         return [];
@@ -1261,14 +1249,9 @@ class ApiService {
 
       for (var orderJson in ordersJson) {
         try {
-          // Try to parse each order individually
           final order = OrderModel.fromJson(orderJson);
           orders.add(order);
-
-          // Log useful info for debugging
           debugPrint("✅ Order ${order.id} parsed successfully");
-
-          // Check if it has valid coordinates
           if (order.senderAddress != null) {
             final lat = order.senderAddress!.latitude;
             final lng = order.senderAddress!.longitude;
@@ -1285,36 +1268,28 @@ class ApiService {
           debugPrint(
             "⚠️ Failed to parse order ${orderJson['id'] ?? 'unknown'}: $e",
           );
-
-          // Log the problematic fields
           if (orderJson.containsKey('product_details')) {
             debugPrint("   product_details: ${orderJson['product_details']}");
           }
           if (orderJson.containsKey('sender_address')) {
             debugPrint("   sender_address: ${orderJson['sender_address']}");
           }
-
-          // Optionally log full stack trace for debugging
           if (parseErrors <= 3) {
-            // Only log first 3 stack traces to avoid spam
             debugPrint("   Stack trace: $stackTrace");
           }
 
-          continue; // Skip this order and continue with next
+          continue; 
         }
       }
-
       debugPrint(
         "✅ Successfully parsed ${orders.length} out of ${ordersJson.length} orders",
       );
       if (parseErrors > 0) {
         debugPrint("⚠️ Failed to parse $parseErrors orders");
       }
-
       return orders;
     } catch (e) {
       debugPrint("⛔ GET ORDERS ERROR => $e");
-      // Return empty list instead of rethrowing to prevent app crash
       return [];
     }
   }
@@ -1344,7 +1319,7 @@ class ApiService {
     required int receiverId,
     required int productId,
     required int senderAddressId,
-    int? receiverAddressId, // optional
+    int? receiverAddressId,
   }) async {
     final url = Uri.parse("$baseurl/api/qdel/users/sent/request/");
 
@@ -1352,7 +1327,7 @@ class ApiService {
       "receiver": receiverId,
       "product": productId,
       "address": senderAddressId,
-      "receiver_address": receiverAddressId, // can be null
+      "receiver_address": receiverAddressId,
     };
 
     logger.i("CREATE PICKUP URL => $url");
@@ -1382,4 +1357,129 @@ class ApiService {
       return null;
     }
   }
+
+  Future<Map<String, dynamic>?> acceptOrder({required int pickupId}) async {
+    Uri uri = Uri.parse("$baseurl/api/qdel/users/pickups/carrier/request/");
+    final headers = {
+      "Authorization": "Bearer ${ApiService.accessToken}",
+      "Content-Type": "application/json",
+    };
+    final body = jsonEncode({"pickup": pickupId});
+    logger.i("ACCEPT ORDER URL => $uri");
+    logger.i("ACCEPT ORDER BODY => $body");
+    try {
+      final response = await http.post(uri, headers: headers, body: body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else {
+        logger.e("ACCEPT ORDER FAILED => ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      logger.e("ACCEPT ORDER ERROR => $e");
+    }
+    return null;
+  }
+
+  Future<List<dynamic>?> getAcceptedOrders() async {
+    final uri = Uri.parse("$baseurl/api/qdel/sender/view/sent/orders/");
+    final headers = {
+      "Authorization": "Bearer ${ApiService.accessToken}",
+      "Content-Type": "application/json",
+    };
+
+    try {
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          return decoded;
+        }
+
+        if (decoded is Map<String, dynamic>) {
+          return decoded["results"] ?? decoded["data"] ?? decoded["orders"];
+        }
+
+        return null;
+      } else {
+        logger.e("GET ACCEPTED ORDERS FAILED => ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      logger.e("GET ACCEPTED ORDERS ERROR => $e");
+      return null;
+    }
+  }
+
+ 
+  Future<Map<String, dynamic>?> getSenderDetails(int pickupId) async {
+    final url = Uri.parse("$baseurl/api/qdel/user/sender/details/$pickupId/");
+
+    try {
+      final res = await http.get(url, headers: _headers());
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      logger.e("SENDER ERROR => $e");
+    }
+    return null;
+  }
+
+  
+  Future<Map<String, dynamic>?> getReceiverDetails(int pickupId) async {
+    final url = Uri.parse(
+      "$baseurl/api/qdel/user/sender/receiver/details/$pickupId/",
+    );
+
+    try {
+      final res = await http.get(url, headers: _headers());
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      logger.e("RECEIVER ERROR => $e");
+    }
+    return null;
+  }
+
+ 
+  Future<Map<String, dynamic>?> getProductDetails(int pickupId) async {
+    final url = Uri.parse(
+      "$baseurl/api/qdel/user/sender/product/details/$pickupId/",
+    );
+
+    try {
+      final res = await http.get(url, headers: _headers());
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      logger.e("PRODUCT ERROR => $e");
+    }
+    return null;
+  }
+
+
+  Future<Map<String, dynamic>?> getShipmentStatus(int pickupId) async {
+    final url = Uri.parse(
+      "$baseurl/api/qdel/sender/shipment-status/$pickupId/",
+    );
+
+    try {
+      final res = await http.get(url, headers: _headers());
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      logger.e("SHIPMENT ERROR => $e");
+    }
+    return null;
+  }
+
+  Map<String, String> _headers() => {
+    "Authorization": "Bearer ${ApiService.accessToken}",
+    "Content-Type": "application/json",
+  };
 }

@@ -1,12 +1,12 @@
 import 'package:projectqdel/model/product_details.dart';
 import 'package:projectqdel/model/receiver_address.dart';
-import 'package:projectqdel/model/receiver_details.dart' hide ProductDetails;
+import 'package:projectqdel/model/receiver_details.dart';
 import 'package:projectqdel/model/sender_address.dart';
 import 'package:projectqdel/model/sender_details.dart';
 
 class OrderModel {
   final int id;
-  final String? pickupNo; // Changed from pickupId to match backend
+  final String? pickupNo;
 
   final ProductDetails? productDetails;
   final SenderDetails? senderDetails;
@@ -18,7 +18,7 @@ class OrderModel {
 
   OrderModel({
     required this.id,
-    this.pickupNo, // Changed name
+    this.pickupNo, 
     this.productDetails,
     this.senderDetails,
     this.senderAddress,

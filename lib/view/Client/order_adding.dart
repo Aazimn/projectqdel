@@ -1,12 +1,11 @@
 import 'dart:io';
-// import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:projectqdel/view/Client/lottie_success.dart';
 import 'package:projectqdel/view/Client/map_picker.dart';
-import 'package:projectqdel/view/Client/order_placing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AddShipmentScreen extends StatefulWidget {
@@ -969,9 +968,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                           );
                           return;
                         }
-
-                        // ✅ Fix: Use Navigator.pop(context) instead of rootNavigator
-                        Navigator.pop(context); // This closes the bottom sheet
+                        Navigator.pop(context);
 
                         setState(() {
                           isSenderCompleted = true;
@@ -1639,14 +1636,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                   );
                   return;
                 }
-                // if (!isSenderCompleted || !isReceiverCompleted) {
-                //   ScaffoldMessenger.of(context).showSnackBar(
-                //     const SnackBar(
-                //       content: Text("Please add sender & receiver address"),
-                //     ),
-                //   );
-                //   return;
-                // }
                 if (selectedSenderAddressId == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -1682,19 +1671,16 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                   );
                   return;
                 }
-
-                // OPTIONAL: extract pickup id if backend returns it
                 final pickupId = pickupResponse["id"];
 
                 if (!mounted) return;
-
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => OrderPlacedScreen(
-                      productId: apiService.lastCreatedProductId!,
-                      senderAddressId: selectedSenderAddressId!,
-                      pickupId: pickupId ?? selectedReceiverAddressId!,
+                    builder: (context) => OrderSuccessWrapper(
+                      productId: apiService.lastCreatedProductId,
+                      pickupId: pickupId,
+                      orderNumber: pickupResponse["pickup_no"],
                     ),
                   ),
                 );
