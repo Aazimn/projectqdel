@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/add_country.dart';
@@ -21,6 +22,12 @@ class _CountryScreenState extends State<CountryScreen> {
   List<dynamic> _filteredCountries = [];
 
   bool isLoading = true;
+
+  int? selectedCountryId;
+  String? selectedCountryName;
+
+  int? selectedStateId;
+  String? selectedStateName;
 
   @override
   void initState() {
@@ -65,66 +72,10 @@ class _CountryScreenState extends State<CountryScreen> {
     });
   }
 
-  Widget _header(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          height: 130,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xffE53935), Color(0xffF0625F)],
-            ),
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(40),
-              bottomRight: Radius.circular(40),
-            ),
-          ),
-        ),
-
-        Positioned(
-          top: 45,
-          left: 16,
-          child: _circleButton(
-            Icons.arrow_back_ios_new,
-            () => Navigator.pop(context),
-          ),
-        ),
-        Positioned(
-          top: 45,
-          right: 16,
-          child: _circleButton(Icons.more_horiz, () {}),
-        ),
-        const Positioned(
-          top: 60,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Text(
-              "Manage Countries",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 25,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+  Future<void> _onRefresh() async {
+    await fetchCountries();
   }
 
-  Widget _circleButton(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 38,
-        width: 38,
-        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-        child: Icon(icon, color: Colors.red, size: 18),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -143,56 +94,116 @@ class _CountryScreenState extends State<CountryScreen> {
             fetchCountries();
           }
         },
-        child: const Text("Add"),
+        child: Icon(Icons.add, color: Colors.white),
       ),
-      body: Column(
-        children: [
-          _header(context),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: TextField(
-              controller: searchCtl,
-              onChanged: _searchCountry,
-              decoration: InputDecoration(
-                hintText: "Search country...",
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: ColorConstants.textfieldgrey,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+      body: _countryview(),
+    );
+  }
+
+  Widget _countryview() {
+    return LiquidPullToRefresh(
+      onRefresh: _onRefresh,
+      color: ColorConstants.red,
+      backgroundColor: Colors.white,
+      height: 80,
+      animSpeedFactor: 4.0,
+      showChildOpacityTransition: true,
+
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          /// 🔍 Search Bar (Scrollable)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 50,
+                bottom: 16,
+              ),
+              child: TextField(
+                controller: searchCtl,
+                onChanged: _searchCountry,
+                decoration: InputDecoration(
+                  hintText: "Search country...",
+                  hintStyle: const TextStyle(color: Colors.white),
+                  prefixIcon: const Icon(Icons.search, color: Colors.white),
+                  filled: true,
+                  fillColor: ColorConstants.red,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
           ),
 
-          Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredCountries.isEmpty
-                ? const Center(
-                    child: Text(
-                      "No countries found",
-                      style: TextStyle(color: ColorConstants.black),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _filteredCountries.length,
-                    itemBuilder: (context, index) {
-                      final country = _filteredCountries[index];
-
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        child: countryCard(country),
-                      );
-                    },
+          /// 📭 Empty State
+          if (_filteredCountries.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Text(
+                  "No countries found",
+                  style: TextStyle(color: ColorConstants.black),
+                ),
+              ),
+            )
+          else
+            /// 📃 Country List
+            SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final country = _filteredCountries[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 5,
                   ),
-          ),
+                  child: countryCard(country),
+                );
+              }, childCount: _filteredCountries.length),
+            ),
         ],
       ),
+    );
+  }
+
+  Future<bool?> _confirmDelete(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text(
+            "Delete Country",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            "Are you sure you want to delete this country?",
+            style: TextStyle(fontSize: 15),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("No", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ColorConstants.red,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text("Yes", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -231,7 +242,7 @@ class _CountryScreenState extends State<CountryScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  // padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: ColorConstants.red.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(12),
@@ -316,8 +327,14 @@ class _CountryScreenState extends State<CountryScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () async {
-                      await apiService.deleteCountry(countryId: country['id']);
-                      fetchCountries();
+                      final confirm = await _confirmDelete(context);
+
+                      if (confirm == true) {
+                        await apiService.deleteCountry(
+                          countryId: country['id'],
+                        );
+                        fetchCountries();
+                      }
                     },
                     icon: const Icon(Icons.delete, size: 18),
                     label: const Text("Delete"),

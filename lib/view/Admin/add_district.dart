@@ -23,8 +23,9 @@ class _AddDistrictScreenState extends State<AddDistrictScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorConstants.bgred,
+      backgroundColor: ColorConstants.white,
       appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.white),
         backgroundColor: ColorConstants.red,
         title: const Center(
           child: Text(
@@ -55,11 +56,11 @@ class _AddDistrictScreenState extends State<AddDistrictScreen> {
             const SizedBox(height: 30),
 
             CircleAvatar(
-              radius: 40,
+              radius: 50,
               backgroundColor: Colors.red.withOpacity(0.4),
               child: const Icon(
                 Icons.location_city,
-                size: 40,
+                size: 60,
                 color: Colors.red,
               ),
             ),
@@ -115,7 +116,7 @@ class _AddDistrictScreenState extends State<AddDistrictScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: ColorConstants.white,
+            color: ColorConstants.black,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -131,8 +132,7 @@ class _AddDistrictScreenState extends State<AddDistrictScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide:
-                  const BorderSide(color: ColorConstants.red, width: 2),
+              borderSide: const BorderSide(color: ColorConstants.red, width: 2),
             ),
           ),
         ),

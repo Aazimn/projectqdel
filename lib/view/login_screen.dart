@@ -13,7 +13,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   TextEditingController phonectrl = TextEditingController();
   final _formkey = GlobalKey<FormState>();
-  String selectedCode = "+91";
   String lang = "English";
   ApiService apiService = ApiService();
   bool isValidPhone = false;
@@ -22,6 +21,35 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     super.dispose();
     phonectrl.dispose();
+  }
+
+  List<dynamic> countries = [];
+  bool isLoadingCountries = true;
+  String? selectedCode = "+91";
+
+  @override
+  void initState() {
+    super.initState();
+    fetchCountries();
+  }
+
+  Future<void> fetchCountries() async {
+    try {
+      final data = await apiService.countriesList();
+
+      setState(() {
+        countries = data;
+        isLoadingCountries = false;
+
+        // Default select first country code
+        if (countries.isNotEmpty) {
+          selectedCode = "+${countries.first['code']}";
+        }
+      });
+    } catch (e) {
+      isLoadingCountries = false;
+      debugPrint("Error loading country codes: $e");
+    }
   }
 
   Future<bool> _login() async {
@@ -51,258 +79,251 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Form(
-          key: _formkey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                children: [
-                  Padding(padding: EdgeInsetsGeometry.only(top: 20)),
-                  Text(
-                    "QDEL",
-                    style: TextStyle(
-                      color: ColorConstants.red,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
+      resizeToAvoidBottomInset: false,
+      body: Container(
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage("assets/image_assets/qdel_bgg.png"),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: SafeArea(
+          child: Form(
+            key: _formkey,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 290,
+                  left: 20,
+                  child: Container(
+                    height: 300,
+                    width: 300,
+                    child: Image.asset(
+                      "assets/image_assets/qdel_boyy.png",
+                      fit: BoxFit.contain,
                     ),
-                  ),
-                ],
-              ),
-              Container(
-                height: 220,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
                   ),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
+                // Positioned(
+                //   bottom: 315,
+                //   right: 68,
+                //   child: Container(
+                //     height: 50,
+                //     width: 50,
+                //     // color: Colors.white,
+                //     child: Image.asset(
+                //       "assets/image_assets/logo_qdel.png",
+                //       fit: BoxFit.contain,
+                //     ),
+                //   ),
+                // ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Padding(padding: EdgeInsetsGeometry.all(10)),
-                    Row(
-                      children: [
-                        Padding(padding: EdgeInsetsGeometry.only(left: 20)),
-                        Text(
-                          "Let's get start",
-                          style: TextStyle(
-                            color: ColorConstants.white,
-                            fontSize: 40,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(width: 25),
-                        DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            dropdownColor: ColorConstants.black,
-                           
-                            alignment: Alignment.center,
-                            icon: const Icon(Icons.arrow_drop_down),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
-                              color: ColorConstants.white,
-                            ),
-                            value: lang,
-                            items: [
-                              DropdownMenuItem(
-                                value: "English",
-                                child: Center(child: Text("English")),
-                              ),
-                              DropdownMenuItem(
-                                value: "Hindi",
-                                child: Center(child: Text("Hindi")),
-                              ),
-                              DropdownMenuItem(
-                                value: "Malayalam",
-                                child: Center(child: Text("Malayalam")),
-                              ),
-                            ],
-                            onChanged: (String? value) {
-                              setState(() {
-                                lang = value!;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Padding(padding: EdgeInsetsGeometry.only(left: 20)),
-                        Text(
-                          "Access our services with a valid phone number.",
-
-                          style: TextStyle(
-                            color: ColorConstants.white,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 20),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          height: 45,
-                          width: 120,
-                          decoration: BoxDecoration(
-                            color: ColorConstants.white,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: selectedCode,
-                              isExpanded: true,
-                              alignment: Alignment.center,
-                              icon: const Icon(Icons.arrow_drop_down),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                                color: Colors.black,
-                              ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: "+91",
-                                  child: Center(
-                                    child: Text(
-                                      "+91",
-                                      style: TextStyle(
-                                        fontSize: 25,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: "+1",
-                                  child: Center(
-                                    child: Text(
-                                      "+1",
-                                      style: TextStyle(
-                                        fontSize: 25,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: "+44",
-                                  child: Center(
-                                    child: Text(
-                                      "+44",
-                                      style: TextStyle(
-                                        fontSize: 25,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: "+61",
-                                  child: Center(
-                                    child: Text(
-                                      "+61",
-                                      style: TextStyle(
-                                        fontSize: 25,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                setState(() {
-                                  selectedCode = value!;
-                                });
-                              },
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 20),
-                        Container(
-                          height: 45,
-                          width: 160,
-                          decoration: BoxDecoration(
-                            color: ColorConstants.white,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: TextFormField(
-                            keyboardType: TextInputType.number,
-                            maxLength: 10,
-                            controller: phonectrl,
-                            textAlign: TextAlign.center,
+                    SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      child: Column(
+                        children: [
+                          Padding(padding: EdgeInsetsGeometry.only(top: 20)),
+                          Text(
+                            "QDEL",
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
+                              color: ColorConstants.red,
                               fontSize: 30,
+                              fontWeight: FontWeight.w900,
                             ),
-                            textAlignVertical: TextAlignVertical.center,
-                            decoration: InputDecoration(
-                              hintText: "00000000",
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                              hintStyle: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 30,
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return "Phone number required";
-                              }
-                              if (value.length != 10) {
-                                return "Enter 10 digit number";
-                              }
-                              return null;
-                            },
-                            onChanged: (value) {
-                              setState(() {
-                                isValidPhone = value.length == 10;
-                              });
-                            },
                           ),
-                        ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      children: [
+                        // Container(
+                        //   height: 300,
+                        //   width: 300,
+                        //   child: Image.asset(
+                        //     "assets/image_assets/qdel_boyy.png",
+                        //     fit: BoxFit.contain,
+                        //   ),
+                        // ),
+                        _bottomLoginSheet(),
                       ],
                     ),
-                    SizedBox(height: 20),
-                    if (isValidPhone)
-                      GestureDetector(
-                        onTap: _login,
-                        child: Container(
-                          height: 30,
-                          width: 80,
-                          decoration: BoxDecoration(
-                            color: ColorConstants.white,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Center(
-                            child: Text(
-                              "Next",
-                              style: TextStyle(
-                                color: ColorConstants.black,
-                                fontSize: 25,
-                                fontWeight: FontWeight.bold,
-                              ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _bottomLoginSheet() {
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 1),
+      // curve: Curves.easeOut,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(30),
+            topRight: Radius.circular(30),
+          ),
+        ),
+
+        // ✅ KEY FIX
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // ✅ very important
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Let's get start",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                const Text(
+                  "Access our services with a valid phone number.",
+                  style: TextStyle(color: Colors.white, fontSize: 15),
+                ),
+
+                const SizedBox(height: 20),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _countryCode(),
+                    const SizedBox(width: 20),
+                    _phoneInput(),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                if (isValidPhone)
+                  Center(
+                    child: GestureDetector(
+                      onTap: _login,
+                      child: Container(
+                        height: 40,
+                        width: 110,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            "Next",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ),
-                  ],
-                ),
-              ),
-            ],
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _countryCode() {
+    return Container(
+      height: 45,
+      width: 120,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedCode,
+          isExpanded: true,
+          alignment: Alignment.center,
+          items: const [
+            DropdownMenuItem(
+              value: "+91",
+              child: Center(
+                child: Text(
+                  "+91",
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            DropdownMenuItem(
+              value: "+1",
+              child: Center(
+                child: Text(
+                  "+1",
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            DropdownMenuItem(
+              value: "+44",
+              child: Center(
+                child: Text(
+                  "+44",
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            DropdownMenuItem(
+              value: "+61",
+              child: Center(
+                child: Text(
+                  "+61",
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+          onChanged: (v) => setState(() => selectedCode = v!),
+        ),
+      ),
+    );
+  }
+
+  Widget _phoneInput() {
+    return Container(
+      height: 45,
+      width: 160,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: TextFormField(
+        style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+        controller: phonectrl,
+        keyboardType: TextInputType.number,
+        maxLength: 10,
+        textAlign: TextAlign.center,
+        decoration: const InputDecoration(
+          counterText: "",
+          border: InputBorder.none,
+          hintText: "0000000000",
+          hintStyle: TextStyle(color: Colors.grey),
+        ),
+        onChanged: (v) => setState(() => isValidPhone = v.length == 10),
       ),
     );
   }

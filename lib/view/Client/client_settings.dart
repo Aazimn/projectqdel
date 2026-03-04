@@ -29,7 +29,7 @@ class _ClientSettingsState extends State<ClientSettings> {
         child: Column(
           children: [
             _header(context),
-            const SizedBox(height: 16),
+            const SizedBox(height: 50),
             _profileCard(context),
             const SizedBox(height: 20),
             _dashboardCard(),
@@ -49,27 +49,39 @@ class _ClientSettingsState extends State<ClientSettings> {
         Container(
           height: 110,
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xffE53935), Color(0xffF0625F)],
-            ),
+            color: ColorConstants.red,
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(40),
               bottomRight: Radius.circular(40),
             ),
           ),
+          // child: Image.asset(
+          //   "assets/image_assets/qdel_bike_1.jpeg",
+          //   fit: BoxFit.cover,
+          // ),
         ),
-        const Positioned(
-          top: 50,
+        Positioned(
+          bottom: -40,
           left: 0,
           right: 0,
           child: Center(
-            child: Text(
-              "Settings",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 25,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Stack(
+              children: [
+                Container(
+                  height: 110,
+                  width: 110,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.red, width: 6),
+
+                    color: Colors.white,
+                  ),
+                  child: Image.asset(
+                    "assets/image_assets/logo_qdel.png",
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

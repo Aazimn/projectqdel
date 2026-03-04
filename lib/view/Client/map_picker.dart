@@ -15,8 +15,10 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   final MapController _mapController = MapController();
   final TextEditingController _searchCtrl = TextEditingController();
 
-  LatLng selectedLocation = LatLng(9.931233, 76.267303); 
+  LatLng selectedLocation = LatLng(9.931233, 76.267303);
   bool isSearching = false;
+  bool isGettingLocationName = false;
+  String? selectedLocationName;
 
   Future<void> _searchLocation(String query) async {
     if (query.isEmpty) return;
@@ -38,9 +40,11 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       if (data.isNotEmpty) {
         final lat = double.parse(data[0]['lat']);
         final lon = double.parse(data[0]['lon']);
+        final displayName = data[0]['display_name'];
 
         setState(() {
           selectedLocation = LatLng(lat, lon);
+          selectedLocationName = displayName;
         });
 
         _mapController.move(selectedLocation, 15);
@@ -52,10 +56,60 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     setState(() => isSearching = false);
   }
 
+  Future<void> _getLocationNameFromCoordinates(LatLng position) async {
+    setState(() => isGettingLocationName = true);
+
+    try {
+      // Using Nominatim reverse geocoding
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?lat=${position.latitude}&lon=${position.longitude}&format=json',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'FlutterApp'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          selectedLocationName =
+              data['display_name'] ??
+              '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+        });
+      } else {
+        setState(() {
+          selectedLocationName =
+              '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+        });
+      }
+    } catch (e) {
+      debugPrint("Reverse geocoding error: $e");
+      setState(() {
+        selectedLocationName =
+            '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+      });
+    }
+
+    setState(() => isGettingLocationName = false);
+  }
+
+  void _onMapTapped(LatLng latLng) {
+    setState(() {
+      selectedLocation = latLng;
+      selectedLocationName = null; // Reset while fetching
+    });
+    _getLocationNameFromCoordinates(latLng);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Select Location")),
+      appBar: AppBar(
+        title: const Text("Select Location"),
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+      ),
       body: Stack(
         children: [
           FlutterMap(
@@ -63,11 +117,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             options: MapOptions(
               initialCenter: selectedLocation,
               initialZoom: 14,
-              onTap: (_, latLng) {
-                setState(() {
-                  selectedLocation = latLng;
-                });
-              },
+              onTap: (_, latLng) => _onMapTapped(latLng),
             ),
             children: [
               TileLayer(
@@ -92,6 +142,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ],
           ),
 
+          // Search Bar
           Positioned(
             top: 12,
             left: 16,
@@ -105,20 +156,26 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 onSubmitted: _searchLocation,
                 decoration: InputDecoration(
                   hintText: "Search location",
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: const Icon(Icons.search, color: Colors.red),
                   suffixIcon: isSearching
                       ? const Padding(
                           padding: EdgeInsets.all(12),
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.red,
+                          ),
                         )
                       : (_searchCtrl.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                              },
-                            )
-                          : null),
+                            ? IconButton(
+                                icon: const Icon(
+                                  Icons.clear,
+                                  color: Colors.red,
+                                ),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                },
+                              )
+                            : null),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -130,19 +187,147 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ),
           ),
 
+          // Location Info Card
+          if (selectedLocationName != null || isGettingLocationName)
+            Positioned(
+              bottom: 100,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.location_on,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Selected Location",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AddressColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          if (isGettingLocationName)
+                            const Row(
+                              children: [
+                                SizedBox(
+                                  height: 16,
+                                  width: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Getting location name...",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: AddressColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Text(
+                              selectedLocationName ??
+                                  '${selectedLocation.latitude.toStringAsFixed(4)}, ${selectedLocation.longitude.toStringAsFixed(4)}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: AddressColors.textPrimary,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Confirm Button
           Positioned(
             bottom: 20,
             left: 16,
             right: 16,
             child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context, selectedLocation);
-              },
-              child: const Text("Confirm Location"),
+              onPressed: isGettingLocationName
+                  ? null
+                  : () {
+                      // Return both coordinates and location name
+                      Navigator.pop(context, {
+                        'latitude': selectedLocation.latitude,
+                        'longitude': selectedLocation.longitude,
+                        'locationName':
+                            selectedLocationName ??
+                            '${selectedLocation.latitude.toStringAsFixed(4)}, ${selectedLocation.longitude.toStringAsFixed(4)}',
+                      });
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                disabledBackgroundColor: Colors.grey,
+              ),
+              child: isGettingLocationName
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      "Confirm Location",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+// Add this class if AddressColors is not imported
+class AddressColors {
+  static const Color textSecondary = Color(0xFF64748B);
+  static const Color textPrimary = Color(0xFF1E293B);
 }

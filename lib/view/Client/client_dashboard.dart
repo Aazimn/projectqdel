@@ -16,7 +16,7 @@ class _ClientDashboardState extends State<ClientDashboard> {
   late int _currentIndex;
 
   final List<Widget> _pages = const [
-    HomeScreen(),
+    UserHomeScreen(),
     AddShipmentScreen(),
     MyOrdersScreen(),
     ClientSettings(),

@@ -17,7 +17,7 @@ class _AddCountryScreenState extends State<AddCountryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorConstants.bgred,
+      backgroundColor: ColorConstants.white,
       appBar: AppBar(
         backgroundColor: ColorConstants.red,
         automaticallyImplyLeading: false,
@@ -50,9 +50,9 @@ class _AddCountryScreenState extends State<AddCountryScreen> {
             const SizedBox(height: 30),
 
             CircleAvatar(
-              radius: 40,
+              radius: 50,
               backgroundColor: Colors.red.withOpacity(0.5),
-              child: const Icon(Icons.public, color: Colors.red, size: 40),
+              child: const Icon(Icons.public, color: Colors.red, size: 100),
             ),
 
             const SizedBox(height: 30),
@@ -111,7 +111,7 @@ class _AddCountryScreenState extends State<AddCountryScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: ColorConstants.white,
+            color: ColorConstants.black,
             fontWeight: FontWeight.w600,
           ),
         ),

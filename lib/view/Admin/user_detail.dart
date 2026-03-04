@@ -228,26 +228,6 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
             () => Navigator.pop(context),
           ),
         ),
-        Positioned(
-          top: 45,
-          right: 16,
-          child: _circleButton(Icons.more_horiz, () {}),
-        ),
-        const Positioned(
-          top: 48,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Text(
-              "Profile Details",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
 
         Positioned(
           bottom: -50,

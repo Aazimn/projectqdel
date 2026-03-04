@@ -23,8 +23,9 @@ class _AddStateScreenState extends State<AddStateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorConstants.bgred,
+      backgroundColor: ColorConstants.white,
       appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.white),
         backgroundColor: ColorConstants.red,
         title: Center(
           child: Text(
@@ -55,9 +56,9 @@ class _AddStateScreenState extends State<AddStateScreen> {
             const SizedBox(height: 30),
 
             CircleAvatar(
-              radius: 40,
+              radius: 50,
               backgroundColor: Colors.red.withOpacity(0.4),
-              child: const Icon(Icons.location_on, size: 40, color: Colors.red),
+              child: const Icon(Icons.location_on, size: 60, color: Colors.red),
             ),
 
             const SizedBox(height: 30),
@@ -111,7 +112,7 @@ class _AddStateScreenState extends State<AddStateScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: ColorConstants.white,
+            color: ColorConstants.black,
             fontWeight: FontWeight.w600,
           ),
         ),

@@ -16,8 +16,8 @@ class _ClientProfileState extends State<ClientProfile> {
   final ApiService apiService = ApiService();
   bool isCarrier = false;
   bool switchingRole = false;
- UserModel? user;
- 
+  UserModel? user;
+
   bool loading = true;
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
@@ -64,7 +64,7 @@ class _ClientProfileState extends State<ClientProfile> {
                   _header(context),
                   const SizedBox(height: 60),
                   _profileInfo(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                   _personalDetailsCard(),
                   const SizedBox(height: 20),
                   _logoutCard(),
@@ -101,7 +101,7 @@ class _ClientProfileState extends State<ClientProfile> {
       clipBehavior: Clip.none,
       children: [
         Container(
-          height: 150,
+          height: 120,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [Color(0xffE53935), Color(0xffF0625F)],
@@ -119,26 +119,6 @@ class _ClientProfileState extends State<ClientProfile> {
           child: _circleButton(
             Icons.arrow_back_ios_new,
             () => Navigator.pop(context),
-          ),
-        ),
-        Positioned(
-          top: 45,
-          right: 16,
-          child: _circleButton(Icons.more_horiz, () {}),
-        ),
-        const Positioned(
-          top: 48,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Text(
-              "Profile Details",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
         ),
 

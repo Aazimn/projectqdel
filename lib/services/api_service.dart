@@ -12,8 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl =
-      "https://cumulative-plugin-sky-fallen.trycloudflare.com";
+  final String baseurl = "https://examine-way-children-hills.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -900,16 +899,30 @@ class ApiService {
       }),
     );
 
-    final responseBody = response.body;
-
     logger.i("ADD ADDRESS STATUS => ${response.statusCode}");
-    logger.i("ADD ADDRESS BODY => $responseBody");
+    logger.i("ADD ADDRESS BODY => ${response.body}");
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final decoded = jsonDecode(responseBody);
-      return decoded["address_id"];
+      try {
+        final decoded = jsonDecode(response.body);
+
+        // ✅ API returns data object, not address_id at root
+        final data = decoded["data"];
+
+        if (data != null && data["id"] != null) {
+          return data["id"] as int;
+        }
+
+        // If ID is missing but API succeeded
+        logger.w("⚠️ Address saved but ID not returned");
+        return -1; // still treat as success
+      } catch (e) {
+        logger.e("❌ JSON parse error: $e");
+        return null;
+      }
     }
 
+    logger.e("❌ Failed to add sender address");
     return null;
   }
 
@@ -1278,7 +1291,7 @@ class ApiService {
             debugPrint("   Stack trace: $stackTrace");
           }
 
-          continue; 
+          continue;
         }
       }
       debugPrint(
@@ -1412,7 +1425,6 @@ class ApiService {
     }
   }
 
- 
   Future<Map<String, dynamic>?> getSenderDetails(int pickupId) async {
     final url = Uri.parse("$baseurl/api/qdel/user/sender/details/$pickupId/");
 
@@ -1427,7 +1439,6 @@ class ApiService {
     return null;
   }
 
-  
   Future<Map<String, dynamic>?> getReceiverDetails(int pickupId) async {
     final url = Uri.parse(
       "$baseurl/api/qdel/user/sender/receiver/details/$pickupId/",
@@ -1444,7 +1455,6 @@ class ApiService {
     return null;
   }
 
- 
   Future<Map<String, dynamic>?> getProductDetails(int pickupId) async {
     final url = Uri.parse(
       "$baseurl/api/qdel/user/sender/product/details/$pickupId/",
@@ -1460,7 +1470,6 @@ class ApiService {
     }
     return null;
   }
-
 
   Future<Map<String, dynamic>?> getShipmentStatus(int pickupId) async {
     final url = Uri.parse(

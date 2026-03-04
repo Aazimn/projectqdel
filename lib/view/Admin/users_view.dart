@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
@@ -131,31 +132,46 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ColorConstants.bg,
-      body: Column(
-        children: [
-          _header(context),
-          _searchBar(),
-          _tabs(),
-          Expanded(
-            child: loading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filteredUsers.length,
-                    itemBuilder: (_, i) {
-                      final user = filteredUsers[i];
-                      return _unifiedUserCard(user);
-                    },
-                  ),
-          ),
-        ],
+      body: LiquidPullToRefresh(
+        onRefresh: fetchUsers,
+        color: ColorConstants.red,
+        backgroundColor: Colors.white,
+        height: 80,
+        animSpeedFactor: 4.0,
+        showChildOpacityTransition: true,
+
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            /// 🔍 Search Bar
+            SliverToBoxAdapter(child: _searchBar()),
+
+            /// 🧭 Tabs
+            SliverToBoxAdapter(child: _tabs()),
+
+            /// 👥 User List
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: loading
+                  ? const SliverFillRemaining(
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : SliverList(
+                      delegate: SliverChildBuilderDelegate((context, i) {
+                        final user = filteredUsers[i];
+                        return _unifiedUserCard(user);
+                      }, childCount: filteredUsers.length),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _searchBar() {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 50, bottom: 16),
       child: TextField(
         controller: searchController,
         style: const TextStyle(color: ColorConstants.black),
@@ -174,10 +190,11 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                   },
                 )
               : null,
-          hintText: "Search by name or email",
-          prefixIcon: const Icon(Icons.search, color: Colors.grey),
+          hintText: "Search by name",
+          hintStyle: const TextStyle(color: Colors.white),
+          prefixIcon: const Icon(Icons.search, color: Colors.white),
           filled: true,
-          fillColor: ColorConstants.textfieldgrey,
+          fillColor: ColorConstants.red,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
@@ -386,7 +403,10 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
         ),
         child: Row(
           children: [
-            const CircleAvatar(child: Icon(Icons.person)),
+            CircleAvatar(
+              child: Icon(Icons.person),
+              backgroundColor: Colors.red.withOpacity(.15),
+            ),
             const SizedBox(width: 12),
 
             Expanded(

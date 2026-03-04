@@ -1,450 +1,3 @@
-// import 'package:flutter/material.dart';
-// import 'package:projectqdel/core/constants/color_constants.dart';
-// import 'package:projectqdel/services/api_service.dart';
-// import 'package:projectqdel/view/Client/order_detailed.dart';
-
-// class MyOrdersScreen extends StatefulWidget {
-//   const MyOrdersScreen({super.key});
-
-//   @override
-//   State<MyOrdersScreen> createState() => _MyOrdersScreenState();
-// }
-
-// class _MyOrdersScreenState extends State<MyOrdersScreen> {
-//   int _selectedTab = 0;
-//   Future<List<dynamic>?>? _ordersFuture;
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _ordersFuture = ApiService().getAcceptedOrders();
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: const Color(0xffF6F8FB),
-//       body: Column(
-//         children: [
-//           _header(context),
-//           Expanded(
-//             child: Padding(
-//               padding: const EdgeInsets.all(16),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   _tabs(),
-//                   // const SizedBox(height: 20),
-//                   Expanded(child: _ordersFromApi()),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _tabs() {
-//     return Container(
-//       padding: const EdgeInsets.all(4),
-//       decoration: BoxDecoration(
-//         // border: BoxBorder.all(color: ColorConstants.red),
-//         color: const Color(0xffEEF2F7),
-//         borderRadius: BorderRadius.circular(14),
-//       ),
-//       child: Row(children: [_tabItem("On-going", 0), _tabItem("Completed", 1)]),
-//     );
-//   }
-
-//   Widget _tabItem(String title, int index) {
-//     final bool isSelected = _selectedTab == index;
-
-//     return Expanded(
-//       child: GestureDetector(
-//         onTap: () {
-//           setState(() => _selectedTab = index);
-//         },
-//         child: Container(
-//           padding: const EdgeInsets.symmetric(vertical: 10),
-//           decoration: BoxDecoration(
-//             color: isSelected ? Colors.white : Colors.transparent,
-//             borderRadius: BorderRadius.circular(12),
-//           ),
-//           child: Center(
-//             child: Text(
-//               title,
-//               style: TextStyle(
-//                 fontWeight: FontWeight.w600,
-//                 color: isSelected ? Colors.black : Colors.grey,
-//               ),
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _ordersFromApi() {
-//     return FutureBuilder<List<dynamic>?>(
-//       future: _ordersFuture,
-//       builder: (context, snapshot) {
-//         if (snapshot.connectionState == ConnectionState.waiting) {
-//           return const Center(child: CircularProgressIndicator());
-//         }
-
-//         if (!snapshot.hasData || snapshot.data == null) {
-//           return const Center(child: Text("Failed to load orders"));
-//         }
-
-//         final orders = snapshot.data!;
-
-//         final filteredOrders = orders.where((order) {
-//           final status = order["shipment_status"]?["status"];
-
-//           return _selectedTab == 0 ? isOngoing(status) : isCompleted(status);
-//         }).toList();
-
-//         if (filteredOrders.isEmpty) {
-//           return Center(
-//             child: Text(
-//               _selectedTab == 0 ? "No ongoing orders" : "No completed orders",
-//             ),
-//           );
-//         }
-
-//         return ListView.separated(
-//           itemCount: filteredOrders.length,
-//           separatorBuilder: (_, __) => const SizedBox(height: 16),
-//           itemBuilder: (context, index) {
-//             return _orderCardFromApi(filteredOrders[index]);
-//           },
-//         );
-//       },
-//     );
-//   }
-
-//   Widget _orderCardFromApi(Map<String, dynamic> order) {
-//     final pickupNo = order["pickup_no"]?.toString() ?? "N/A";
-//     final productName = order["product_details"]?["name"] ?? "Product";
-//     final status = order["shipment_status"]?["status"];
-
-//     String statusText;
-//     Color statusColor;
-
-//     switch (status) {
-//       case "Not Assigned":
-//         statusText = "SEARCHING";
-//         statusColor = Colors.orange;
-//         break;
-
-//       case "pending":
-//         statusText = "GOING TO PICKUP";
-//         statusColor = const Color.fromARGB(255, 6, 196, 158);
-//         break;
-
-//       case "arrived":
-//         statusText = "ARRIVED AT PICKUP";
-//         statusColor = const Color.fromARGB(255, 10, 10, 234);
-//         break;
-
-//       case "picked_up":
-//         statusText = "PICKED UP";
-//         statusColor = const Color.fromARGB(255, 0, 123, 255);
-//         break;
-
-//       case "in_transit":
-//         statusText = "IN TRANSIT";
-//         statusColor = Colors.blue;
-//         break;
-
-//       case "arrived_at_drop":
-//         statusText = "ARRIVED AT DROP";
-//         statusColor = const Color.fromARGB(255, 58, 160, 68);
-//         break;
-
-//       case "delivered":
-//         statusText = "DELIVERED";
-//         statusColor = Colors.green;
-//         break;
-
-//       case "cancelled":
-//         statusText = "CANCELLED";
-//         statusColor = Colors.red;
-//         break;
-
-//       default:
-//         statusText = "UNKNOWN";
-//         statusColor = Colors.grey;
-//     }
-
-//     return _card(
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           _orderHeader(
-//             icon: Icons.inventory_2,
-//             title: productName,
-//             orderId: pickupNo,
-//             status: statusText,
-//             statusColor: statusColor,
-//           ),
-//           const SizedBox(height: 12),
-//           if (status == "Not Assigned")
-//             _infoTile(
-//               Icons.search,
-//               "Status",
-//               "Searching for delivery partners",
-//             ),
-
-//           if (status == "pending")
-//             _infoTile(
-//               Icons.assignment_turned_in,
-//               "Status",
-//               "Carrier accepted the order and going to pickup",
-//             ),
-
-//           if (status == "arrived")
-//             _infoTile(
-//               Icons.location_on,
-//               "Status",
-//               "Carrier arrived at pickup location",
-//             ),
-
-//           if (status == "picked_up")
-//             _infoTile(
-//               Icons.local_shipping,
-//               "Tracking No",
-//               order["shipment_status"]?["carrier_tracking_no"]?.toString() ??
-//                   "-",
-//             ),
-
-//           if (status == "in_transit")
-//             _infoTile(
-//               Icons.route,
-//               "Status",
-//               "Order is in transit to delivery location",
-//             ),
-
-//           if (status == "arrived_at_drop")
-//             _infoTile(
-//               Icons.location_pin,
-//               "Status",
-//               "Carrier arrived at drop location",
-//             ),
-
-//           if (status == "delivered")
-//             _infoTile(
-//               Icons.check_circle,
-//               "Delivered At",
-//               order["shipment_status"]?["delivered_at"]?.toString() ?? "-",
-//             ),
-
-//           if (status == "cancelled")
-//             _infoTile(Icons.cancel, "Status", "Order has been cancelled"),
-//           const SizedBox(height: 16),
-
-//           Row(
-//             children: [
-//               Expanded(
-//                 child: OutlinedButton(
-//                   onPressed: () {
-//                     final int? pickupId = order["id"];
-
-//                     if (pickupId == null) {
-//                       ScaffoldMessenger.of(context).showSnackBar(
-//                         const SnackBar(content: Text("Invalid pickup ID")),
-//                       );
-//                       return;
-//                     }
-
-//                     Navigator.push(
-//                       context,
-//                       MaterialPageRoute(
-//                         builder: (_) => OrderDetailsScreen(pickupId: pickupId),
-//                       ),
-//                     );
-//                   },
-//                   child: const Text(
-//                     "Details",
-//                     style: TextStyle(color: ColorConstants.black),
-//                   ),
-//                 ),
-//               ),
-//               if (status != "delivered") ...[
-//                 const SizedBox(width: 12),
-//                 Expanded(
-//                   child: ElevatedButton(
-//                     onPressed: () {},
-//                     style: ElevatedButton.styleFrom(
-//                       backgroundColor: Colors.red,
-//                     ),
-//                     child: const Text(
-//                       "Track Order",
-//                       style: TextStyle(color: ColorConstants.white),
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   bool isOngoing(String? status) {
-//     return status == "Not Assigned" ||
-//         status == "pending" ||
-//         status == "arrived" ||
-//         status == "picked_up" ||
-//         status == "in_transit" ||
-//         status == "arrived_at_drop";
-//   }
-
-//   bool isCompleted(String? status) {
-//     return status == "delivered" || status == "cancelled";
-//   }
-
-//   Widget _header(BuildContext context) {
-//     return Stack(
-//       clipBehavior: Clip.none,
-//       children: [
-//         Container(
-//           height: 110,
-//           decoration: const BoxDecoration(
-//             gradient: LinearGradient(
-//               colors: [Color(0xffE53935), Color(0xffF0625F)],
-//             ),
-//             borderRadius: BorderRadius.only(
-//               bottomLeft: Radius.circular(40),
-//               bottomRight: Radius.circular(40),
-//             ),
-//           ),
-//         ),
-//         const Positioned(
-//           top: 50,
-//           left: 0,
-//           right: 0,
-//           child: Center(
-//             child: Text(
-//               "My Orders",
-//               style: TextStyle(
-//                 color: Colors.white,
-//                 fontSize: 25,
-//                 fontWeight: FontWeight.w600,
-//               ),
-//             ),
-//           ),
-//         ),
-//       ],
-//     );
-//   }
-
-//   Widget _orderHeader({
-//     required IconData icon,
-//     required String title,
-//     required String orderId,
-//     required String status,
-//     required Color statusColor,
-//   }) {
-//     return Row(
-//       crossAxisAlignment: CrossAxisAlignment.start,
-//       children: [
-//         CircleAvatar(
-//           radius: 24,
-//           backgroundColor: const Color(0xffFFF3E0),
-//           child: Icon(icon, color: statusColor),
-//         ),
-//         const SizedBox(width: 12),
-//         Expanded(
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               Text(
-//                 orderId,
-//                 style: const TextStyle(fontSize: 12, color: Colors.grey),
-//               ),
-//               const SizedBox(height: 4),
-//               Text(
-//                 title,
-//                 style: const TextStyle(
-//                   fontSize: 16,
-//                   fontWeight: FontWeight.bold,
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//         Container(
-//           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-//           decoration: BoxDecoration(
-//             color: statusColor.withOpacity(0.2),
-//             borderRadius: BorderRadius.circular(20),
-//           ),
-//           child: Text(
-//             status,
-//             style: TextStyle(
-//               color: statusColor,
-//               fontSize: 12,
-//               fontWeight: FontWeight.w600,
-//             ),
-//           ),
-//         ),
-//       ],
-//     );
-//   }
-
-//   Widget _infoTile(IconData icon, String title, String value) {
-//     return Container(
-//       padding: const EdgeInsets.all(14),
-//       decoration: BoxDecoration(
-//         color: const Color(0xffEEF2F7),
-//         borderRadius: BorderRadius.circular(14),
-//       ),
-//       child: Row(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Icon(icon, color: Colors.grey),
-//           const SizedBox(width: 10),
-
-//           Expanded(
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 Text(
-//                   title.toUpperCase(),
-//                   style: const TextStyle(fontSize: 12, color: Colors.grey),
-//                 ),
-//                 const SizedBox(height: 4),
-//                 Text(
-//                   value,
-//                   style: const TextStyle(
-//                     fontWeight: FontWeight.w600,
-//                     height: 1.4,
-//                   ),
-//                   softWrap: true,
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _card({required Widget child}) {
-//     return Container(
-//       padding: const EdgeInsets.all(16),
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.circular(20),
-//         border: BoxBorder.all(color: ColorConstants.black),
-//       ),
-//       child: child,
-//     );
-//   }
-// }
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
@@ -472,10 +25,11 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xffF6F8FB),
+      backgroundColor: ColorConstants.white,
       body: Column(
         children: [
           _header(context),
+          // SizedBox(height: 50),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -1024,33 +578,50 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Container(
-          height: 110,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xffE53935), Color(0xffF0625F)],
+        Padding(
+          padding: const EdgeInsets.only(top: 0, bottom: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.all(Radius.circular(20)),
+              border: Border.all(color: Colors.red, width: 3),
             ),
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(40),
-              bottomRight: Radius.circular(40),
-            ),
-          ),
-        ),
-        const Positioned(
-          top: 50,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Text(
-              "My Orders",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 25,
-                fontWeight: FontWeight.w600,
-              ),
+            height: 110,
+            width: double.infinity,
+            // child: Lottie.asset(
+            //   "assets/lottie_assets/food.json",
+            //   fit: BoxFit.fitWidth,
+            // ),
+            child: Image.asset(
+              "assets/image_assets/qdel_bike_2.jpeg",
+              fit: BoxFit.contain,
             ),
           ),
         ),
+        // Positioned(
+        //   bottom: -60,
+        //   left: 0,
+        //   right: 0,
+        //   child: Center(
+        //     child: Stack(
+        //       children: [
+        //         Container(
+        //           height: 100,
+        //           width: 100,
+        //           decoration: BoxDecoration(
+        //             shape: BoxShape.circle,
+        //             border: Border.all(color: Colors.red, width: 4),
+
+        //             color: Colors.white,
+        //           ),
+        //           child: Image.asset(
+        //             "assets/image_assets/logo_qdel.png",
+        //             fit: BoxFit.contain,
+        //           ),
+        //         ),
+        //       ],
+        //     ),
+        //   ),
+        // ),
       ],
     );
   }
