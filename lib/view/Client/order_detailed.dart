@@ -11,6 +11,7 @@ class OrderDetailsScreen extends StatefulWidget {
 
 class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   late Future<Map<String, dynamic>> _detailsFuture;
+  ApiService apiService = ApiService();
 
   @override
   void initState() {
@@ -146,14 +147,14 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   Widget _receiverSection(Map<String, dynamic>? data) {
     debugPrint("👥 Receiver section data: $data");
     if (data == null) return const SizedBox.shrink();
-    final receiver = data["receiver_details"] as Map<String, dynamic>?;
+    // final receiver = data["receiver_details"] as Map<String, dynamic>?;
     final address = data["receiver_address"] as Map<String, dynamic>?;
     return _card(
       title: "Receiver Details",
       icon: Icons.person_pin_circle,
       children: [
-        _row("Name", receiver?["full_name"], Icons.person),
-        _row("Phone", receiver?["phone"], Icons.phone),
+        _row("Name", address?["receiver_name"], Icons.person),
+        _row("Phone", address?["receiver_phone"], Icons.phone),
         const Divider(),
         _row("Address", address?["address_text"], Icons.location_on),
         _row("District", address?["district"], Icons.location_city),
@@ -163,11 +164,18 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   Widget _productSection(Map<String, dynamic>? data) {
-    debugPrint("📦 Product section data: $data");
-
     if (data == null) return const SizedBox.shrink();
 
     final product = data["product_details"] as Map<String, dynamic>?;
+
+    final images = product?["images"] as List?;
+    final String? imagePath = images != null && images.isNotEmpty
+        ? images.first["image"]
+        : null;
+
+    final String? imageUrl = imagePath == null
+        ? null
+        : "${apiService.baseurl}$imagePath";
 
     return _card(
       title: "Product Details",
@@ -177,6 +185,65 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         _row("Description", product?["description"], Icons.notes),
         _row("Weight", product?["actual_weight"], Icons.scale),
         _row("Volume", product?["volume"], Icons.straighten),
+        const SizedBox(height: 12),
+
+        _imagePreview(title: "Product Image", imageUrl: imageUrl),
+      ],
+    );
+  }
+
+  Widget _imagePreview({required String title, required String? imageUrl}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+
+        GestureDetector(
+          onTap: imageUrl == null
+              ? null
+              : () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => _ImageZoomScreen(imageUrl: imageUrl),
+                    ),
+                  );
+                },
+          child: Container(
+            height: 160,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: imageUrl == null
+                ? const Center(
+                    child: Text(
+                      "No image uploaded",
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return const Center(child: CircularProgressIndicator());
+                      },
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(Icons.broken_image, size: 40),
+                      ),
+                    ),
+                  ),
+          ),
+        ),
       ],
     );
   }
@@ -235,23 +302,37 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     required IconData icon,
     required List<Widget> children,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        SizedBox(height: 5),
+        Container(
+          margin: const EdgeInsets.only(bottom: 18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: children),
-      ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(children: children),
+          ),
+        ),
+      ],
     );
   }
 
@@ -269,6 +350,29 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           SizedBox(width: 100, child: Text(label)),
           Expanded(child: Text(display)),
         ],
+      ),
+    );
+  }
+}
+
+class _ImageZoomScreen extends StatelessWidget {
+  final String imageUrl;
+  const _ImageZoomScreen({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 1,
+          maxScale: 4,
+          child: Image.network(imageUrl),
+        ),
       ),
     );
   }

@@ -34,10 +34,11 @@ class _ClientDashboardState extends State<ClientDashboard> {
       body: _pages[_currentIndex],
 
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.red,
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.red,
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.black54,
         onTap: (index) {
           setState(() => _currentIndex = index);
         },

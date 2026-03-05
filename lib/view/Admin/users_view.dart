@@ -67,66 +67,66 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     }).toList();
   }
 
-  Widget _circleButton(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 38,
-        width: 38,
-        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-        child: Icon(icon, color: Colors.red, size: 18),
-      ),
-    );
-  }
+  // Widget _circleButton(IconData icon, VoidCallback onTap) {
+  //   return GestureDetector(
+  //     onTap: onTap,
+  //     child: Container(
+  //       height: 38,
+  //       width: 38,
+  //       decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+  //       child: Icon(icon, color: Colors.red, size: 18),
+  //     ),
+  //   );
+  // }
 
-  Widget _header(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          height: 130,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xffE53935), Color(0xffF0625F)],
-            ),
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(40),
-              bottomRight: Radius.circular(40),
-            ),
-          ),
-        ),
+  // Widget _header(BuildContext context) {
+  //   return Stack(
+  //     clipBehavior: Clip.none,
+  //     children: [
+  //       Container(
+  //         height: 130,
+  //         decoration: const BoxDecoration(
+  //           gradient: LinearGradient(
+  //             colors: [Color(0xffE53935), Color(0xffF0625F)],
+  //           ),
+  //           borderRadius: BorderRadius.only(
+  //             bottomLeft: Radius.circular(40),
+  //             bottomRight: Radius.circular(40),
+  //           ),
+  //         ),
+  //       ),
 
-        Positioned(
-          top: 45,
-          left: 16,
-          child: _circleButton(
-            Icons.arrow_back_ios_new,
-            () => Navigator.pop(context),
-          ),
-        ),
-        Positioned(
-          top: 45,
-          right: 16,
-          child: _circleButton(Icons.more_horiz, () {}),
-        ),
-        const Positioned(
-          top: 60,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Text(
-              "USER DETAILS",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 25,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  //       Positioned(
+  //         top: 45,
+  //         left: 16,
+  //         child: _circleButton(
+  //           Icons.arrow_back_ios_new,
+  //           () => Navigator.pop(context),
+  //         ),
+  //       ),
+  //       Positioned(
+  //         top: 45,
+  //         right: 16,
+  //         child: _circleButton(Icons.more_horiz, () {}),
+  //       ),
+  //       const Positioned(
+  //         top: 60,
+  //         left: 0,
+  //         right: 0,
+  //         child: Center(
+  //           child: Text(
+  //             "USER DETAILS",
+  //             style: TextStyle(
+  //               color: Colors.white,
+  //               fontSize: 25,
+  //               fontWeight: FontWeight.bold,
+  //             ),
+  //           ),
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -143,13 +143,10 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            /// 🔍 Search Bar
             SliverToBoxAdapter(child: _searchBar()),
 
-            /// 🧭 Tabs
             SliverToBoxAdapter(child: _tabs()),
 
-            /// 👥 User List
             SliverPadding(
               padding: const EdgeInsets.all(16),
               sliver: loading

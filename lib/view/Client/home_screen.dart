@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
+import 'package:projectqdel/view/Client/all_recentOrders.dart';
+import 'package:projectqdel/view/Client/order_adding.dart';
 
 class UserHomeScreen extends StatelessWidget {
   const UserHomeScreen({super.key});
@@ -21,10 +23,7 @@ class UserHomeScreen extends StatelessWidget {
                   const SizedBox(height: 24),
                   const Text(
                     "Active Orders",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   _orderCard(
@@ -73,10 +72,7 @@ class UserHomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
-              Text(
-                "Welcome 👋",
-                style: TextStyle(color: Colors.white70),
-              ),
+              Text("Welcome 👋", style: TextStyle(color: Colors.white70)),
               Text(
                 "User",
                 style: TextStyle(
@@ -94,7 +90,6 @@ class UserHomeScreen extends StatelessWidget {
     );
   }
 
-  /// ⚡ Quick Actions
   Widget _quickActions(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -103,19 +98,23 @@ class UserHomeScreen extends StatelessWidget {
           icon: Icons.add_box,
           label: "Create Order",
           onTap: () {
-            // Navigator.push(...)
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AddShipmentScreen()),
+            );
           },
         ),
         _actionCard(
           icon: Icons.list_alt,
           label: "My Orders",
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => MyOrdersScreen()),
+            );
+          },
         ),
-        _actionCard(
-          icon: Icons.local_shipping,
-          label: "Track",
-          onTap: () {},
-        ),
+        _actionCard(icon: Icons.local_shipping, label: "Track", onTap: () {}),
       ],
     );
   }
@@ -135,20 +134,14 @@ class UserHomeScreen extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(.05),
-                blurRadius: 8,
-              ),
+              BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8),
             ],
           ),
           child: Column(
             children: [
               Icon(icon, color: ColorConstants.red, size: 30),
               const SizedBox(height: 8),
-              Text(
-                label,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -156,7 +149,6 @@ class UserHomeScreen extends StatelessWidget {
     );
   }
 
-  /// 📦 Order Card
   Widget _orderCard({
     required String orderId,
     required String status,
@@ -185,10 +177,7 @@ class UserHomeScreen extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   status,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(color: color, fontWeight: FontWeight.w600),
                 ),
               ],
             ),

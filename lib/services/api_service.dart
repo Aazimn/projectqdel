@@ -12,7 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl = "https://examine-way-children-hills.trycloudflare.com";
+  final String baseurl =
+      "https://secondary-discounts-says-shareware.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -1197,8 +1198,12 @@ class ApiService {
         }),
       );
 
+      debugPrint("UPDATE RECEIVER STATUS: ${response.statusCode}");
+      debugPrint("UPDATE RECEIVER BODY: ${response.body}");
+
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
+      debugPrint("UPDATE RECEIVER ERROR: $e");
       return false;
     }
   }

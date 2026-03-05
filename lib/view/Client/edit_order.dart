@@ -1,15 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Client/map_picker.dart';
 import 'package:projectqdel/view/Client/client_dashboard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class OrderPlacedScreen extends StatefulWidget {
+class EditOrder extends StatefulWidget {
   final int productId;
   final int senderAddressId;
   final int pickupId;
-  const OrderPlacedScreen({
+  const EditOrder({
     super.key,
     required this.productId,
     required this.senderAddressId,
@@ -17,10 +20,10 @@ class OrderPlacedScreen extends StatefulWidget {
   });
 
   @override
-  State<OrderPlacedScreen> createState() => _OrderPlacedScreenState();
+  State<EditOrder> createState() => _EditOrderState();
 }
 
-class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
+class _EditOrderState extends State<EditOrder> {
   final ApiService apiService = ApiService();
   Map<String, dynamic>? product;
   bool loading = true;
@@ -31,6 +34,9 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
 
   bool isUserChangingCountry = false;
   bool isUserChangingState = false;
+
+  String? receiverLocationName;
+  String? senderLocationName;
 
   double? senderLatitude;
   double? senderLongitude;
@@ -303,8 +309,29 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       combined['district'] = address['district'] ?? '';
       combined['state'] = address['state'] ?? '';
       combined['country'] = address['country'] ?? '';
+
+      combined['latitude'] = address['latitude'] ?? '';
+      combined['longitude'] = address['longitude'] ?? '';
+
       senderLatitude = double.tryParse(address['latitude']?.toString() ?? '');
       senderLongitude = double.tryParse(address['longitude']?.toString() ?? '');
+
+      if ((address['address'] == "200" ||
+              address['address']?.isEmpty == true) &&
+          senderLatitude != null &&
+          senderLongitude != null) {
+        try {
+          String realLocationName = await _getLocationName(
+            senderLatitude!,
+            senderLongitude!,
+          );
+          setState(() {
+            senderLocationName = realLocationName;
+          });
+        } catch (e) {
+          debugPrint("Error getting location name: $e");
+        }
+      }
     }
 
     setState(() {
@@ -316,34 +343,77 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     senderAddressCtrl.text = combined['address'] ?? '';
     senderLandmarkCtrl.text = combined['landmark'] ?? '';
     senderZipCtrl.text = combined['zip_code'] ?? '';
+
+    if (senderLocationName == null || senderLocationName?.isEmpty == true) {
+      if (combined['address'] == "200" ||
+          combined['address']?.isEmpty == true) {
+        List<String> locationParts = [];
+        if (combined['district'] != null &&
+            combined['district'].toString().isNotEmpty) {
+          locationParts.add(combined['district']);
+        }
+        if (combined['state'] != null &&
+            combined['state'].toString().isNotEmpty) {
+          locationParts.add(combined['state']);
+        }
+        if (combined['country'] != null &&
+            combined['country'].toString().isNotEmpty) {
+          locationParts.add(combined['country']);
+        }
+
+        senderLocationName = locationParts.isNotEmpty
+            ? locationParts.join(", ")
+            : "Selected location";
+      } else {
+        senderLocationName = combined['address'] ?? "Saved location";
+      }
+    }
+  }
+
+  Future<String> _getLocationName(double lat, double lng) async {
+    try {
+      const String apiKey = 'YOUR_GOOGLE_MAPS_API_KEY';
+      final url =
+          'https://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&key=$apiKey';
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'OK' && data['results'].isNotEmpty) {
+          return data['results'][0]['formatted_address'];
+        }
+      }
+    } catch (e) {
+      debugPrint("Geocoding error: $e");
+    }
+    return "Location at $lat, $lng";
   }
 
   Future<void> _loadReceiverAddress() async {
     final response = await apiService.getReceiverDetails(widget.pickupId);
 
     if (!mounted || response == null) return;
-
-    final receiver = response['receiver_details'];
     final address = response['receiver_address'];
 
-    if (receiver == null && address == null) {
+    if (address == null) {
       debugPrint("⚠️ Receiver not available yet");
       return;
     }
+
     Map<String, dynamic> combinedAddress = {};
 
-    if (receiver != null) {
-      combinedAddress['receiver_name'] = receiver['full_name'] ?? '';
-      combinedAddress['receiver_phone'] = receiver['phone'] ?? '';
-    }
-
     if (address != null) {
+      combinedAddress['id'] = address['id'];
+      combinedAddress['receiver_name'] = address['receiver_name'] ?? '';
+      combinedAddress['receiver_phone'] = address['receiver_phone'] ?? '';
       combinedAddress['address_text'] = address['address_text'] ?? '';
       combinedAddress['landmark'] = address['landmark'] ?? '';
       combinedAddress['zip_code'] = address['zip_code'] ?? '';
       combinedAddress['district'] = address['district'] ?? '';
       combinedAddress['state'] = address['state'] ?? '';
       combinedAddress['country'] = address['country'] ?? '';
+      combinedAddress['latitude'] = address['latitude'] ?? '';
+      combinedAddress['longitude'] = address['longitude'] ?? '';
 
       receiverLatitude = double.tryParse(address['latitude']?.toString() ?? '');
       receiverLongitude = double.tryParse(
@@ -354,56 +424,39 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     setState(() {
       receiverAddress = combinedAddress;
     });
+
     receiverNameCtrl.text = combinedAddress['receiver_name'] ?? '';
     receiverPhoneCtrl.text = combinedAddress['receiver_phone'] ?? '';
     receiverAddressCtrl.text = combinedAddress['address_text'] ?? '';
     receiverLandmarkCtrl.text = combinedAddress['landmark'] ?? '';
     receiverZipCtrl.text = combinedAddress['zip_code'] ?? '';
+    if (receiverLatitude != null && receiverLongitude != null) {
+      try {
+        String realLocationName = await _getLocationName(
+          receiverLatitude!,
+          receiverLongitude!,
+        );
+        setState(() {
+          receiverLocationName = realLocationName;
+          if (receiverAddress != null) {
+            receiverAddress!['address_text'] = realLocationName;
+          }
+        });
+      } catch (e) {
+        debugPrint("Error getting receiver location name: $e");
+        setState(() {
+          receiverLocationName =
+              combinedAddress['address_text'] ?? "Saved location";
+        });
+      }
+    } else {
+      receiverLocationName =
+          combinedAddress['address_text'] ?? "Saved location";
+    }
+
+    debugPrint("✅ Loaded receiver address with ID: ${combinedAddress['id']}");
+    debugPrint("📍 Receiver location name: $receiverLocationName");
   }
-  // Future<void> _loadReceiverAddress() async {
-  //   final response = await apiService.getReceiverAddressByPickupId(
-  //     widget.pickupId,
-  //   );
-
-  //   if (!mounted) return;
-
-  //   // 🚨 Receiver address not found (404 or null)
-  //   if (response == null || response['status'] == 'error') {
-  //     debugPrint("⚠️ Receiver address not found, allowing empty form");
-
-  //     setState(() {
-  //       receiverAddress = null;
-  //     });
-
-  //     // CLEAR CONTROLLERS (important)
-  //     receiverNameCtrl.clear();
-  //     receiverPhoneCtrl.clear();
-  //     receiverAddressCtrl.clear();
-  //     receiverLandmarkCtrl.clear();
-  //     receiverZipCtrl.clear();
-
-  //     receiverLatitude = null;
-  //     receiverLongitude = null;
-
-  //     return;
-  //   }
-
-  //   final data = response['data'];
-  //   if (data == null) return;
-
-  //   setState(() {
-  //     receiverAddress = data;
-  //   });
-
-  //   receiverNameCtrl.text = data['receiver_name'] ?? '';
-  //   receiverPhoneCtrl.text = data['receiver_phone'] ?? '';
-  //   receiverAddressCtrl.text = data['address_text'] ?? '';
-  //   receiverLandmarkCtrl.text = data['landmark'] ?? '';
-  //   receiverZipCtrl.text = data['zip_code'] ?? '';
-
-  //   receiverLatitude = double.tryParse(data['latitude']?.toString() ?? '');
-  //   receiverLongitude = double.tryParse(data['longitude']?.toString() ?? '');
-  // }
 
   Future<void> _loadProduct() async {
     try {
@@ -729,13 +782,16 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     bool isNumber = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 15),
       child: TextField(
         controller: controller,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
         decoration: InputDecoration(
           labelText: label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.red.shade300),
+          ),
         ),
       ),
     );
@@ -783,6 +839,14 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     String? zip,
     VoidCallback? onEdit,
   }) {
+  
+    String displayAddress = address;
+    if (title == "SENDER DETAILS" && senderLocationName != null) {
+      displayAddress = senderLocationName!;
+    } else if (title == "RECEIVER DETAILS" && receiverLocationName != null) {
+      displayAddress = receiverLocationName!;
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -811,16 +875,29 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
             name.toUpperCase(),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
           ),
-
           Text(phone),
           const SizedBox(height: 8),
-          Text(
-            address.toUpperCase(),
-            style: const TextStyle(color: Color.fromARGB(255, 117, 116, 116)),
+
+          Row(
+            children: [
+              Icon(Icons.location_on, color: Colors.red, size: 16),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  displayAddress,
+                  style: const TextStyle(
+                    color: Color.fromARGB(255, 117, 116, 116),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
+
           if (landmark != null && landmark.isNotEmpty) ...[
+            const SizedBox(height: 4),
             Text(
-              landmark.toUpperCase(),
+              "Landmark: $landmark",
               style: const TextStyle(
                 color: Color.fromARGB(255, 117, 116, 116),
                 fontSize: 12,
@@ -832,7 +909,6 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
               "Zip: $zip",
               style: const TextStyle(color: Color.fromARGB(255, 117, 116, 116)),
             ),
-
           if (district != null && district.isNotEmpty)
             Text(
               "District: $district",
@@ -853,8 +929,94 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     );
   }
 
+  Widget _buildMapSelectionCard(
+    String title,
+    double? selected,
+    VoidCallback onTap,
+    Color color, {
+    String? locationName,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Material(
+        elevation: 2,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    selected == null ? Icons.map_outlined : Icons.check,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: color,
+                        ),
+                      ),
+                      Text(
+                        selected == null
+                            ? "Tap to select on map"
+                            : (locationName?.isNotEmpty == true
+                                  ? locationName!
+                                  : "Location selected ✓"),
+                        style: TextStyle(
+                          color: selected == null
+                              ? AddressColors.textSecondary
+                              : color,
+                          fontSize: 14,
+                          fontWeight: locationName?.isNotEmpty == true
+                              ? FontWeight.w500
+                              : FontWeight.normal,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios, color: color, size: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openEditReceiverSheet() async {
     await _setReceiverDropdownDefaults();
+    receiverLatitude = double.tryParse(
+      receiverAddress?['latitude']?.toString() ?? '',
+    );
+    receiverLongitude = double.tryParse(
+      receiverAddress?['longitude']?.toString() ?? '',
+    );
+    receiverLocationName = receiverAddress?['address_text'] ?? "Saved location";
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -888,10 +1050,12 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                     _textField("Address", receiverAddressCtrl),
                     _textField("Landmark", receiverLandmarkCtrl),
                     _textField("Zip Code", receiverZipCtrl, isNumber: true),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.map),
-                      label: const Text("Pick location from map"),
-                      onPressed: () async {
+                    _buildMapSelectionCard(
+                      "Receiver Location",
+                      receiverLatitude,
+                      () async {
+                        debugPrint('🗺️ Opening map picker');
+
                         final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -900,22 +1064,23 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                         );
 
                         if (result != null) {
-                          setState(() {
-                            receiverLatitude = result.latitude;
-                            receiverLongitude = result.longitude;
+                          setModalState(() {
+                            receiverLatitude = result['latitude'];
+                            receiverLongitude = result['longitude'];
+                            receiverLocationName = result['locationName'];
                           });
 
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                "Location selected: "
-                                "${receiverLatitude!.toStringAsFixed(5)}, "
-                                "${receiverLongitude!.toStringAsFixed(5)}",
-                              ),
-                            ),
-                          );
+                          setState(() {
+                            receiverLocationName = result['locationName'];
+                            if (receiverAddress != null) {
+                              receiverAddress!['address_text'] =
+                                  result['locationName'];
+                            }
+                          });
                         }
                       },
+                      Colors.red,
+                      locationName: receiverLocationName,
                     ),
                     Row(
                       children: [
@@ -1006,59 +1171,150 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
   Future<void> _updateReceiverAddress() async {
     Navigator.pop(context);
 
+    debugPrint("🟡 UPDATE RECEIVER STARTED");
+    debugPrint("➡️ pickupId: ${widget.pickupId}");
+    debugPrint("➡️ productId: ${widget.productId}");
+    debugPrint("➡️ receiverId: ${apiService.currentUserId}");
+
+    debugPrint("📦 ORIGINAL RECEIVER ADDRESS DATA:");
+    debugPrint(receiverAddress.toString());
+
+    debugPrint("➡️ receiverAddress ID: ${receiverAddress?['id']}");
+
+    if (receiverAddress?['id'] == null) {
+      debugPrint("❌ CRITICAL: receiverAddress ID is null!");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Error: Receiver address ID not found. Please refresh and try again.",
+          ),
+        ),
+      );
+      return;
+    }
+
     final safeReceiverLat =
         receiverLatitude?.toString() ??
-        (receiverAddress?['latitude'] ?? "").toString();
+        (receiverAddress?['latitude'] != null
+            ? receiverAddress!['latitude'].toString()
+            : null);
 
     final safeReceiverLng =
         receiverLongitude?.toString() ??
-        (receiverAddress?['longitude'] ?? "").toString();
+        (receiverAddress?['longitude'] != null
+            ? receiverAddress!['longitude'].toString()
+            : null);
 
-    final success = await apiService.updateReceiverAddress(
-      addressId: widget.pickupId,
-      productId: widget.productId,
-      receiverId: apiService.currentUserId,
+    final updatedReceiverName = receiverNameCtrl.text.trim().isEmpty
+        ? (receiverAddress?['receiver_name'] ?? "").toString()
+        : receiverNameCtrl.text.trim();
 
-      receiverName: receiverNameCtrl.text.trim().isEmpty
-          ? (receiverAddress?['receiver_name'] ?? "").toString()
-          : receiverNameCtrl.text.trim(),
+    final updatedPhone = receiverPhoneCtrl.text.trim().isEmpty
+        ? (receiverAddress?['receiver_phone'] ?? "").toString()
+        : receiverPhoneCtrl.text.trim();
 
-      phoneNumber: receiverPhoneCtrl.text.trim().isEmpty
-          ? (receiverAddress?['receiver_phone'] ?? "").toString()
-          : receiverPhoneCtrl.text.trim(),
+    final updatedAddress = receiverAddressCtrl.text.trim().isEmpty
+        ? (receiverAddress?['address_text'] ?? "").toString()
+        : receiverAddressCtrl.text.trim();
 
-      address: receiverAddressCtrl.text.trim().isEmpty
-          ? (receiverAddress?['address_text'] ?? "").toString()
-          : receiverAddressCtrl.text.trim(),
+    final updatedLandmark = receiverLandmarkCtrl.text.trim().isEmpty
+        ? (receiverAddress?['landmark'] ?? "").toString()
+        : receiverLandmarkCtrl.text.trim();
 
-      landmark: receiverLandmarkCtrl.text.trim().isEmpty
-          ? (receiverAddress?['landmark'] ?? "").toString()
-          : receiverLandmarkCtrl.text.trim(),
+    final updatedZip = receiverZipCtrl.text.trim().isEmpty
+        ? (receiverAddress?['zip_code'] ?? "").toString()
+        : receiverZipCtrl.text.trim();
 
-      latitude: safeReceiverLat,
-      longitude: safeReceiverLng,
+    debugPrint("📊 FINAL DATA BEING SENT TO API:");
+    debugPrint("receiverName: $updatedReceiverName");
+    debugPrint("phoneNumber: $updatedPhone");
+    debugPrint("address: $updatedAddress");
+    debugPrint("landmark: $updatedLandmark");
+    debugPrint("latitude: $safeReceiverLat");
+    debugPrint("longitude: $safeReceiverLng");
+    debugPrint("districtId: $selectedReceiverDistrictId");
+    debugPrint("stateId: $selectedReceiverStateId");
+    debugPrint("countryId: $selectedReceiverCountryId");
+    debugPrint("zipCode: $updatedZip");
 
-      district: selectedReceiverDistrictId,
-      state: selectedReceiverStateId,
-      country: selectedReceiverCountryId,
+    try {
+      debugPrint("🚀 CALLING updateReceiverAddress API...");
+      if (safeReceiverLat == null || safeReceiverLng == null) {
+        debugPrint("❌ LATITUDE OR LONGITUDE MISSING");
 
-      zipCode: receiverZipCtrl.text.trim().isEmpty
-          ? (receiverAddress?['zip_code'] ?? "").toString()
-          : receiverZipCtrl.text.trim(),
-    );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Please select location on map before updating"),
+          ),
+        );
+        return;
+      }
 
-    if (!mounted) return;
+      final success = await apiService.updateReceiverAddress(
+        addressId: receiverAddress?['id'],
+        productId: widget.productId,
+        receiverId: apiService.currentUserId,
 
-    if (success) {
-      await _loadReceiverAddress();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Receiver updated successfully")),
+        receiverName: updatedReceiverName,
+        phoneNumber: updatedPhone,
+        address: updatedAddress,
+        landmark: updatedLandmark,
+        latitude: safeReceiverLat,
+        longitude: safeReceiverLng,
+
+        district: selectedReceiverDistrictId,
+        state: selectedReceiverStateId,
+        country: selectedReceiverCountryId,
+
+        zipCode: updatedZip,
       );
+
+      debugPrint("🟢 API RESULT: $success");
+
+      if (!mounted) return;
+
+      if (success) {
+        debugPrint("✅ Receiver update SUCCESS → Reloading receiver address");
+        if (receiverLocationName != null && receiverAddress != null) {
+          receiverAddress!['address_text'] = receiverLocationName;
+        }
+        await _loadReceiverAddress();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Receiver updated successfully")),
+        );
+      } else {
+        debugPrint("❌ Receiver update FAILED");
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to update receiver address")),
+        );
+      }
+    } catch (e, stack) {
+      debugPrint("🔥 EXCEPTION DURING RECEIVER UPDATE");
+      debugPrint("Error: $e");
+      debugPrint("Stack: $stack");
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error updating receiver: $e")));
     }
   }
 
   Future<void> _openEditSenderSheet() async {
     await _setSenderDropdownDefaults();
+
+    senderLatitude = double.tryParse(
+      senderAddress?['latitude']?.toString() ?? '',
+    );
+    senderLongitude = double.tryParse(
+      senderAddress?['longitude']?.toString() ?? '',
+    );
+
+    if (senderLocationName == null || senderLocationName?.isEmpty == true) {
+      senderLocationName = senderAddress?['address'] ?? "Saved location";
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1093,10 +1349,12 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                     _textField("Address", senderAddressCtrl),
                     _textField("Landmark", senderLandmarkCtrl),
                     _textField("Zip Code", senderZipCtrl, isNumber: true),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.map),
-                      label: const Text("Pick location from map"),
-                      onPressed: () async {
+
+                    _buildMapSelectionCard(
+                      "Sender Location",
+                      senderLatitude,
+                      () async {
+                        debugPrint('🗺️ Opening map picker for sender');
                         final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -1105,22 +1363,18 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                         );
 
                         if (result != null) {
-                          setState(() {
-                            senderLatitude = result.latitude;
-                            senderLongitude = result.longitude;
+                          setModalState(() {
+                            senderLatitude = result['latitude'];
+                            senderLongitude = result['longitude'];
+                            senderLocationName =
+                                result['locationName'];
                           });
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                "Location selected: ${senderLatitude!.toStringAsFixed(5)}, "
-                                "${senderLongitude!.toStringAsFixed(5)}",
-                              ),
-                            ),
-                          );
                         }
                       },
+                      Colors.red,
+                      locationName: senderLocationName,
                     ),
+
                     Row(
                       children: [
                         Expanded(
@@ -1216,6 +1470,23 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
 
     debugPrint("🟡 UPDATE SENDER STARTED");
     debugPrint("➡️ senderAddressId: ${widget.senderAddressId}");
+    final safeSenderLat =
+        senderLatitude?.toString() ??
+        (senderAddress?['latitude']?.toString() ?? '');
+    final safeSenderLng =
+        senderLongitude?.toString() ??
+        (senderAddress?['longitude']?.toString() ?? '');
+
+    debugPrint("📍 Sender Lat: $safeSenderLat, Lng: $safeSenderLng");
+
+    if (safeSenderLat.isEmpty || safeSenderLng.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select location on map before updating"),
+        ),
+      );
+      return;
+    }
 
     final updatedSenderName = senderNameCtrl.text.trim().isEmpty
         ? (senderAddress?['sender_name'] ?? "").toString()
@@ -1246,6 +1517,8 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
     debugPrint("districtId: $selectedDistrictId");
     debugPrint("stateId: $selectedStateId");
     debugPrint("countryId: $selectedCountryId");
+    debugPrint("latitude: $safeSenderLat");
+    debugPrint("longitude: $safeSenderLng");
 
     try {
       final success = await apiService.updateSenderAddress(
@@ -1258,8 +1531,8 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
         state: selectedStateId,
         country: selectedCountryId,
         zipCode: updatedZip,
-        latitude: senderLatitude.toString(),
-        longitude: senderLongitude.toString(),
+        latitude: safeSenderLat,
+        longitude: safeSenderLng,
       );
 
       debugPrint("🟢 API RESULT: $success");
@@ -1287,7 +1560,6 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       ).showSnackBar(SnackBar(content: Text("Error updating sender: $e")));
     }
   }
-  
 
   Widget _bottomButton(BuildContext context) {
     return Padding(
@@ -1523,7 +1795,7 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
       debugPrint("Country not found: $countryName");
     }
 
-    setState(() {}); // Trigger rebuild
+    setState(() {}); 
   }
 
   Future<void> _setReceiverDropdownDefaults() async {

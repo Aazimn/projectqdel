@@ -40,7 +40,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   int? selectedReceiverAddressId;
   bool isCreatingShipment = false;
 
-  // Add these variables with your other declarations
   String? senderLocationName;
   String? receiverLocationName;
 
@@ -388,7 +387,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ColorConstants.white,
-      bottomNavigationBar: _buildBottomButton(),
+      // bottomNavigationBar: _buildBottomButton(),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -396,8 +395,23 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             SizedBox(height: 30),
             _buildProductFieldsSection(),
             SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Text(
+                    "SENDER ADDRESS",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-            _sectionHeader("SENDER ADDRESS"),
             isSenderCompleted
                 ? _buildSavedAddressCard(
                     type: "Sender",
@@ -420,13 +434,28 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                     title: "Sender Address",
                     subtitle: "Add pickup location details",
                     iconPath: "assets/sender_icon.png",
-                    primaryColor: AddressColors.senderPrimary,
+                    primaryColor: ColorConstants.black,
                     lightColor: AddressColors.senderLight,
                     onTap: _openAttractiveSenderSelectorSheet,
                   ),
             SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Text(
+                    "RECEIVER ADDRESS",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-            _sectionHeader("RECEIVER ADDRESS"),
             isReceiverCompleted
                 ? _buildSavedAddressCard(
                     type: "Receiver",
@@ -441,56 +470,57 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                     state: receiverStateCtrl.text,
                     country: receiverCountryCtrl.text,
                     onEdit: _openAttractiveReceiverSelectorSheet,
-                    locationName: receiverLocationName, // Add this
-                    lat: receiverLat, // Add this
-                    lng: receiverLng, // Add this
+                    locationName: receiverLocationName,
+                    lat: receiverLat,
+                    lng: receiverLng,
                   )
                 : _buildAttractiveAddressCard(
                     title: "Receiver Address",
                     subtitle: "Add delivery location details",
                     iconPath: "assets/receiver_icon.png",
-                    primaryColor: AddressColors.receiverPrimary,
+                    primaryColor: ColorConstants.black,
                     lightColor: AddressColors.receiverLight,
                     onTap: _openAttractiveReceiverSelectorSheet,
                   ),
+            _buildBottomButton(),
           ],
         ),
       ),
     );
   }
 
-  Widget _sectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 18, bottom: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.all(Radius.circular(20)),
-              // borderRadius: BorderRadius.only(
-              //   // Radius.circular(20),
-              //   bottomRight: Radius.circular(20),
-              //   topRight: Radius.circular(20),
-              //   // bottomLeft: Radius.circular(20),
-              // ),
-              color: Colors.red,
-            ),
-            width: 170,
-            padding: const EdgeInsets.all(14),
+  // Widget _sectionHeader(String title) {
+  //   return Padding(
+  //     padding: const EdgeInsets.only(left: 18, bottom: 10),
+  //     child: Row(
+  //       mainAxisAlignment: MainAxisAlignment.start,
+  //       children: [
+  //         Container(
+  //           decoration: BoxDecoration(
+  //             borderRadius: BorderRadius.all(Radius.circular(20)),
+  //             // borderRadius: BorderRadius.only(
+  //             //   // Radius.circular(20),
+  //             //   bottomRight: Radius.circular(20),
+  //             //   topRight: Radius.circular(20),
+  //             //   // bottomLeft: Radius.circular(20),
+  //             // ),
+  //             color: Colors.red,
+  //           ),
+  //           width: 170,
+  //           padding: const EdgeInsets.all(14),
 
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  //           child: Text(
+  //             title,
+  //             style: const TextStyle(
+  //               color: Colors.white,
+  //               fontWeight: FontWeight.bold,
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _input(
     String label,
@@ -509,8 +539,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AddressColors
-                  .senderPrimary, // Using sender primary color for label
+              color: Colors.black,
             ),
           ),
           const SizedBox(height: 6),
@@ -519,7 +548,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: AddressColors.senderPrimary.withOpacity(0.1),
+                  color: Colors.black.withOpacity(0.1),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -548,7 +577,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
-                    color: AddressColors.senderPrimary.withOpacity(0.3),
+                    color: Colors.black.withOpacity(0.3),
                     width: 1.5,
                   ),
                 ),
@@ -580,7 +609,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     );
   }
 
-  // Helper method to get appropriate icon for each field
   Widget? _getPrefixIconForField(String label) {
     IconData? iconData;
 
@@ -666,7 +694,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AddressColors.senderPrimary,
+              color: Colors.black,
             ),
           ),
           const SizedBox(height: 6),
@@ -678,13 +706,13 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AddressColors.senderPrimary.withOpacity(0.3),
+                  color: Colors.black.withOpacity(0.3),
                   width: 1.5,
                 ),
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: AddressColors.senderPrimary.withOpacity(0.1),
+                    color: Colors.black.withOpacity(0.1),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -766,145 +794,181 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
 
   Widget _buildBottomButton() {
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+      padding: const EdgeInsets.all(20),
+      child: Container(
+        height: 50,
+        width: 250,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.red.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        onPressed: isCreatingShipment
-            ? null
-            : () async {
-                if (nameCtrl.text.isEmpty ||
-                    volumeCtrl.text.isEmpty ||
-                    senderAddressCtrl.text.isEmpty ||
-                    senderDistrictCtrl.text.isEmpty ||
-                    senderStateCtrl.text.isEmpty ||
-                    senderCountryCtrl.text.isEmpty ||
-                    senderZipCtrl.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Please fill all required fields"),
-                    ),
-                  );
-                  return;
-                }
-                final productSuccess = await apiService.addProduct(
-                  name: nameCtrl.text,
-                  description: descCtrl.text,
-                  volume: volumeCtrl.text,
-                  actualWeight: weightCtrl.text,
-                  image: productImage,
-                );
-                if (!productSuccess) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Product creation failed")),
-                  );
-                  return;
-                }
-                if (apiService.lastCreatedProductId == null ||
-                    apiService.currentUserId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("User session error. Please login again"),
-                    ),
-                  );
-                  return;
-                }
-                if (selectedReceiverCountryId == null ||
-                    selectedReceiverStateId == null ||
-                    selectedReceiverDistrictId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        "Please select receiver country, state and district",
+        child: Material(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: isCreatingShipment
+                ? null
+                : () async {
+                    if (nameCtrl.text.isEmpty ||
+                        volumeCtrl.text.isEmpty ||
+                        senderAddressCtrl.text.isEmpty ||
+                        senderDistrictCtrl.text.isEmpty ||
+                        senderStateCtrl.text.isEmpty ||
+                        senderCountryCtrl.text.isEmpty ||
+                        senderZipCtrl.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Please fill all required fields"),
+                        ),
+                      );
+                      return;
+                    }
+
+                    final productSuccess = await apiService.addProduct(
+                      name: nameCtrl.text,
+                      description: descCtrl.text,
+                      volume: volumeCtrl.text,
+                      actualWeight: weightCtrl.text,
+                      image: productImage,
+                    );
+
+                    if (!productSuccess) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Product creation failed"),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (apiService.lastCreatedProductId == null ||
+                        apiService.currentUserId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "User session error. Please login again",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (selectedReceiverCountryId == null ||
+                        selectedReceiverStateId == null ||
+                        selectedReceiverDistrictId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "Please select receiver country, state and district",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (senderLat == null || senderLng == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Please select pickup location on map"),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (receiverLat == null || receiverLng == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "Please select delivery location on map",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (selectedSenderAddressId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Please select a sender address"),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (selectedReceiverAddressId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Please select a receiver address"),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (!mounted) return;
+                    setState(() => isCreatingShipment = true);
+
+                    final pickupResponse = await apiService.createPickupRequest(
+                      receiverId: selectedReceiverAddressId!,
+                      productId: apiService.lastCreatedProductId!,
+                      senderAddressId: selectedSenderAddressId!,
+                      receiverAddressId: selectedReceiverAddressId!,
+                    );
+
+                    setState(() => isCreatingShipment = false);
+
+                    if (pickupResponse == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Failed to create shipment"),
+                        ),
+                      );
+                      return;
+                    }
+
+                    final pickupId = pickupResponse["id"];
+
+                    if (!mounted) return;
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => OrderSuccessWrapper(
+                          productId: apiService.lastCreatedProductId,
+                          pickupId: pickupId,
+                          orderNumber: pickupResponse["pickup_no"],
+                        ),
+                      ),
+                    );
+                  },
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: isCreatingShipment
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      "Create Shipment",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  );
-                  return;
-                }
-                if (senderLat == null || senderLng == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Please select pickup location on map"),
-                    ),
-                  );
-                  return;
-                }
-
-                if (receiverLat == null || receiverLng == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Please select delivery location on map"),
-                    ),
-                  );
-                  return;
-                }
-                if (selectedSenderAddressId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Please select a sender address"),
-                    ),
-                  );
-                  return;
-                }
-
-                if (selectedReceiverAddressId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Please select a receiver address"),
-                    ),
-                  );
-                  return;
-                }
-                if (!mounted) return;
-                setState(() => isCreatingShipment = true);
-
-                final pickupResponse = await apiService.createPickupRequest(
-                  receiverId: selectedReceiverAddressId!,
-                  productId: apiService.lastCreatedProductId!,
-                  senderAddressId: selectedSenderAddressId!,
-                  receiverAddressId: selectedReceiverAddressId!,
-                );
-
-                setState(() => isCreatingShipment = false);
-
-                if (pickupResponse == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Failed to create shipment")),
-                  );
-                  return;
-                }
-                final pickupId = pickupResponse["id"];
-
-                if (!mounted) return;
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => OrderSuccessWrapper(
-                      productId: apiService.lastCreatedProductId,
-                      pickupId: pickupId,
-                      orderNumber: pickupResponse["pickup_no"],
-                    ),
-                  ),
-                );
-              },
-        child: isCreatingShipment
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : const Text(
-                "Create Shipment",
-                style: TextStyle(fontSize: 16, color: Colors.white),
-              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1071,7 +1135,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                     color: primaryColor.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.send, color: primaryColor, size: 28),
+                  child: Icon(Icons.send, color: Colors.red, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -1083,7 +1147,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: primaryColor,
+                          color: Colors.red,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1130,8 +1194,8 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     required String state,
     required String country,
     required VoidCallback onEdit,
-    String? locationName, // Add this parameter
-    double? lat, // Add these for coordinates
+    String? locationName,
+    double? lat,
     double? lng,
   }) {
     return Padding(
@@ -1140,10 +1204,10 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
         decoration: BoxDecoration(
           color: ColorConstants.white,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: primaryColor.withOpacity(0.3), width: 1.5),
+          border: Border.all(color: Colors.black.withOpacity(0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: primaryColor.withOpacity(0.1),
+              color: Colors.black.withOpacity(0.1),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -1154,7 +1218,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             Container(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
               decoration: BoxDecoration(
-                color: primaryColor.withOpacity(0.1),
+                color: Colors.black.withOpacity(0.1),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(24),
                   topRight: Radius.circular(24),
@@ -1186,7 +1250,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.1),
+                          color: Colors.black.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
@@ -1210,31 +1274,24 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Phone
                   _buildInfoRow(Icons.phone, phone, primaryColor),
 
-                  // Address
                   _buildInfoRow(Icons.location_on, address, primaryColor),
 
-                  // Landmark (if available)
                   if (landmark.isNotEmpty)
                     _buildInfoRow(Icons.landscape, landmark, primaryColor),
 
-                  // ZIP Code
                   _buildInfoRow(Icons.pin_drop, zip, primaryColor),
 
                   const Divider(height: 24),
-
-                  // Location Details
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.05),
+                      color: Colors.black.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
                       children: [
-                        // District, State, Country
                         _buildInfoRow(
                           Icons.map,
                           "$district, $state, $country",
@@ -1242,7 +1299,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                           isBold: true,
                         ),
 
-                        // Location Name (from map)
                         if (locationName != null && locationName.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
@@ -1253,7 +1309,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                             ),
                           ),
 
-                        // Coordinates (if location name not available)
                         if (lat != null &&
                             lng != null &&
                             (locationName == null || locationName.isEmpty))
@@ -1271,7 +1326,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
 
                   const SizedBox(height: 16),
 
-                  // Edit Button
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
@@ -1285,7 +1339,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                         ),
                       ),
                       style: TextButton.styleFrom(
-                        backgroundColor: primaryColor.withOpacity(0.1),
+                        backgroundColor: Colors.black.withOpacity(0.1),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 12,
@@ -2266,14 +2320,14 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             decoration: BoxDecoration(
               color: ColorConstants.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color.withOpacity(0.2)),
+              border: Border.all(color: Colors.black.withOpacity(0.2)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: Colors.black.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.location_on, color: color),
@@ -2333,7 +2387,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
+                        color: Colors.black.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
