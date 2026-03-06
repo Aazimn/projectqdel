@@ -37,7 +37,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       print("Calling countries API...");
       final data = await apiService.getCountries();
       print("Countries response: $data");
-
       setState(() {
         countries = data;
       });
@@ -134,7 +133,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Registration successful")));
-
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const SplashScreen()),
@@ -328,7 +326,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                       );
                                       stateCache[value] = data;
                                     }
-
                                     setState(() {
                                       final selectedCountryName = countries
                                           .firstWhere(

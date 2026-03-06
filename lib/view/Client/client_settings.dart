@@ -72,7 +72,7 @@ class _ClientSettingsState extends State<ClientSettings> {
                   width: 110,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.red, width: 6),
+                    border: Border.all(color: ColorConstants.red, width: 6),
 
                     color: Colors.white,
                   ),
@@ -113,7 +113,7 @@ class _ClientSettingsState extends State<ClientSettings> {
             CircleAvatar(
               radius: 26,
               backgroundColor: Color(0xffFCE4EC),
-              child: Icon(Icons.person, color: Colors.red, size: 30),
+              child: Icon(Icons.person, color: ColorConstants.red, size: 30),
             ),
             SizedBox(width: 14),
             Expanded(
@@ -199,7 +199,7 @@ class _ClientSettingsState extends State<ClientSettings> {
     return Column(
       children: [
         ListTile(
-          leading: Icon(icon, color: Colors.red),
+          leading: Icon(icon, color: ColorConstants.red),
           title: Text(text),
           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
           onTap: () {},

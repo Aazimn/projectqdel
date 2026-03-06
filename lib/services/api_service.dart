@@ -13,7 +13,7 @@ class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
   final String baseurl =
-      "https://secondary-discounts-says-shareware.trycloudflare.com";
+      "https://changes-modes-overall-improvement.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -914,9 +914,21 @@ class ApiService {
           return data["id"] as int;
         }
 
-        // If ID is missing but API succeeded
-        logger.w("⚠️ Address saved but ID not returned");
-        return -1; // still treat as success
+        // If ID is missing but API succeeded, try to fetch the latest address
+        logger.w("⚠️ Address saved but ID not returned, fetching latest...");
+
+        // Fetch the latest sender addresses and return the most recent one
+        final addresses = await getSenderAddresses();
+        if (addresses.isNotEmpty) {
+          // Assuming the API returns them in descending order (newest first)
+          final latestId = addresses.first['id'] as int;
+          logger.i("✅ Using latest address ID: $latestId");
+          return latestId;
+        }
+
+        // If we can't get the ID, return null instead of -1
+        logger.e("❌ Could not retrieve address ID even after fetching");
+        return null;
       } catch (e) {
         logger.e("❌ JSON parse error: $e");
         return null;
@@ -931,7 +943,7 @@ class ApiService {
     required String receiverName,
     required String receiverPhone,
     required String address,
-    String? landmark,
+    required String landmark,
     required int? district,
     required int? state,
     required int? country,
@@ -940,41 +952,63 @@ class ApiService {
     required String? longitude,
   }) async {
     final url = Uri.parse("$baseurl/api/qdel/receiver/address/");
-    final payload = {
-      "receiver_name": receiverName.trim(),
-      "receiver_phone": receiverPhone.trim(),
-      "address_text": address.trim(),
-      "district": district,
-      "state": state,
-      "country": country,
-      "zip_code": zipCode.trim(),
-    };
 
-    if (landmark != null && landmark.trim().isNotEmpty) {
-      payload["landmark"] = landmark.trim();
-    }
-    if (latitude != null && latitude.isNotEmpty) {
-      payload["latitude"] = latitude;
-    }
-    if (longitude != null && longitude.isNotEmpty) {
-      payload["longitude"] = longitude;
-    }
     final response = await http.post(
       url,
       headers: {
         "Authorization": "Bearer ${ApiService.accessToken}",
         "Content-Type": "application/json",
       },
-      body: jsonEncode(payload),
+      body: jsonEncode({
+        "receiver_name": receiverName,
+        "receiver_phone": receiverPhone,
+        "address_text": address,
+        "landmark": landmark,
+        "district": district,
+        "state": state,
+        "country": country,
+        "zip_code": zipCode,
+        "latitude": latitude,
+        "longitude": longitude,
+      }),
     );
 
-    logger.i("CREATE SHIPMENT STATUS => ${response.statusCode}");
-    logger.i("CREATE SHIPMENT BODY => ${response.body}");
+    logger.i("ADD RECEIVER ADDRESS STATUS => ${response.statusCode}");
+    logger.i("ADD RECEIVER ADDRESS BODY => ${response.body}");
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = jsonDecode(response.body);
-      return data["data"]["id"];
+      try {
+        final decoded = jsonDecode(response.body);
+
+        // Check different possible response structures
+        if (decoded["id"] != null) {
+          return decoded["id"] as int;
+        } else if (decoded["data"] != null && decoded["data"]["id"] != null) {
+          return decoded["data"]["id"] as int;
+        } else if (decoded["address_id"] != null) {
+          return decoded["address_id"] as int;
+        }
+
+        // If ID is missing but API succeeded, try to fetch the latest address
+        logger.w(
+          "⚠️ Receiver address saved but ID not returned, fetching latest...",
+        );
+
+        final addresses = await getReceiverAddresses();
+        if (addresses.isNotEmpty) {
+          final latestId = addresses.first['id'] as int;
+          logger.i("✅ Using latest receiver address ID: $latestId");
+          return latestId;
+        }
+
+        return null;
+      } catch (e) {
+        logger.e("❌ JSON parse error: $e");
+        return null;
+      }
     }
+
+    logger.e("❌ Failed to add receiver address");
     return null;
   }
 
@@ -1099,7 +1133,6 @@ class ApiService {
     required String longitude,
   }) async {
     final url = Uri.parse("$baseurl/api/qdel/users/addresses/$addressId/");
-
     try {
       final response = await http.put(
         url,
@@ -1123,7 +1156,6 @@ class ApiService {
 
       logger.i("UPDATE SENDER STATUS => ${response.statusCode}");
       logger.i("UPDATE SENDER BODY => ${response.body}");
-
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
       logger.e("UPDATE SENDER ERROR => $e");
@@ -1135,7 +1167,6 @@ class ApiService {
     int pickupId,
   ) async {
     final url = Uri.parse("$baseurl/api/qdel/receiver/address/$pickupId/");
-
     try {
       final response = await http.get(
         url,
@@ -1144,10 +1175,8 @@ class ApiService {
           "Content-Type": "application/json",
         },
       );
-
       logger.i("GET RECEIVER STATUS => ${response.statusCode}");
       logger.i("GET RECEIVER BODY => ${response.body}");
-
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -1174,7 +1203,6 @@ class ApiService {
     required String longitude,
   }) async {
     final url = Uri.parse("$baseurl/api/qdel/receiver/address/$addressId/");
-
     try {
       final response = await http.put(
         url,
@@ -1197,10 +1225,8 @@ class ApiService {
           "longitude": longitude,
         }),
       );
-
       debugPrint("UPDATE RECEIVER STATUS: ${response.statusCode}");
       debugPrint("UPDATE RECEIVER BODY: ${response.body}");
-
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
       debugPrint("UPDATE RECEIVER ERROR: $e");
@@ -1231,9 +1257,7 @@ class ApiService {
         Uri.parse('$baseurl/api/qdel/user/view/all/orders/'),
         headers: {'Authorization': "Bearer ${ApiService.accessToken}"},
       );
-
       debugPrint("💡 GET ORDERS STATUS => ${response.statusCode}");
-
       if (response.statusCode != 200) {
         debugPrint("❌ HTTP Error: ${response.statusCode}");
         debugPrint("❌ Response body: ${response.body}");
@@ -1360,10 +1384,8 @@ class ApiService {
         },
         body: jsonEncode(body),
       );
-
       logger.i("CREATE PICKUP STATUS => ${response.statusCode}");
       logger.i("CREATE PICKUP RESPONSE => ${response.body}");
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(response.body);
       } else {
@@ -1496,4 +1518,44 @@ class ApiService {
     "Authorization": "Bearer ${ApiService.accessToken}",
     "Content-Type": "application/json",
   };
+
+  Future<Map<String, dynamic>?> cancelOrder({required int pickupId}) async {
+    final url = Uri.parse("$baseurl/api/qdel/sender/cancel/pickup/$pickupId/");
+
+    try {
+      final response = await http.post(url, headers: _headers());
+
+      logger.i("CANCEL ORDER URL :: $url");
+      logger.i("CANCEL ORDER STATUS :: ${response.statusCode}");
+      logger.i("CANCEL ORDER RESPONSE :: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        try {
+          return jsonDecode(response.body);
+        } catch (_) {
+          return {"success": true};
+        }
+      } else {
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['message'] ?? errorData['error'] ?? "Unknown error",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error":
+                "Failed to cancel order with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
+      }
+    } catch (e) {
+      logger.e("CANCEL ORDER EXCEPTION :: $e");
+      return {"success": false, "error": "Exception: $e"};
+    }
+  }
 }

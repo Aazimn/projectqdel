@@ -55,11 +55,11 @@ class _OrderSuccessWrapperState extends State<OrderSuccessWrapper> {
               style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],
-          const SizedBox(height: 20),
-          const Text(
-            "Redirecting to My Orders...",
-            style: TextStyle(fontSize: 14, color: Colors.grey),
-          ),
+          // const SizedBox(height: 20),
+          // const Text(
+          //   "Redirecting to Orders...",
+          //   style: TextStyle(fontSize: 14, color: Colors.grey),
+          // ),
         ],
       ),
     );

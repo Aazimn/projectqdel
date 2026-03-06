@@ -10,7 +10,7 @@ class ColorConstants {
   static const Color purple = Colors.purple;
   static const Color yellow = Colors.yellow;
   static const Color blue = Colors.blue;
-  static const Color red = Colors.red;
+  static const Color red = Color(0xFFE53935);
   static const Color deeporange = Colors.deepOrange;
   static const Color orange = Colors.orange;
   static const Color darkgreen = Color.fromARGB(255, 36, 92, 38);

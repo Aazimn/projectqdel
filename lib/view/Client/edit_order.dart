@@ -315,23 +315,6 @@ class _EditOrderState extends State<EditOrder> {
 
       senderLatitude = double.tryParse(address['latitude']?.toString() ?? '');
       senderLongitude = double.tryParse(address['longitude']?.toString() ?? '');
-
-      if ((address['address'] == "200" ||
-              address['address']?.isEmpty == true) &&
-          senderLatitude != null &&
-          senderLongitude != null) {
-        try {
-          String realLocationName = await _getLocationName(
-            senderLatitude!,
-            senderLongitude!,
-          );
-          setState(() {
-            senderLocationName = realLocationName;
-          });
-        } catch (e) {
-          debugPrint("Error getting location name: $e");
-        }
-      }
     }
 
     setState(() {
@@ -344,49 +327,77 @@ class _EditOrderState extends State<EditOrder> {
     senderLandmarkCtrl.text = combined['landmark'] ?? '';
     senderZipCtrl.text = combined['zip_code'] ?? '';
 
-    if (senderLocationName == null || senderLocationName?.isEmpty == true) {
-      if (combined['address'] == "200" ||
-          combined['address']?.isEmpty == true) {
-        List<String> locationParts = [];
-        if (combined['district'] != null &&
-            combined['district'].toString().isNotEmpty) {
-          locationParts.add(combined['district']);
-        }
-        if (combined['state'] != null &&
-            combined['state'].toString().isNotEmpty) {
-          locationParts.add(combined['state']);
-        }
-        if (combined['country'] != null &&
-            combined['country'].toString().isNotEmpty) {
-          locationParts.add(combined['country']);
-        }
+    String existingAddress = combined['address'] ?? '';
 
-        senderLocationName = locationParts.isNotEmpty
-            ? locationParts.join(", ")
-            : "Selected location";
-      } else {
-        senderLocationName = combined['address'] ?? "Saved location";
+    if (senderLatitude != null && senderLongitude != null) {
+      try {
+        String realLocationName = await _getLocationName(
+          senderLatitude!,
+          senderLongitude!,
+        );
+
+        if (realLocationName.isNotEmpty &&
+            (existingAddress.length < 10 ||
+                existingAddress == "200" ||
+                existingAddress.isEmpty)) {
+          setState(() {
+            senderLocationName = realLocationName;
+            if (senderAddress != null) {
+              senderAddress!['address'] = realLocationName;
+            }
+          });
+          debugPrint(
+            "📍 Got real sender location from coordinates: $senderLocationName",
+          );
+        } else {
+          setState(() {
+            senderLocationName = existingAddress;
+          });
+          debugPrint("📍 Keeping existing sender address: $senderLocationName");
+        }
+      } catch (e) {
+        debugPrint("Error getting location name: $e");
+        setState(() {
+          senderLocationName = existingAddress.isNotEmpty
+              ? existingAddress
+              : "Location at ${senderLatitude!.toStringAsFixed(4)}, ${senderLongitude!.toStringAsFixed(4)}";
+        });
       }
+    } else {
+      setState(() {
+        senderLocationName = existingAddress.isNotEmpty
+            ? existingAddress
+            : "Location not available";
+      });
     }
+
+    debugPrint("📌 Final sender location name: $senderLocationName");
   }
 
   Future<String> _getLocationName(double lat, double lng) async {
     try {
-      const String apiKey = 'YOUR_GOOGLE_MAPS_API_KEY';
-      final url =
-          'https://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&key=$apiKey';
-      final response = await http.get(Uri.parse(url));
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lng&format=json&zoom=18&addressdetails=1',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'QDelApp/1.0', 'Accept-Language': 'en'},
+      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['status'] == 'OK' && data['results'].isNotEmpty) {
-          return data['results'][0]['formatted_address'];
+        if (data['display_name'] != null) {
+          String locationName = data['display_name'];
+          debugPrint("📍 Nominatim geocoded: $locationName");
+          return locationName;
         }
       }
     } catch (e) {
-      debugPrint("Geocoding error: $e");
+      debugPrint("Nominatim geocoding error: $e");
     }
-    return "Location at $lat, $lng";
+
+    return "Location at ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}";
   }
 
   Future<void> _loadReceiverAddress() async {
@@ -430,7 +441,43 @@ class _EditOrderState extends State<EditOrder> {
     receiverAddressCtrl.text = combinedAddress['address_text'] ?? '';
     receiverLandmarkCtrl.text = combinedAddress['landmark'] ?? '';
     receiverZipCtrl.text = combinedAddress['zip_code'] ?? '';
-    if (receiverLatitude != null && receiverLongitude != null) {
+    String existingAddress = combinedAddress['address_text'] ?? '';
+    if (existingAddress.isNotEmpty &&
+        !existingAddress.startsWith('Location at') &&
+        existingAddress.contains(',')) {
+      setState(() {
+        receiverLocationName = existingAddress;
+      });
+      debugPrint(
+        "📍 Using existing descriptive receiver location: $receiverLocationName",
+      );
+    } else if (existingAddress.isNotEmpty &&
+        !existingAddress.startsWith('Location at') &&
+        !existingAddress.contains(',')) {
+      if (receiverLatitude != null && receiverLongitude != null) {
+        try {
+          String realLocationName = await _getLocationName(
+            receiverLatitude!,
+            receiverLongitude!,
+          );
+          setState(() {
+            receiverLocationName = realLocationName;
+            if (receiverAddress != null) {
+              receiverAddress!['address_text'] = realLocationName;
+            }
+          });
+        } catch (e) {
+          debugPrint("Error getting receiver location name: $e");
+          setState(() {
+            receiverLocationName = existingAddress;
+          });
+        }
+      } else {
+        setState(() {
+          receiverLocationName = existingAddress;
+        });
+      }
+    } else if (receiverLatitude != null && receiverLongitude != null) {
       try {
         String realLocationName = await _getLocationName(
           receiverLatitude!,
@@ -446,16 +493,15 @@ class _EditOrderState extends State<EditOrder> {
         debugPrint("Error getting receiver location name: $e");
         setState(() {
           receiverLocationName =
-              combinedAddress['address_text'] ?? "Saved location";
+              "Location at $receiverLatitude, $receiverLongitude";
         });
       }
     } else {
-      receiverLocationName =
-          combinedAddress['address_text'] ?? "Saved location";
+      receiverLocationName = "Location not available";
     }
 
     debugPrint("✅ Loaded receiver address with ID: ${combinedAddress['id']}");
-    debugPrint("📍 Receiver location name: $receiverLocationName");
+    debugPrint("📍 Final receiver location name: $receiverLocationName");
   }
 
   Future<void> _loadProduct() async {
@@ -559,7 +605,7 @@ class _EditOrderState extends State<EditOrder> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 28),
       decoration: const BoxDecoration(
-        color: Color(0xFFE53935),
+        color: ColorConstants.red,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
       child: Column(
@@ -569,7 +615,7 @@ class _EditOrderState extends State<EditOrder> {
             backgroundColor: Colors.white,
             child: Icon(
               Icons.hourglass_top,
-              color: Color(0xFFE53935),
+              color: ColorConstants.red,
               size: 30,
             ),
           ),
@@ -766,7 +812,10 @@ class _EditOrderState extends State<EditOrder> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text("Update Product"),
+                child: const Text(
+                  "Update Product",
+                  style: TextStyle(color: ColorConstants.white),
+                ),
               ),
               const SizedBox(height: 16),
             ],
@@ -839,12 +888,18 @@ class _EditOrderState extends State<EditOrder> {
     String? zip,
     VoidCallback? onEdit,
   }) {
-  
     String displayAddress = address;
-    if (title == "SENDER DETAILS" && senderLocationName != null) {
+
+    if (title == "SENDER DETAILS" &&
+        senderLocationName != null &&
+        senderLocationName!.isNotEmpty) {
       displayAddress = senderLocationName!;
-    } else if (title == "RECEIVER DETAILS" && receiverLocationName != null) {
+      debugPrint("📌 Using sender location name: $displayAddress");
+    } else if (title == "RECEIVER DETAILS" &&
+        receiverLocationName != null &&
+        receiverLocationName!.isNotEmpty) {
       displayAddress = receiverLocationName!;
+      debugPrint("📌 Using receiver location name: $displayAddress");
     }
 
     return Container(
@@ -879,6 +934,7 @@ class _EditOrderState extends State<EditOrder> {
           const SizedBox(height: 8),
 
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.location_on, color: Colors.red, size: 16),
               const SizedBox(width: 4),
@@ -1055,11 +1111,14 @@ class _EditOrderState extends State<EditOrder> {
                       receiverLatitude,
                       () async {
                         debugPrint('🗺️ Opening map picker');
-
                         final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const MapPickerScreen(),
+                            builder: (_) => MapPickerScreen(
+                              initialLatitude: receiverLatitude,
+                              initialLongitude: receiverLongitude,
+                              initialLocationName: receiverLocationName,
+                            ),
                           ),
                         );
 
@@ -1077,6 +1136,8 @@ class _EditOrderState extends State<EditOrder> {
                                   result['locationName'];
                             }
                           });
+
+                          receiverAddressCtrl.text = result['locationName'];
                         }
                       },
                       Colors.red,
@@ -1155,7 +1216,10 @@ class _EditOrderState extends State<EditOrder> {
                         backgroundColor: Colors.red,
                         minimumSize: const Size(double.infinity, 48),
                       ),
-                      child: const Text("Update Address"),
+                      child: const Text(
+                        "Update Address",
+                        style: TextStyle(color: ColorConstants.white),
+                      ),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -1275,10 +1339,18 @@ class _EditOrderState extends State<EditOrder> {
 
       if (success) {
         debugPrint("✅ Receiver update SUCCESS → Reloading receiver address");
-        if (receiverLocationName != null && receiverAddress != null) {
-          receiverAddress!['address_text'] = receiverLocationName;
-        }
+        String? currentLocationName = receiverLocationName;
+
         await _loadReceiverAddress();
+        if (currentLocationName != null &&
+            !currentLocationName.startsWith('Location at')) {
+          setState(() {
+            receiverLocationName = currentLocationName;
+            if (receiverAddress != null) {
+              receiverAddress!['address_text'] = currentLocationName;
+            }
+          });
+        }
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Receiver updated successfully")),
@@ -1358,7 +1430,11 @@ class _EditOrderState extends State<EditOrder> {
                         final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const MapPickerScreen(),
+                            builder: (_) => MapPickerScreen(
+                              initialLatitude: senderLatitude,
+                              initialLongitude: senderLongitude,
+                              initialLocationName: senderLocationName,
+                            ),
                           ),
                         );
 
@@ -1366,9 +1442,18 @@ class _EditOrderState extends State<EditOrder> {
                           setModalState(() {
                             senderLatitude = result['latitude'];
                             senderLongitude = result['longitude'];
-                            senderLocationName =
-                                result['locationName'];
+                            senderLocationName = result['locationName'];
                           });
+
+                          setState(() {
+                            senderLocationName = result['locationName'];
+                            if (senderAddress != null) {
+                              senderAddress!['address'] =
+                                  result['locationName'];
+                            }
+                          });
+
+                          senderAddressCtrl.text = result['locationName'];
                         }
                       },
                       Colors.red,
@@ -1452,7 +1537,10 @@ class _EditOrderState extends State<EditOrder> {
                         backgroundColor: Colors.red,
                         minimumSize: const Size(double.infinity, 48),
                       ),
-                      child: const Text("Update Address"),
+                      child: const Text(
+                        "Update Address",
+                        style: TextStyle(color: ColorConstants.white),
+                      ),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -1521,6 +1609,8 @@ class _EditOrderState extends State<EditOrder> {
     debugPrint("longitude: $safeSenderLng");
 
     try {
+      String? currentLocationName = senderLocationName;
+
       final success = await apiService.updateSenderAddress(
         addressId: widget.senderAddressId,
         senderName: updatedSenderName,
@@ -1542,6 +1632,18 @@ class _EditOrderState extends State<EditOrder> {
       if (success) {
         debugPrint("✅ Sender update success → Reloading sender...");
         await _loadSenderAddress();
+        if (currentLocationName != null &&
+            !currentLocationName.startsWith('Location at') &&
+            currentLocationName != 'Selected location' &&
+            currentLocationName != 'Saved location') {
+          setState(() {
+            senderLocationName = currentLocationName;
+            if (senderAddress != null) {
+              senderAddress!['address'] = currentLocationName;
+            }
+          });
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Sender updated successfully")),
         );
@@ -1580,7 +1682,7 @@ class _EditOrderState extends State<EditOrder> {
           style: TextStyle(color: ColorConstants.white),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color.fromARGB(255, 187, 27, 27),
+          backgroundColor: ColorConstants.red,
           minimumSize: const Size(double.infinity, 52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1607,7 +1709,7 @@ class _EditOrderState extends State<EditOrder> {
 
   Widget _cancelOrderSection(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: OutlinedButton.icon(
         onPressed: () {
           _showCancelDialog(context);
@@ -1643,8 +1745,47 @@ class _EditOrderState extends State<EditOrder> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
+
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) =>
+                    const Center(child: CircularProgressIndicator()),
+              );
+
+              final success = await apiService.cancelOrder(
+                pickupId: widget.pickupId,
+              );
+
+              if (!mounted) return;
+
+              Navigator.pop(context);
+
+              if (success != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Order cancelled successfully"),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ClientDashboard(initialIndex: 2),
+                  ),
+                  (route) => false,
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Failed to cancel order. Please try again."),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             child: const Text("Yes, Cancel"),
           ),
@@ -1795,7 +1936,7 @@ class _EditOrderState extends State<EditOrder> {
       debugPrint("Country not found: $countryName");
     }
 
-    setState(() {}); 
+    setState(() {});
   }
 
   Future<void> _setReceiverDropdownDefaults() async {

@@ -103,9 +103,7 @@ class _ClientProfileState extends State<ClientProfile> {
         Container(
           height: 120,
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xffE53935), Color(0xffF0625F)],
-            ),
+            color: ColorConstants.red,
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(40),
               bottomRight: Radius.circular(40),
@@ -154,7 +152,7 @@ class _ClientProfileState extends State<ClientProfile> {
         height: 38,
         width: 38,
         decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-        child: Icon(icon, color: Colors.red, size: 18),
+        child: Icon(icon, color: ColorConstants.red, size: 18),
       ),
     );
   }
@@ -185,7 +183,7 @@ class _ClientProfileState extends State<ClientProfile> {
   Widget _personalDetailsCard() {
     return _card(
       title: "Personal Details",
-      leading: const Icon(Icons.person, color: Colors.red),
+      leading: const Icon(Icons.person, color: ColorConstants.red),
       children: [
         _divider(),
         _infoRow(
@@ -206,7 +204,7 @@ class _ClientProfileState extends State<ClientProfile> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _actionBtn("Change User Type", Colors.red, () async {
+              _actionBtn("Change User Type", ColorConstants.red, () async {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -216,7 +214,11 @@ class _ClientProfileState extends State<ClientProfile> {
                 loadProfile();
               }),
               const SizedBox(width: 20),
-              _actionBtn("Edit Profile", Colors.red, _openEditProfileDialog),
+              _actionBtn(
+                "Edit Profile",
+                ColorConstants.red,
+                _openEditProfileDialog,
+              ),
             ],
           )
         else
@@ -312,7 +314,7 @@ class _ClientProfileState extends State<ClientProfile> {
   Widget _logoutCard() {
     return _card(
       title: "Account",
-      leading: const Icon(Icons.logout, color: Colors.red),
+      leading: const Icon(Icons.logout, color: ColorConstants.red),
       children: [
         Text(
           "Ending your session will require you to log in again.",
@@ -320,7 +322,7 @@ class _ClientProfileState extends State<ClientProfile> {
         ),
         _divider(),
 
-        _actionBtn("Log Out", Colors.red, _confirmLogout),
+        _actionBtn("Log Out", ColorConstants.red, _confirmLogout),
       ],
     );
   }
@@ -348,7 +350,10 @@ class _ClientProfileState extends State<ClientProfile> {
                 (route) => false,
               );
             },
-            child: const Text("Logout", style: TextStyle(color: Colors.red)),
+            child: const Text(
+              "Logout",
+              style: TextStyle(color: ColorConstants.red),
+            ),
           ),
         ],
       ),
@@ -397,7 +402,7 @@ class _ClientProfileState extends State<ClientProfile> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: BoxBorder.all(color: Colors.red),
+        border: BoxBorder.all(color: ColorConstants.red),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 12),
         ],

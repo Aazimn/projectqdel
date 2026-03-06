@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/view/Client/all_recentOrders.dart';
 import 'package:projectqdel/view/Client/client_settings.dart';
 import 'package:projectqdel/view/Client/home_screen.dart';
@@ -34,11 +35,11 @@ class _ClientDashboardState extends State<ClientDashboard> {
       body: _pages[_currentIndex],
 
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.red,
+        backgroundColor: ColorConstants.red,
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.black54,
+        unselectedItemColor: Colors.black87,
         onTap: (index) {
           setState(() => _currentIndex = index);
         },

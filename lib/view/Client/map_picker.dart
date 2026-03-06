@@ -5,20 +5,66 @@ import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 
 class MapPickerScreen extends StatefulWidget {
-  const MapPickerScreen({super.key});
+  final double? initialLatitude;
+  final double? initialLongitude;
+  final String? initialLocationName;
+
+  const MapPickerScreen({
+    super.key,
+    this.initialLatitude,
+    this.initialLongitude,
+    this.initialLocationName,
+  });
 
   @override
   State<MapPickerScreen> createState() => _MapPickerScreenState();
 }
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
-  final MapController _mapController = MapController();
+  late final MapController _mapController;
   final TextEditingController _searchCtrl = TextEditingController();
 
-  LatLng selectedLocation = LatLng(9.931233, 76.267303);
+  late LatLng selectedLocation;
   bool isSearching = false;
   bool isGettingLocationName = false;
   String? selectedLocationName;
+
+  @override
+  void initState() {
+    super.initState();
+    _mapController = MapController();
+    
+    // Initialize with passed coordinates or default
+    if (widget.initialLatitude != null && widget.initialLongitude != null) {
+      selectedLocation = LatLng(widget.initialLatitude!, widget.initialLongitude!);
+      selectedLocationName = widget.initialLocationName;
+    } else {
+      selectedLocation = const LatLng(9.931233, 76.267303); // Default
+    }
+    
+    // Get location name if we have coordinates but no name
+    if (widget.initialLatitude != null && 
+        widget.initialLongitude != null && 
+        widget.initialLocationName == null) {
+      _getLocationNameFromCoordinates(selectedLocation);
+    }
+  }
+
+  @override
+  void didUpdateWidget(MapPickerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update if widget changes
+    if (widget.initialLatitude != oldWidget.initialLatitude ||
+        widget.initialLongitude != oldWidget.initialLongitude) {
+      if (widget.initialLatitude != null && widget.initialLongitude != null) {
+        setState(() {
+          selectedLocation = LatLng(widget.initialLatitude!, widget.initialLongitude!);
+          selectedLocationName = widget.initialLocationName;
+        });
+        _mapController.move(selectedLocation, 15);
+      }
+    }
+  }
 
   Future<void> _searchLocation(String query) async {
     if (query.isEmpty) return;
@@ -60,7 +106,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     setState(() => isGettingLocationName = true);
 
     try {
-      // Using Nominatim reverse geocoding
       final url = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse?lat=${position.latitude}&lon=${position.longitude}&format=json',
       );
@@ -97,7 +142,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   void _onMapTapped(LatLng latLng) {
     setState(() {
       selectedLocation = latLng;
-      selectedLocationName = null; // Reset while fetching
+      selectedLocationName = null; 
     });
     _getLocationNameFromCoordinates(latLng);
   }
@@ -116,7 +161,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             mapController: _mapController,
             options: MapOptions(
               initialCenter: selectedLocation,
-              initialZoom: 14,
+              initialZoom: 15,
               onTap: (_, latLng) => _onMapTapped(latLng),
             ),
             children: [
@@ -142,7 +187,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ],
           ),
 
-          // Search Bar
           Positioned(
             top: 12,
             left: 16,
@@ -166,16 +210,16 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                           ),
                         )
                       : (_searchCtrl.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(
-                                  Icons.clear,
-                                  color: Colors.red,
-                                ),
-                                onPressed: () {
-                                  _searchCtrl.clear();
-                                },
-                              )
-                            : null),
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.clear,
+                                color: Colors.red,
+                              ),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                              },
+                            )
+                          : null),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -187,7 +231,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ),
           ),
 
-          // Location Info Card
           if (selectedLocationName != null || isGettingLocationName)
             Positioned(
               bottom: 100,
@@ -275,7 +318,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               ),
             ),
 
-          // Confirm Button
           Positioned(
             bottom: 20,
             left: 16,
@@ -284,7 +326,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               onPressed: isGettingLocationName
                   ? null
                   : () {
-                      // Return both coordinates and location name
                       Navigator.pop(context, {
                         'latitude': selectedLocation.latitude,
                         'longitude': selectedLocation.longitude,
@@ -326,7 +367,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   }
 }
 
-// Add this class if AddressColors is not imported
 class AddressColors {
   static const Color textSecondary = Color(0xFF64748B);
   static const Color textPrimary = Color(0xFF1E293B);

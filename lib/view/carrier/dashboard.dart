@@ -44,19 +44,6 @@ class Dashboard extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _statusCard("Pending", "8", Icons.pending_actions),
-                _statusCard("Active", "3", Icons.local_shipping),
-                _statusCard("Completed", "15", Icons.check_circle),
-              ],
-            ),
-          ),
-
           const SizedBox(height: 25),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -109,32 +96,6 @@ class Dashboard extends StatelessWidget {
               },
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statusCard(String title, String count, IconData icon) {
-    return Container(
-      width: 100,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: Colors.red),
-          const SizedBox(height: 5),
-          Text(
-            count,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.red,
-            ),
-          ),
-          Text(title),
         ],
       ),
     );

@@ -112,7 +112,6 @@ class _CountryScreenState extends State<CountryScreen> {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          /// 🔍 Search Bar (Scrollable)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.only(
@@ -139,7 +138,6 @@ class _CountryScreenState extends State<CountryScreen> {
             ),
           ),
 
-          /// 📭 Empty State
           if (_filteredCountries.isEmpty)
             const SliverFillRemaining(
               hasScrollBody: false,
@@ -151,7 +149,6 @@ class _CountryScreenState extends State<CountryScreen> {
               ),
             )
           else
-            /// 📃 Country List
             SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
                 final country = _filteredCountries[index];

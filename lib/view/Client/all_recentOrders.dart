@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Client/order_detailed.dart';
@@ -38,27 +39,45 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     return status ?? "unknown";
   }
 
+  Future<void> _loadOrders() async {
+    setState(() {
+      _ordersFuture = ApiService().getAcceptedOrders();
+    });
+  }
+
+  Future<void> _onRefresh() async {
+    await _loadOrders();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ColorConstants.white,
-      body: Column(
-        children: [
-          // _header(context),
-          SizedBox(height: 50),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _tabs(),
-                  Expanded(child: _ordersFromApi()),
-                ],
+      body: LiquidPullToRefresh(
+        onRefresh: _onRefresh,
+        color: ColorConstants.red,
+        backgroundColor: Colors.white,
+        height: 100,
+        animSpeedFactor: 4.0,
+        showChildOpacityTransition: true,
+        child: Column(
+          children: [
+            // _header(context),
+            SizedBox(height: 50),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _tabs(),
+                    Expanded(child: _ordersFromApi()),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -67,7 +86,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 227, 5, 42),
+        color: ColorConstants.red,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(children: [_tabItem("On-going", 0), _tabItem("Completed", 1)]),
@@ -385,7 +404,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
+                      backgroundColor: ColorConstants.red,
                     ),
                     child: const Text(
                       "Track",
@@ -435,29 +454,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     final state = resolveOrderState(order);
     return state == "delivered" || state == "cancelled";
   }
-
-  // Widget _header(BuildContext context) {
-  //   return Stack(
-  //     clipBehavior: Clip.none,
-  //     children: [
-  //       Padding(
-  //         padding: const EdgeInsets.only(top: 0, bottom: 10),
-  //         child: Container(
-  //           decoration: BoxDecoration(
-  //             borderRadius: BorderRadius.all(Radius.circular(20)),
-  //             border: Border.all(color: Colors.red, width: 3),
-  //           ),
-  //           height: 110,
-  //           width: double.infinity,
-  //           child: Image.asset(
-  //             "assets/image_assets/qdel_bike_2.jpeg",
-  //             fit: BoxFit.contain,
-  //           ),
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
 
   Widget _orderHeader({
     required IconData icon,

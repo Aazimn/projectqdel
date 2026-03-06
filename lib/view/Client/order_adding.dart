@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Client/lottie_success.dart';
@@ -383,107 +384,131 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     }
   }
 
+  Future<void> _onRefresh() async {
+    await _loadCountries();
+    await _loadDistricts(selectedStateId!);
+    await _loadStates(selectedCountryId!);
+    await _loadReceiverStates(selectedReceiverCountryId!);
+    await _loadReceiverDistricts(selectedReceiverStateId!);
+    await _loadSenderAddresses();
+    await _loadReceiverAddresses();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ColorConstants.white,
       // bottomNavigationBar: _buildBottomButton(),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _header(context),
-            SizedBox(height: 30),
-            _buildProductFieldsSection(),
-            SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Text(
-                    "SENDER ADDRESS",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
+      body: LiquidPullToRefresh(
+        onRefresh: _onRefresh,
+        color: ColorConstants.red,
+        backgroundColor: Colors.white,
+        height: 100,
+        animSpeedFactor: 4.0,
+        showChildOpacityTransition: true,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _header(context),
+              SizedBox(height: 30),
+              _buildProductFieldsSection(),
+              SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 3,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Text(
+                      "SENDER ADDRESS",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            isSenderCompleted
-                ? _buildSavedAddressCard(
-                    type: "Sender",
-                    primaryColor: AddressColors.senderPrimary,
-                    lightColor: AddressColors.senderLight,
-                    name: senderNameCtrl.text,
-                    phone: senderPhoneCtrl.text,
-                    address: senderAddressCtrl.text,
-                    landmark: senderLandmarkCtrl.text,
-                    zip: senderZipCtrl.text,
-                    district: senderDistrictCtrl.text,
-                    state: senderStateCtrl.text,
-                    country: senderCountryCtrl.text,
-                    onEdit: _openAttractiveSenderSelectorSheet,
-                    locationName: senderLocationName,
-                    lat: senderLat,
-                    lng: senderLng,
-                  )
-                : _buildAttractiveAddressCard(
-                    title: "Sender Address",
-                    subtitle: "Add pickup location details",
-                    iconPath: "assets/sender_icon.png",
-                    primaryColor: ColorConstants.black,
-                    lightColor: AddressColors.senderLight,
-                    onTap: _openAttractiveSenderSelectorSheet,
-                  ),
-            SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Text(
-                    "RECEIVER ADDRESS",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
+              isSenderCompleted
+                  ? _buildSavedAddressCard(
+                      type: "Sender",
+                      primaryColor: ColorConstants.red,
+                      lightColor: AddressColors.senderLight,
+                      name: senderNameCtrl.text,
+                      phone: senderPhoneCtrl.text,
+                      address: senderAddressCtrl.text,
+                      landmark: senderLandmarkCtrl.text,
+                      zip: senderZipCtrl.text,
+                      district: senderDistrictCtrl.text,
+                      state: senderStateCtrl.text,
+                      country: senderCountryCtrl.text,
+                      onEdit: _openAttractiveSenderSelectorSheet,
+                      locationName: senderLocationName,
+                      lat: senderLat,
+                      lng: senderLng,
+                    )
+                  : _buildAttractiveAddressCard(
+                      title: "Sender Address",
+                      subtitle: "Add pickup location details",
+                      iconPath: "assets/sender_icon.png",
+                      primaryColor: ColorConstants.black,
+                      lightColor: AddressColors.senderLight,
+                      onTap: _openAttractiveSenderSelectorSheet,
                     ),
-                  ),
-                ],
+              SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 3,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Text(
+                      "RECEIVER ADDRESS",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            isReceiverCompleted
-                ? _buildSavedAddressCard(
-                    type: "Receiver",
-                    primaryColor: AddressColors.receiverPrimary,
-                    lightColor: AddressColors.receiverLight,
-                    name: receiverNameCtrl.text,
-                    phone: receiverPhoneCtrl.text,
-                    address: receiverAddressCtrl.text,
-                    landmark: receiverLandmarkCtrl.text,
-                    zip: receiverZipCtrl.text,
-                    district: receiverDistrictCtrl.text,
-                    state: receiverStateCtrl.text,
-                    country: receiverCountryCtrl.text,
-                    onEdit: _openAttractiveReceiverSelectorSheet,
-                    locationName: receiverLocationName,
-                    lat: receiverLat,
-                    lng: receiverLng,
-                  )
-                : _buildAttractiveAddressCard(
-                    title: "Receiver Address",
-                    subtitle: "Add delivery location details",
-                    iconPath: "assets/receiver_icon.png",
-                    primaryColor: ColorConstants.black,
-                    lightColor: AddressColors.receiverLight,
-                    onTap: _openAttractiveReceiverSelectorSheet,
-                  ),
-            _buildBottomButton(),
-          ],
+              isReceiverCompleted
+                  ? _buildSavedAddressCard(
+                      type: "Receiver",
+                      primaryColor: ColorConstants.red,
+                      lightColor: AddressColors.receiverLight,
+                      name: receiverNameCtrl.text,
+                      phone: receiverPhoneCtrl.text,
+                      address: receiverAddressCtrl.text,
+                      landmark: receiverLandmarkCtrl.text,
+                      zip: receiverZipCtrl.text,
+                      district: receiverDistrictCtrl.text,
+                      state: receiverStateCtrl.text,
+                      country: receiverCountryCtrl.text,
+                      onEdit: _openAttractiveReceiverSelectorSheet,
+                      locationName: receiverLocationName,
+                      lat: receiverLat,
+                      lng: receiverLng,
+                    )
+                  : _buildAttractiveAddressCard(
+                      title: "Receiver Address",
+                      subtitle: "Add delivery location details",
+                      iconPath: "assets/receiver_icon.png",
+                      primaryColor: ColorConstants.black,
+                      lightColor: AddressColors.receiverLight,
+                      onTap: _openAttractiveReceiverSelectorSheet,
+                    ),
+              _buildBottomButton(),
+            ],
+          ),
         ),
       ),
     );
@@ -584,23 +609,20 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(
-                    color: AddressColors.senderPrimary,
+                    color: ColorConstants.red,
                     width: 2,
                   ),
                 ),
                 errorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: Colors.red.shade300,
-                    width: 1.5,
-                  ),
+                  borderSide: BorderSide(color: ColorConstants.red, width: 1.5),
                 ),
                 focusedErrorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.red.shade600, width: 2),
+                  borderSide: BorderSide(color: ColorConstants.red, width: 2),
                 ),
                 prefixIcon: _getPrefixIconForField(label),
-                prefixIconColor: AddressColors.senderPrimary,
+                prefixIconColor: ColorConstants.red,
               ),
             ),
           ),
@@ -628,7 +650,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
       default:
         iconData = Icons.edit;
     }
-
     return Icon(iconData, size: 20);
   }
 
@@ -656,7 +677,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     } else {
       senderCountryCtrl.clear();
     }
-
     senderStateCtrl.clear();
     senderDistrictCtrl.clear();
   }
@@ -809,7 +829,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
           ],
         ),
         child: Material(
-          color: Colors.red,
+          color: ColorConstants.red,
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
@@ -1003,7 +1023,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                   width: 110,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.red, width: 6),
+                    border: Border.all(color: ColorConstants.red, width: 6),
 
                     color: Colors.white,
                   ),
@@ -1147,7 +1167,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.red,
+                          color: ColorConstants.red,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1244,7 +1264,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name
+                 
                   Row(
                     children: [
                       Container(
@@ -1558,6 +1578,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
 
       setState(() {
         isSenderCompleted = true;
+        selectedSenderAddressId = addressId;
       });
 
       await _loadSenderAddresses();
