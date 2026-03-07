@@ -32,6 +32,12 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   bool isVerifying = false;
   bool _isLoadingState = true;
   Logger logger = Logger();
+  bool isPickupVerified = false; // New state to track if pickup is verified
+
+  bool isDeliveryArrived = false;
+  bool isDeliveryOtpSent = false;
+  bool isDeliveryVerifying = false;
+  bool isDeliveryVerified = false;
 
   final TextEditingController _otpController = TextEditingController();
 
@@ -72,7 +78,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     if (widget.order != null) {
       int orderId = widget.order!.id;
 
-      // Load arrival status
+      // Load pickup arrival status
       bool? savedArrived = await ApiService.getArrivalStatus(orderId);
       if (savedArrived != null) {
         setState(() {
@@ -80,7 +86,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         });
       }
 
-      // Load OTP sent status
+      // Load pickup OTP sent status
       bool? savedOtpSent = await ApiService.getOtpSentStatus(orderId);
       if (savedOtpSent != null) {
         setState(() {
@@ -88,11 +94,42 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         });
       }
 
-      // Load verification status
+      // Load pickup verification status
       bool? savedVerified = await ApiService.getVerificationStatus(orderId);
       if (savedVerified != null) {
         setState(() {
           isVerifying = savedVerified;
+          isPickupVerified = savedVerified;
+        });
+      }
+
+      // Load delivery arrival status
+      bool? savedDeliveryArrived = await ApiService.getDeliveryArrivalStatus(
+        orderId,
+      );
+      if (savedDeliveryArrived != null) {
+        setState(() {
+          isDeliveryArrived = savedDeliveryArrived;
+        });
+      }
+
+      // Load delivery OTP sent status
+      bool? savedDeliveryOtpSent = await ApiService.getDeliveryOtpSentStatus(
+        orderId,
+      );
+      if (savedDeliveryOtpSent != null) {
+        setState(() {
+          isDeliveryOtpSent = savedDeliveryOtpSent;
+        });
+      }
+
+      // Load delivery verification status
+      bool? savedDeliveryVerified = await ApiService.getDeliveryVerifiedStatus(
+        orderId,
+      );
+      if (savedDeliveryVerified != null) {
+        setState(() {
+          isDeliveryVerified = savedDeliveryVerified;
         });
       }
     }
@@ -108,6 +145,616 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
 
     // Check if we need to show the bottom sheet after all initialization
     _checkAndShowBottomSheet();
+    _checkAndShowDeliveryBottomSheet();
+  }
+
+  Future<void> _markDelivered() async {
+    setState(() => isSubmitting = true);
+
+    try {
+      int? pickupCarrierId = await ApiService.getPickupCarrierId();
+
+      if (pickupCarrierId == null) {
+        logger.e("❌ No pickup_carrier_id found in SharedPreferences!");
+        _showErrorSnackBar(
+          "No pickup carrier ID found. Please accept the order again.",
+        );
+        setState(() => isSubmitting = false);
+        return;
+      }
+
+      logger.i("🚚 Attempting to mark delivered with ID: $pickupCarrierId");
+
+      final response = await apiService.markDelivered(
+        pickupCarrierId: pickupCarrierId,
+      );
+
+      if (!mounted) return;
+
+      if (response != null && response['success'] != false) {
+        setState(() {
+          isDeliveryArrived = true;
+          isSubmitting = false;
+        });
+
+        if (order != null) {
+          await ApiService.saveDeliveryArrivalStatus(order!.id, true);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Arrived at delivery location"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        _showDeliveryOtpBottomSheet();
+      } else {
+        setState(() => isSubmitting = false);
+        String errorMsg =
+            response?['error'] ?? "Failed to mark delivery arrival";
+        _showErrorSnackBar(errorMsg);
+      }
+    } catch (e) {
+      setState(() => isSubmitting = false);
+      _showErrorSnackBar("Error: $e");
+    }
+  }
+
+  void _showDeliveryOtpBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return StatefulBuilder(
+              builder: (context, setModalState) {
+                return PopScope(
+                  canPop: false,
+                  child: Container(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.9,
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: SingleChildScrollView(
+                        physics: const ClampingScrollPhysics(),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Handle bar
+                              Container(
+                                width: 50,
+                                height: 5,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade300,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+
+                              // Close button
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (isDeliveryVerifying)
+                                    IconButton(
+                                      icon: const Icon(Icons.close),
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        setState(() {
+                                          isDeliveryOtpSent = false;
+                                          _otpController.clear();
+                                        });
+                                      },
+                                    ),
+                                ],
+                              ),
+
+                              // Title
+                              const Text(
+                                "Verify Delivery",
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                "Order #${order!.id}",
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Receiver info
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade50,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: Colors.white,
+                                      child: Icon(
+                                        Icons.person_outline,
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            order!
+                                                    .receiverAddress
+                                                    ?.receiverName ??
+                                                "",
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          Text(
+                                            order!
+                                                    .receiverAddress
+                                                    ?.phoneNumber ??
+                                                "",
+                                            style: const TextStyle(
+                                              color: Colors.grey,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Send OTP Button
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: isDeliveryOtpSent
+                                      ? null
+                                      : () {
+                                          setModalState(() {
+                                            isDeliveryOtpSent = true;
+                                          });
+                                          _sendDeliveryOtp();
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 2,
+                                  ),
+                                  child: isDeliveryOtpSent
+                                      ? const Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.check_circle, size: 20),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              "OTP Sent Successfully",
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : const Text(
+                                          "Send OTP to Receiver",
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+
+                              // OTP Input Field
+                              if (isDeliveryOtpSent) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        "Enter 6-digit OTP",
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Center(
+                                        child: Pinput(
+                                          controller: _otpController,
+                                          length: 6,
+                                          defaultPinTheme: PinTheme(
+                                            width: 50,
+                                            height: 55,
+                                            textStyle: const TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              border: Border.all(
+                                                color: Colors.grey.shade300,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          focusedPinTheme: PinTheme(
+                                            width: 50,
+                                            height: 55,
+                                            textStyle: const TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.green,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              border: Border.all(
+                                                color: Colors.green,
+                                                width: 2,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          submittedPinTheme: PinTheme(
+                                            width: 50,
+                                            height: 55,
+                                            textStyle: const TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.green,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.shade50,
+                                              border: Border.all(
+                                                color: Colors.green,
+                                                width: 2,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          onCompleted: (pin) {
+                                            _verifyDeliveryOtp(pin);
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            "Didn't receive OTP? ",
+                                            style: TextStyle(
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                          GestureDetector(
+                                            onTap: () {
+                                              setModalState(() {
+                                                isDeliveryOtpSent = true;
+                                              });
+                                              _resendDeliveryOtp();
+                                            },
+                                            child: const Text(
+                                              "Resend",
+                                              style: TextStyle(
+                                                color: Colors.green,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Verify Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: isDeliveryVerifying
+                                        ? null
+                                        : () {
+                                            if (_otpController.text.length ==
+                                                6) {
+                                              _verifyDeliveryOtp(
+                                                _otpController.text,
+                                              );
+                                            } else {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Please enter 6-digit OTP",
+                                                  ),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      elevation: 2,
+                                    ),
+                                    child: isDeliveryVerifying
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text(
+                                            "Verify & Complete Delivery",
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              ],
+
+                              // Helper text
+                              if (!isDeliveryVerifying)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 16,
+                                    bottom: 8,
+                                  ),
+                                  child: Text(
+                                    "Complete verification to finish delivery",
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+
+                              const SizedBox(height: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    ).then((_) {
+      if (mounted) {
+        setState(() {
+          if (!isDeliveryVerifying) {
+            isDeliveryOtpSent = false;
+          }
+          _otpController.clear();
+        });
+      }
+    });
+  }
+
+  Future<void> _sendDeliveryOtp() async {
+    setState(() {
+      isSubmitting = true;
+    });
+
+    try {
+      int? pickupCarrierId = await ApiService.getPickupCarrierId();
+
+      if (pickupCarrierId == null) {
+        _showErrorSnackBar("No pickup carrier ID found");
+        setState(() => isSubmitting = false);
+        return;
+      }
+
+      logger.i(
+        "📱 Sending delivery OTP for pickup_carrier_id: $pickupCarrierId",
+      );
+
+      final response = await apiService.sendDeliveryOtp(
+        pickupCarrierId: pickupCarrierId,
+      );
+
+      if (!mounted) return;
+
+      if (response != null && response['success'] == true) {
+        setState(() {
+          isDeliveryOtpSent = true;
+        });
+
+        if (order != null) {
+          await ApiService.saveDeliveryOtpSentStatus(order!.id, true);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("OTP sent to receiver's phone"),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        String errorMsg = response?['error'] ?? "Failed to send OTP";
+        _showErrorSnackBar(errorMsg);
+      }
+    } catch (e) {
+      logger.e("Error sending delivery OTP: $e");
+      _showErrorSnackBar("Error sending OTP: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _resendDeliveryOtp() async {
+    try {
+      int? pickupCarrierId = await ApiService.getPickupCarrierId();
+
+      if (pickupCarrierId == null) {
+        _showErrorSnackBar("No pickup carrier ID found");
+        return;
+      }
+
+      final response = await apiService.sendDeliveryOtp(
+        pickupCarrierId: pickupCarrierId,
+      );
+
+      if (!mounted) return;
+
+      if (response != null && response['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("OTP resent successfully"),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        String errorMsg = response?['error'] ?? "Failed to resend OTP";
+        _showErrorSnackBar(errorMsg);
+      }
+    } catch (e) {
+      logger.e("Error resending delivery OTP: $e");
+      _showErrorSnackBar("Error resending OTP: $e");
+    }
+  }
+
+  Future<void> _verifyDeliveryOtp(String otp) async {
+    setState(() {
+      isDeliveryVerifying = true;
+    });
+
+    try {
+      int? pickupCarrierId = await ApiService.getPickupCarrierId();
+
+      if (pickupCarrierId == null) {
+        _showErrorSnackBar("No pickup carrier ID found");
+        setState(() => isDeliveryVerifying = false);
+        return;
+      }
+
+      final response = await apiService.verifyDeliveryOtp(
+        pickupCarrierId: pickupCarrierId,
+        otp: otp,
+      );
+
+      if (!mounted) return;
+
+      if (response != null && response['success'] == true) {
+        if (order != null) {
+          await ApiService.saveDeliveryVerifiedStatus(order!.id, true);
+        }
+
+        // Close bottom sheet
+        Navigator.pop(context);
+
+        // Clear all statuses and go to dashboard
+        if (order != null) {
+          await ApiService.clearOrderStatus(order!.id);
+        }
+        await ApiService.clearActiveOrder();
+        await ApiService.clearPickupCarrierId();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Delivery completed successfully! Thank you."),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const CarrierDashboard()),
+          (route) => false,
+        );
+      } else {
+        String errorMsg =
+            response?['error'] ?? "Invalid OTP. Please try again.";
+        _showErrorSnackBar(errorMsg);
+        setState(() => isDeliveryVerifying = false);
+      }
+    } catch (e) {
+      logger.e("Error verifying delivery OTP: $e");
+      _showErrorSnackBar("Error verifying OTP: $e");
+      setState(() => isDeliveryVerifying = false);
+    }
+  }
+
+  void _checkAndShowDeliveryBottomSheet() {
+    if (isDeliveryArrived && !isDeliveryVerified && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showDeliveryOtpBottomSheet();
+        }
+      });
+    }
   }
 
   @override
@@ -220,6 +867,18 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         });
   }
 
+  void _openMapForDeliveryNavigation() {
+    if (order?.receiverAddress == null) return;
+
+    final receiverLat = order!.receiverAddress!.latitude;
+    final receiverLng = order!.receiverAddress!.longitude;
+    if (receiverLat == null || receiverLng == null) return;
+
+    final url =
+        "https://www.google.com/maps/dir/?api=1&origin=${carrierLocation?.latitude},${carrierLocation?.longitude}&destination=$receiverLat,$receiverLng&travelmode=driving";
+    _launchUrl(url);
+  }
+
   void _openMapForNavigation() {
     if (order?.senderAddress == null) return;
 
@@ -329,7 +988,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Handle bar
                               Container(
                                 width: 50,
                                 height: 5,
@@ -340,7 +998,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                               ),
                               const SizedBox(height: 20),
 
-                              // Close button
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
@@ -357,8 +1014,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                     ),
                                 ],
                               ),
-
-                              // Title
                               const Text(
                                 "Verify Pickup",
                                 style: TextStyle(
@@ -377,7 +1032,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                               ),
                               const SizedBox(height: 24),
 
-                              // Sender info
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
@@ -423,7 +1077,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                               ),
                               const SizedBox(height: 24),
 
-                              // Send OTP Button
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
@@ -799,7 +1452,15 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
           await ApiService.saveVerificationStatus(order!.id, true);
         }
 
+        // Close bottom sheet
         Navigator.pop(context);
+
+        // Switch to delivery mode
+        setState(() {
+          isPickupVerified = true;
+          isVerifying = false;
+          isOtpSent = false;
+        });
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -812,16 +1473,12 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         String errorMsg =
             response?['error'] ?? "Invalid OTP. Please try again.";
         _showErrorSnackBar(errorMsg);
+        setState(() => isVerifying = false);
       }
     } catch (e) {
       logger.e("Error verifying OTP: $e");
       _showErrorSnackBar("Error verifying OTP: $e");
-    } finally {
-      if (mounted) {
-        setState(() {
-          isVerifying = false;
-        });
-      }
+      setState(() => isVerifying = false);
     }
   }
 
@@ -989,16 +1646,19 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
 
           const SizedBox(height: 20),
 
-          const Row(
+          Row(
             children: [
-              Icon(Icons.location_on, color: ColorConstants.red),
-              SizedBox(width: 8),
+              Icon(
+                isPickupVerified ? Icons.location_on : Icons.location_on,
+                color: isPickupVerified ? Colors.green : ColorConstants.red,
+              ),
+              const SizedBox(width: 8),
               Text(
-                "Pickup Location",
+                isPickupVerified ? "Delivery Location" : "Pickup Location",
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: ColorConstants.red,
+                  color: isPickupVerified ? Colors.green : ColorConstants.red,
                 ),
               ),
             ],
@@ -1008,7 +1668,9 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.red.shade50,
+              color: isPickupVerified
+                  ? Colors.green.shade50
+                  : Colors.red.shade50,
               borderRadius: BorderRadius.circular(16),
               boxShadow: const [
                 BoxShadow(blurRadius: 10, color: Colors.black12),
@@ -1016,13 +1678,18 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
             ),
             child: Column(
               children: [
+                // Person info
                 Row(
                   children: [
                     CircleAvatar(
-                      backgroundColor: const Color.fromARGB(255, 216, 215, 215),
-                      child: const Icon(
+                      backgroundColor: isPickupVerified
+                          ? Colors.green.shade200
+                          : const Color.fromARGB(255, 216, 215, 215),
+                      child: Icon(
                         Icons.person,
-                        color: ColorConstants.red,
+                        color: isPickupVerified
+                            ? Colors.green
+                            : ColorConstants.red,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1030,14 +1697,18 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          order!.senderAddress?.senderName ?? "",
+                          isPickupVerified
+                              ? (order!.receiverAddress?.receiverName ?? "")
+                              : (order!.senderAddress?.senderName ?? ""),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
                           ),
                         ),
                         Text(
-                          order!.senderAddress?.phoneNumber ?? "",
+                          isPickupVerified
+                              ? (order!.receiverAddress?.phoneNumber ?? "")
+                              : (order!.senderAddress?.phoneNumber ?? ""),
                           style: const TextStyle(
                             color: Colors.grey,
                             fontSize: 15,
@@ -1050,6 +1721,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
 
                 const SizedBox(height: 15),
 
+                // Address details
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1058,24 +1730,32 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            order!.senderAddress?.address ?? "",
+                            isPickupVerified
+                                ? (order!.receiverAddress?.address ?? "")
+                                : (order!.senderAddress?.address ?? ""),
                             style: TextStyle(color: Colors.grey, fontSize: 16),
                           ),
                           Text(
-                            "${order!.senderAddress?.district}, ${order!.senderAddress?.state}",
+                            isPickupVerified
+                                ? "${order!.receiverAddress?.district ?? ""}, ${order!.receiverAddress?.state ?? ""}"
+                                : "${order!.senderAddress?.district ?? ""}, ${order!.senderAddress?.state ?? ""}",
                             style: TextStyle(color: Colors.grey, fontSize: 16),
                           ),
                           Text(
-                            order!.senderAddress?.country ?? "",
+                            isPickupVerified
+                                ? (order!.receiverAddress?.country ?? "")
+                                : (order!.senderAddress?.country ?? ""),
                             style: TextStyle(color: Colors.grey, fontSize: 16),
                           ),
                           Text(
-                            "ZIP: ${order!.senderAddress?.zipCode ?? ""}",
+                            "ZIP: ${isPickupVerified ? (order!.receiverAddress?.zipCode ?? "") : (order!.senderAddress?.zipCode ?? "")}",
                             style: TextStyle(color: Colors.grey, fontSize: 16),
                           ),
-                          if (order!.senderAddress?.landmark != null)
+                          if (isPickupVerified
+                              ? order!.receiverAddress?.landmark != null
+                              : order!.senderAddress?.landmark != null)
                             Text(
-                              "Landmark: ${order!.senderAddress!.landmark}",
+                              "Landmark: ${isPickupVerified ? order!.receiverAddress!.landmark : order!.senderAddress!.landmark}",
                               style: TextStyle(
                                 color: Colors.grey,
                                 fontSize: 16,
@@ -1088,31 +1768,41 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                 ),
 
                 const SizedBox(height: 30),
+
+                // Navigate button
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     GestureDetector(
-                      onTap: _openMapForNavigation,
+                      onTap: isPickupVerified
+                          ? _openMapForDeliveryNavigation
+                          : _openMapForNavigation,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: ColorConstants.red,
+                          color: isPickupVerified
+                              ? Colors.green
+                              : ColorConstants.red,
                           borderRadius: BorderRadius.circular(30),
                           boxShadow: [
                             BoxShadow(
-                              color: ColorConstants.red.withOpacity(.4),
+                              color:
+                                  (isPickupVerified
+                                          ? Colors.green
+                                          : ColorConstants.red)
+                                      .withOpacity(.4),
                               blurRadius: 10,
                             ),
                           ],
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.navigation, color: Colors.white),
-                            SizedBox(width: 8),
+                            const SizedBox(width: 8),
                             Text(
                               "Navigate",
                               style: TextStyle(
@@ -1133,9 +1823,17 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                 ),
                 SizedBox(height: 5),
 
-                if (carrierLocation != null &&
-                    order!.senderAddress!.latitude != null)
-                  Center(child: _buildDistance()),
+                // Distance
+                if (carrierLocation != null)
+                  Center(
+                    child: isPickupVerified
+                        ? (order!.receiverAddress?.latitude != null
+                              ? _buildDeliveryDistance()
+                              : const SizedBox())
+                        : (order!.senderAddress?.latitude != null
+                              ? _buildPickupDistance()
+                              : const SizedBox()),
+                  ),
               ],
             ),
           ),
@@ -1144,7 +1842,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     );
   }
 
-  Widget _buildDistance() {
+  Widget _buildPickupDistance() {
     final distance = Geolocator.distanceBetween(
       carrierLocation!.latitude,
       carrierLocation!.longitude,
@@ -1160,10 +1858,37 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         const Icon(Icons.route, color: ColorConstants.red),
         const SizedBox(width: 6),
         Text(
-          "$km km away",
+          "$km km away from pickup",
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             color: ColorConstants.red,
+          ),
+        ),
+        const SizedBox(width: 10),
+      ],
+    );
+  }
+
+  Widget _buildDeliveryDistance() {
+    final distance = Geolocator.distanceBetween(
+      carrierLocation!.latitude,
+      carrierLocation!.longitude,
+      order!.receiverAddress!.latitude!,
+      order!.receiverAddress!.longitude!,
+    );
+
+    final km = (distance / 1000).toStringAsFixed(2);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.route, color: Colors.green),
+        const SizedBox(width: 6),
+        Text(
+          "$km km away from delivery",
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.green,
           ),
         ),
         const SizedBox(width: 10),
@@ -1196,7 +1921,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        child: isArrived
+        child: isDeliveryVerified
             ? Container(
                 decoration: BoxDecoration(
                   color: Colors.green,
@@ -1204,7 +1929,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                 ),
                 child: const Center(
                   child: Text(
-                    "✓ Arrived at Pickup Location",
+                    "✓ Delivery Completed",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -1213,35 +1938,133 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                   ),
                 ),
               )
-            : SliderButton(
-                action: () async {
-                  await _markArrived();
-                  return true;
-                },
-                buttonColor: ColorConstants.red,
-                backgroundColor: Colors.grey.shade200,
-                highlightedColor: Colors.white,
-                baseColor: ColorConstants.red,
-                label: const Text(
-                  "Slide to confirm pickup arrival",
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                icon: const Icon(
-                  Icons.double_arrow,
-                  color: Colors.white,
-                  size: 30,
-                ),
-                width: MediaQuery.of(context).size.width - 40,
-                height: 60,
-                radius: 30,
-                vibrationFlag: true,
-                shimmer: true,
-              ),
+            : (isPickupVerified
+                  ? (isDeliveryArrived
+                        ? Container(
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                "✓ Arrived at Delivery Location",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          )
+                        : SliderButton(
+                            action: () async {
+                              await _markDelivered();
+                              return true;
+                            },
+                            buttonColor: Colors.green,
+                            backgroundColor: Colors.grey.shade200,
+                            highlightedColor: Colors.white,
+                            baseColor: Colors.green,
+                            label: const Text(
+                              "Slide to confirm delivery arrival",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.check_circle,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                            width: MediaQuery.of(context).size.width - 40,
+                            height: 60,
+                            radius: 30,
+                            vibrationFlag: true,
+                            shimmer: true,
+                          ))
+                  : (isArrived
+                        ? Container(
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                "✓ Arrived at Pickup Location",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          )
+                        : SliderButton(
+                            action: () async {
+                              await _markArrived();
+                              return true;
+                            },
+                            buttonColor: ColorConstants.red,
+                            backgroundColor: Colors.grey.shade200,
+                            highlightedColor: Colors.white,
+                            baseColor: ColorConstants.red,
+                            label: const Text(
+                              "Slide to confirm pickup arrival",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.double_arrow,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                            width: MediaQuery.of(context).size.width - 40,
+                            height: 60,
+                            radius: 30,
+                            vibrationFlag: true,
+                            shimmer: true,
+                          ))),
       ),
     );
   }
+  // Future<void> _markDelivered() async {
+  //   setState(() => isSubmitting = true);
+
+  //   try {
+  //     // Add your delivery API call here
+  //     // For example: await apiService.markDelivered(pickupCarrierId: pickupCarrierId);
+
+  //     await Future.delayed(const Duration(seconds: 1)); // Simulate API call
+
+  //     if (!mounted) return;
+
+  //     // Clear all statuses and go to dashboard
+  //     if (order != null) {
+  //       await ApiService.clearOrderStatus(order!.id);
+  //     }
+  //     await ApiService.clearActiveOrder();
+  //     await ApiService.clearPickupCarrierId();
+
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text("Delivery completed successfully!"),
+  //         backgroundColor: Colors.green,
+  //       ),
+  //     );
+
+  //     Navigator.pushAndRemoveUntil(
+  //       context,
+  //       MaterialPageRoute(builder: (_) => const CarrierDashboard()),
+  //       (route) => false,
+  //     );
+  //   } catch (e) {
+  //     setState(() => isSubmitting = false);
+  //     _showErrorSnackBar("Error: $e");
+  //   }
+  // }
 }

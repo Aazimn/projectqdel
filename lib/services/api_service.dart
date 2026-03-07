@@ -1933,11 +1933,240 @@ static Future<bool?> getVerificationStatus(int orderId) async {
   return prefs.getBool('verified_$orderId');
 }
 
+// static Future<void> clearOrderStatus(int orderId) async {
+//   final prefs = await SharedPreferences.getInstance();
+//   await prefs.remove('arrived_$orderId');
+//   await prefs.remove('otp_sent_$orderId');
+//   await prefs.remove('verified_$orderId');
+//   debugPrint("🗑️ Cleared all status for order $orderId");
+// }
+
+// MARK: - Delivery APIs
+
+/// API to confirm arrival at delivery/drop location
+Future<Map<String, dynamic>?> markDelivered({
+  required int pickupCarrierId,
+}) async {
+  try {
+    final url = Uri.parse("$baseurl/api/qdel/carrier/arrived/droplocation/$pickupCarrierId/");
+    
+    final headers = {
+      "Authorization": "Bearer ${ApiService.accessToken}",
+      "Content-Type": "application/json",
+    };
+
+    logger.i("=" * 80);
+    logger.i("MARK DELIVERED DEBUG");
+    logger.i("=" * 80);
+    logger.i("📍 URL: $url");
+    logger.i("🔑 Headers: $headers");
+
+    final response = await http.post(url, headers: headers);
+
+    logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+    logger.i("📥 RESPONSE BODY: ${response.body}");
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final responseData = jsonDecode(response.body);
+      logger.i("✅ Delivery marked successfully: $responseData");
+      return {
+        "success": true,
+        "data": responseData,
+        "statusCode": response.statusCode,
+      };
+    } else {
+      logger.e("❌ MARK DELIVERED FAILED with status ${response.statusCode}");
+      logger.e("❌ Response body: ${response.body}");
+      
+      try {
+        final errorData = jsonDecode(response.body);
+        return {
+          "success": false,
+          "error": errorData['detail'] ?? errorData['message'] ?? "Failed to mark delivery",
+          "statusCode": response.statusCode,
+        };
+      } catch (_) {
+        return {
+          "success": false,
+          "error": "Failed to mark delivery with status ${response.statusCode}",
+          "statusCode": response.statusCode,
+        };
+      }
+    }
+  } catch (e) {
+    logger.e("❌ MARK DELIVERED EXCEPTION: $e");
+    return {"success": false, "error": "Exception: $e"};
+  } finally {
+    logger.i("=" * 80);
+  }
+}
+
+/// Send OTP for delivery verification
+Future<Map<String, dynamic>?> sendDeliveryOtp({
+  required int pickupCarrierId,
+}) async {
+  try {
+    final url = Uri.parse("$baseurl/api/qdel/carrier/delivery/send/otp/$pickupCarrierId/");
+    
+    final headers = {
+      "Authorization": "Bearer ${ApiService.accessToken}",
+      "Content-Type": "application/json",
+    };
+
+    logger.i("=" * 80);
+    logger.i("SEND DELIVERY OTP DEBUG");
+    logger.i("=" * 80);
+    logger.i("📍 URL: $url");
+    logger.i("🔑 Headers: $headers");
+    logger.i("📦 Body: {} (no fields required)");
+
+    final response = await http.post(url, headers: headers);
+
+    logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+    logger.i("📥 RESPONSE BODY: ${response.body}");
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final responseData = jsonDecode(response.body);
+      logger.i("✅ Delivery OTP sent successfully: $responseData");
+      return {
+        "success": true,
+        "data": responseData,
+        "statusCode": response.statusCode,
+      };
+    } else {
+      logger.e("❌ SEND DELIVERY OTP FAILED with status ${response.statusCode}");
+      logger.e("❌ Response body: ${response.body}");
+      
+      try {
+        final errorData = jsonDecode(response.body);
+        return {
+          "success": false,
+          "error": errorData['detail'] ?? errorData['message'] ?? "Failed to send delivery OTP",
+          "statusCode": response.statusCode,
+        };
+      } catch (_) {
+        return {
+          "success": false,
+          "error": "Failed to send delivery OTP with status ${response.statusCode}",
+          "statusCode": response.statusCode,
+        };
+      }
+    }
+  } catch (e) {
+    logger.e("❌ SEND DELIVERY OTP EXCEPTION: $e");
+    return {"success": false, "error": "Exception: $e"};
+  } finally {
+    logger.i("=" * 80);
+  }
+}
+
+/// Verify OTP for delivery confirmation
+Future<Map<String, dynamic>?> verifyDeliveryOtp({
+  required int pickupCarrierId,
+  required String otp,
+}) async {
+  try {
+    final url = Uri.parse("$baseurl/api/qdel/carrier/delivery/verify/otp/$pickupCarrierId/");
+    
+    final headers = {
+      "Authorization": "Bearer ${ApiService.accessToken}",
+      "Content-Type": "application/json",
+    };
+
+    final body = jsonEncode({
+      "otp": otp,
+    });
+
+    logger.i("=" * 80);
+    logger.i("VERIFY DELIVERY OTP DEBUG");
+    logger.i("=" * 80);
+    logger.i("📍 URL: $url");
+    logger.i("🔑 Headers: $headers");
+    logger.i("📦 Body: $body");
+
+    final response = await http.post(url, headers: headers, body: body);
+
+    logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+    logger.i("📥 RESPONSE BODY: ${response.body}");
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final responseData = jsonDecode(response.body);
+      logger.i("✅ Delivery OTP verified successfully: $responseData");
+      return {
+        "success": true,
+        "data": responseData,
+        "statusCode": response.statusCode,
+      };
+    } else {
+      logger.e("❌ VERIFY DELIVERY OTP FAILED with status ${response.statusCode}");
+      
+      try {
+        final errorData = jsonDecode(response.body);
+        return {
+          "success": false,
+          "error": errorData['detail'] ?? errorData['message'] ?? "Failed to verify delivery OTP",
+          "statusCode": response.statusCode,
+        };
+      } catch (_) {
+        return {
+          "success": false,
+          "error": "Failed to verify delivery OTP with status ${response.statusCode}",
+          "statusCode": response.statusCode,
+        };
+      }
+    }
+  } catch (e) {
+    logger.e("❌ VERIFY DELIVERY OTP EXCEPTION: $e");
+    return {"success": false, "error": "Exception: $e"};
+  } finally {
+    logger.i("=" * 80);
+  }
+}
+
+// Add these status tracking methods for delivery
+
+static Future<void> saveDeliveryArrivalStatus(int orderId, bool hasArrived) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('delivery_arrived_$orderId', hasArrived);
+  debugPrint("✅ Saved delivery arrival status for order $orderId: $hasArrived");
+}
+
+static Future<bool?> getDeliveryArrivalStatus(int orderId) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool('delivery_arrived_$orderId');
+}
+
+static Future<void> saveDeliveryOtpSentStatus(int orderId, bool isOtpSent) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('delivery_otp_sent_$orderId', isOtpSent);
+  debugPrint("✅ Saved delivery OTP sent status for order $orderId: $isOtpSent");
+}
+
+static Future<bool?> getDeliveryOtpSentStatus(int orderId) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool('delivery_otp_sent_$orderId');
+}
+
+static Future<void> saveDeliveryVerifiedStatus(int orderId, bool isVerified) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('delivery_verified_$orderId', isVerified);
+  debugPrint("✅ Saved delivery verified status for order $orderId: $isVerified");
+}
+
+static Future<bool?> getDeliveryVerifiedStatus(int orderId) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool('delivery_verified_$orderId');
+}
+
+// Update clearOrderStatus to also clear delivery status
 static Future<void> clearOrderStatus(int orderId) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.remove('arrived_$orderId');
   await prefs.remove('otp_sent_$orderId');
   await prefs.remove('verified_$orderId');
+  await prefs.remove('delivery_arrived_$orderId');
+  await prefs.remove('delivery_otp_sent_$orderId');
+  await prefs.remove('delivery_verified_$orderId');
   debugPrint("🗑️ Cleared all status for order $orderId");
 }
 
