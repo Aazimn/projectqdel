@@ -44,4 +44,19 @@ class ReceiverAddress {
           : null,
     );
   }
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'receiver_name': receiverName,
+      'receiver_phone': phoneNumber,
+      'address_text': address,
+      'landmark': landmark,
+      'district': district,
+      'state': state,
+      'country': country,
+      'zip_code': zipCode,
+      'latitude': latitude,
+      'longitude': longitude,
+    };
+  }
 }

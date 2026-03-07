@@ -19,4 +19,7 @@ class ReceiverDetails {
       phone: json['phone'],
     );
   }
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'full_name': fullName, 'email': email, 'phone': phone};
+  }
 }

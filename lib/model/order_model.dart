@@ -55,4 +55,16 @@ class OrderModel {
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
+    Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'pickup_no': pickupNo,
+      'product_details': productDetails?.toJson(),
+      'sender_details': senderDetails?.toJson(),
+      'sender_address': senderAddress?.toJson(),
+      'receiver_details': receiverDetails?.toJson(),
+      'receiver_address': receiverAddress?.toJson(),
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
 }

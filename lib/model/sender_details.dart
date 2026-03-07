@@ -19,4 +19,13 @@ class SenderDetails {
       phone: json['phone'],
     );
   }
+   // ADD THIS
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'full_name': fullName,
+      'email': email,
+      'phone': phone,
+    };
+  }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/dashboard_screen.dart';
+import 'package:projectqdel/view/Carrier/accepted_screen.dart';
 import 'package:projectqdel/view/Carrier/rejected_screen.dart';
 import 'package:projectqdel/view/Carrier/status_pending.dart';
 import 'package:projectqdel/view/Client/client_dashboard.dart';
@@ -55,6 +56,15 @@ class _SplashScreenState extends State<SplashScreen> {
         break;
 
       case "carrier":
+        final activeOrderId = await ApiService.getActiveOrder();
+        final cachedOrder = await ApiService.getActiveOrderDetails();
+
+        if (cachedOrder != null && cachedOrder.id == activeOrderId) {
+          // Use the cached order - NO API CALL NEEDED!
+          go(AcceptedOrderScreen(orderId: activeOrderId!, order: cachedOrder));
+          return;
+        }
+
         if (status == "approved") {
           go(const CarrierDashboard());
         } else if (status == "pending") {

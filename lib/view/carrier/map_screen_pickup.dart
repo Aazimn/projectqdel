@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -8,6 +9,7 @@ import 'package:lottie/lottie.dart' hide Marker;
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/model/order_model.dart';
+import 'package:projectqdel/view/Carrier/accepted_screen.dart';
 
 class CarrierMapScreen extends StatefulWidget {
   const CarrierMapScreen({super.key});
@@ -19,7 +21,8 @@ class CarrierMapScreen extends StatefulWidget {
 class _CarrierMapScreenState extends State<CarrierMapScreen> {
   bool isLocationEnabled = false;
   bool isCheckingLocation = true;
-  bool isAcceptingOrder = false;
+  // bool isAcceptingOrder = false;
+  Logger logger = Logger();
   LatLng? carrierLocation;
   Future<List<OrderModel>>? ordersFuture;
   static const double radiusMeters = 5000;
@@ -385,195 +388,200 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(14),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              color: const Color.fromARGB(255, 187, 185, 185),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(15),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade400,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        bool isAcceptingLocally = false;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(14),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: const Color.fromARGB(255, 187, 185, 185),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(15),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "Order #${order.id}",
-                        style: const TextStyle(
-                          fontSize: 25,
-                          fontWeight: FontWeight.bold,
-                          color: ColorConstants.black,
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade400,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.chat_bubble_outline),
-                            onPressed: () {},
+                          Text(
+                            "Order #${order.id}",
+                            style: const TextStyle(
+                              fontSize: 25,
+                              fontWeight: FontWeight.bold,
+                              color: ColorConstants.black,
+                            ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.call_outlined),
-                            onPressed: () {},
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.chat_bubble_outline),
+                                onPressed: () {},
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.call_outlined),
+                                onPressed: () {},
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
 
-                  const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Column(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.circle,
+                          Column(
+                            children: [
+                              const Icon(
+                                Icons.circle,
 
-                            size: 10,
-                            color: Colors.black,
+                                size: 10,
+                                color: Colors.black,
+                              ),
+                              Container(
+                                width: 2,
+                                height: 100,
+                                color: const Color.fromARGB(255, 96, 95, 95),
+                              ),
+                              const Icon(
+                                Icons.circle,
+                                size: 10,
+                                color: Colors.orange,
+                              ),
+                            ],
                           ),
-                          Container(
-                            width: 2,
-                            height: 100,
-                            color: const Color.fromARGB(255, 96, 95, 95),
-                          ),
-                          const Icon(
-                            Icons.circle,
-                            size: 10,
-                            color: Colors.orange,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Pickup",
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: Color.fromARGB(255, 95, 95, 95),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 5),
+                                Text(
+                                  order.senderAddress!.senderName.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  order.senderAddress != null
+                                      ? order.senderAddress!.address
+                                      : "Pickup address not available",
+                                  style: const TextStyle(color: Colors.black54),
+                                ),
+
+                                const SizedBox(height: 50),
+                                const Text(
+                                  "Deliver To",
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: Color.fromARGB(255, 95, 95, 95),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 5),
+                                Text(
+                                  order.receiverAddress?.receiverName
+                                          .toUpperCase() ??
+                                      "Receiver",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+
+                                Text(
+                                  order.receiverAddress != null
+                                      ? "${order.receiverAddress!.address}, "
+                                            "${order.receiverAddress!.district}, "
+                                            "${order.receiverAddress!.state}, "
+                                            "${order.receiverAddress!.country}"
+                                      : "Delivery address not available",
+                                  style: const TextStyle(color: Colors.black54),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "Pickup",
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: Color.fromARGB(255, 95, 95, 95),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 5),
-                            Text(
-                              order.senderAddress!.senderName.toUpperCase(),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              order.senderAddress != null
-                                  ? order.senderAddress!.address
-                                  : "Pickup address not available",
-                              style: const TextStyle(color: Colors.black54),
-                            ),
 
-                            const SizedBox(height: 50),
-                            const Text(
-                              "Deliver To",
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: Color.fromARGB(255, 95, 95, 95),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 5),
-                            Text(
-                              order.receiverAddress?.receiverName
-                                      .toUpperCase() ??
-                                  "Receiver",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                      const SizedBox(height: 24),
 
-                            Text(
-                              order.receiverAddress != null
-                                  ? "${order.receiverAddress!.address}, "
-                                        "${order.receiverAddress!.district}, "
-                                        "${order.receiverAddress!.state}, "
-                                        "${order.receiverAddress!.country}"
-                                  : "Delivery address not available",
-                              style: const TextStyle(color: Colors.black54),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: isAcceptingLocally
+                              ? null
+                              : () async {
+                                  setModalState(() {
+                                    isAcceptingLocally = true;
+                                  });
+                                  await _acceptOrder(order);
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: ColorConstants.green,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ],
+                          ),
+                          child: isAcceptingLocally
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  "Accept order",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: ColorConstants.white,
+                                  ),
+                                ),
                         ),
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 24),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: isAcceptingOrder
-                          ? null
-                          : () {
-                              _acceptOrder(order.id);
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: ColorConstants.green,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: isAcceptingOrder
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              "Accept order",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: ColorConstants.white,
-                              ),
-                            ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
   }
 
   Future<bool> _enableLocation() async {
-    // 1️⃣ Check if GPS is enabled
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       await Geolocator.openLocationSettings();
       return false;
     }
-
-    // 2️⃣ Check permission
     LocationPermission permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
@@ -591,40 +599,97 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
     return true;
   }
 
-  Future<void> _acceptOrder(int pickupId) async {
-    setState(() {
-      isAcceptingOrder = true;
-    });
+  // In CarrierMapScreen.dart - Update the _acceptOrder method
+  // In CarrierMapScreen.dart - Update the _acceptOrder method
+  // In CarrierMapScreen.dart - Update the _acceptOrder method
+  // In CarrierMapScreen.dart - Update _acceptOrder method
+  // In CarrierMapScreen.dart - Update the _acceptOrder method
 
+  Future<void> _acceptOrder(OrderModel order) async {
     try {
-      final response = await ApiService().acceptOrder(pickupId: pickupId);
+      if (carrierLocation == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Carrier location not available"),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final response = await ApiService().acceptOrder(
+        pickupId: order.id,
+        latitude: carrierLocation!.latitude,
+        longitude: carrierLocation!.longitude,
+      );
 
       if (!mounted) return;
 
       if (response != null) {
+        // Get the captured ID directly from the response or from the static method
+        int? capturedId = ApiService().lastAcceptedPickupCarrierId;
+
+        if (capturedId != null) {
+          // Save the pickup_carrier_id
+          await ApiService.savePickupCarrierId(capturedId);
+          debugPrint("✅ Saved pickup_carrier_id: $capturedId");
+
+          // Show success with the ID
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("✅ Pickup Carrier ID: $capturedId"),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        } else {
+          // Try to extract from response directly as a fallback
+          int? idFromResponse;
+          if (response['data'] != null && response['data']['id'] != null) {
+            idFromResponse = response['data']['id'];
+          } else if (response['id'] != null) {
+            idFromResponse = response['id'];
+          }
+
+          if (idFromResponse != null) {
+            await ApiService.savePickupCarrierId(idFromResponse);
+            debugPrint(
+              "✅ Saved pickup_carrier_id from response: $idFromResponse",
+            );
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("✅ Pickup Carrier ID: $idFromResponse"),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          } else {
+            debugPrint("⚠️ Could not find pickup_carrier_id in response");
+            // Don't show error, just log it
+          }
+        }
+
         Navigator.pop(context);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Order accepted successfully"),
-            backgroundColor: Colors.green,
+        // Save the order ID and details
+        await ApiService.saveActiveOrder(order.id);
+        await ApiService.saveActiveOrderDetails(order);
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                AcceptedOrderScreen(orderId: order.id, order: order),
           ),
         );
-        // 🔄 Refresh orders (remove accepted order)
+
         setState(() {
           ordersFuture = ApiService().getAllOrders();
         });
-      } else {
-        Logger().e("Failed to accept order");
       }
     } catch (e) {
-      Logger().e("Error accepting order: $e");
-    } finally {
-      if (mounted) {
-        setState(() {
-          isAcceptingOrder = false;
-        });
-      }
+      logger.e("Error accepting order: $e");
     }
   }
 }
