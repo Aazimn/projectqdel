@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -605,6 +604,8 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
   // In CarrierMapScreen.dart - Update _acceptOrder method
   // In CarrierMapScreen.dart - Update the _acceptOrder method
 
+  // In CarrierMapScreen.dart - Update _acceptOrder method
+  // In CarrierMapScreen.dart - Update _acceptOrder method
   Future<void> _acceptOrder(OrderModel order) async {
     try {
       if (carrierLocation == null) {
@@ -626,55 +627,54 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
       if (!mounted) return;
 
       if (response != null) {
-        // Get the captured ID directly from the response or from the static method
-        int? capturedId = ApiService().lastAcceptedPickupCarrierId;
+        Navigator.pop(context);
 
-        if (capturedId != null) {
-          // Save the pickup_carrier_id
-          await ApiService.savePickupCarrierId(capturedId);
-          debugPrint("✅ Saved pickup_carrier_id: $capturedId");
+        // Save the order ID
+        await ApiService.saveActiveOrder(order.id);
+        await ApiService.saveActiveOrderDetails(order);
 
-          // Show success with the ID
+        // Save the pickup_carrier_id if available
+        if (ApiService().lastAcceptedPickupCarrierId != null) {
+          int pickupCarrierId = ApiService().lastAcceptedPickupCarrierId!;
+
+          // Save globally
+          await ApiService.savePickupCarrierId(pickupCarrierId);
+          debugPrint("✅ Saved global pickup_carrier_id: $pickupCarrierId");
+
+          // IMPORTANT: Save it for this specific order
+          await ApiService.savePickupCarrierIdForOrder(
+            order.id,
+            pickupCarrierId,
+          );
+          debugPrint(
+            "✅ Saved pickup_carrier_id $pickupCarrierId for order ${order.id}",
+          );
+
+          // Verify it was saved
+          int? savedId = await ApiService.getPickupCarrierIdForOrder(order.id);
+          debugPrint(
+            "✅ Verified: pickup_carrier_id for order ${order.id} is $savedId",
+          );
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("✅ Pickup Carrier ID: $capturedId"),
+              content: Text(
+                "✅ Saved ID $pickupCarrierId for Order ${order.id}",
+              ),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
             ),
           );
         } else {
-          // Try to extract from response directly as a fallback
-          int? idFromResponse;
-          if (response['data'] != null && response['data']['id'] != null) {
-            idFromResponse = response['data']['id'];
-          } else if (response['id'] != null) {
-            idFromResponse = response['id'];
-          }
+          debugPrint("⚠️ No pickup_carrier_id captured from response");
 
-          if (idFromResponse != null) {
-            await ApiService.savePickupCarrierId(idFromResponse);
-            debugPrint(
-              "✅ Saved pickup_carrier_id from response: $idFromResponse",
-            );
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("✅ Pickup Carrier ID: $idFromResponse"),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          } else {
-            debugPrint("⚠️ Could not find pickup_carrier_id in response");
-            // Don't show error, just log it
-          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("⚠️ No pickup_carrier_id captured"),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
-
-        Navigator.pop(context);
-
-        // Save the order ID and details
-        await ApiService.saveActiveOrder(order.id);
-        await ApiService.saveActiveOrderDetails(order);
 
         Navigator.push(
           context,

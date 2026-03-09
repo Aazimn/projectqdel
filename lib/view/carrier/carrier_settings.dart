@@ -121,7 +121,6 @@ class _CarrierSettingsState extends State<CarrierSettings> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    // user!.firstName,
                     "My Profile",
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),

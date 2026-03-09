@@ -4,6 +4,7 @@ import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Client/order_detailed.dart';
 import 'package:projectqdel/view/Client/edit_order.dart';
+import 'package:projectqdel/view/Client/order_tracking.dart';
 
 class MyOrdersScreen extends StatefulWidget {
   const MyOrdersScreen({super.key});
@@ -397,9 +398,13 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Track feature coming soon"),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => OrderTrackingScreen(
+                            pickupId: pickupId!,
+                            orderData: order,
+                          ),
                         ),
                       );
                     },

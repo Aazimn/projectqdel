@@ -13,11 +13,10 @@ class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
   final String baseurl =
-      "https://remote-alternatives-captured-boulder.trycloudflare.com";
+      "https://benjamin-avi-char-consequences.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
-
   static Future<void> setFirstTime(bool value) async {
     isFirstTime = value;
     final prefs = await SharedPreferences.getInstance();
@@ -907,26 +906,20 @@ class ApiService {
       try {
         final decoded = jsonDecode(response.body);
 
-        // ✅ API returns data object, not address_id at root
         final data = decoded["data"];
 
         if (data != null && data["id"] != null) {
           return data["id"] as int;
         }
 
-        // If ID is missing but API succeeded, try to fetch the latest address
         logger.w("⚠️ Address saved but ID not returned, fetching latest...");
 
-        // Fetch the latest sender addresses and return the most recent one
         final addresses = await getSenderAddresses();
         if (addresses.isNotEmpty) {
-          // Assuming the API returns them in descending order (newest first)
           final latestId = addresses.first['id'] as int;
           logger.i("✅ Using latest address ID: $latestId");
           return latestId;
         }
-
-        // If we can't get the ID, return null instead of -1
         logger.e("❌ Could not retrieve address ID even after fetching");
         return null;
       } catch (e) {
@@ -980,7 +973,6 @@ class ApiService {
       try {
         final decoded = jsonDecode(response.body);
 
-        // Check different possible response structures
         if (decoded["id"] != null) {
           return decoded["id"] as int;
         } else if (decoded["data"] != null && decoded["data"]["id"] != null) {
@@ -989,7 +981,6 @@ class ApiService {
           return decoded["address_id"] as int;
         }
 
-        // If ID is missing but API succeeded, try to fetch the latest address
         logger.w(
           "⚠️ Receiver address saved but ID not returned, fetching latest...",
         );
@@ -1398,68 +1389,73 @@ class ApiService {
     }
   }
 
-// In ApiService.dart - Update the acceptOrder method
-int? lastAcceptedPickupCarrierId;
+  int? lastAcceptedPickupCarrierId;
 
-Future<Map<String, dynamic>?> acceptOrder({
-  required int pickupId,
-  required double latitude,
-  required double longitude,
-}) async {
-  Uri uri = Uri.parse("$baseurl/api/qdel/users/pickups/carrier/request/");
+  Future<Map<String, dynamic>?> acceptOrder({
+    required int pickupId,
+    required double latitude,
+    required double longitude,
+  }) async {
+    Uri uri = Uri.parse("$baseurl/api/qdel/users/pickups/carrier/request/");
 
-  final headers = {
-    "Authorization": "Bearer ${ApiService.accessToken}",
-    "Content-Type": "application/json",
-  };
+    final headers = {
+      "Authorization": "Bearer ${ApiService.accessToken}",
+      "Content-Type": "application/json",
+    };
 
-  final body = jsonEncode({
-    "pickup": pickupId,
-    "latitude": latitude,
-    "longitude": longitude,
-  });
+    final body = jsonEncode({
+      "pickup": pickupId,
+      "latitude": latitude,
+      "longitude": longitude,
+    });
 
-  try {
-    final response = await http.post(uri, headers: headers, body: body);
+    try {
+      final response = await http.post(uri, headers: headers, body: body);
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final responseData = jsonDecode(response.body);
-      
-      // Try to capture pickup_carrier_id
-      if (responseData['data'] != null && responseData['data']['id'] != null) {
-        lastAcceptedPickupCarrierId = responseData['data']['id'];
-        logger.i("✅ Captured pickup_carrier_id: $lastAcceptedPickupCarrierId");
-        
-        // IMPORTANT: Save it to SharedPreferences immediately
-        await savePickupCarrierId(lastAcceptedPickupCarrierId!);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+
+        // if (responseData['data'] != null && responseData['data']['id'] != null) {
+        //   lastAcceptedPickupCarrierId = responseData['data']['id'];
+        //   logger.i("✅ Captured pickup_carrier_id: $lastAcceptedPickupCarrierId");
+
+        //   await savePickupCarrierId(lastAcceptedPickupCarrierId!);
+        // }
+        if (responseData['data'] != null &&
+            responseData['data']['id'] != null) {
+          lastAcceptedPickupCarrierId = responseData['data']['id'];
+          logger.i(
+            "✅ Captured pickup_carrier_id: $lastAcceptedPickupCarrierId",
+          );
+          await savePickupCarrierId(lastAcceptedPickupCarrierId!);
+        }
+
+        return responseData;
+      } else {
+        logger.e("❌ ACCEPT ORDER FAILED => ${response.body}");
+        return null;
       }
-      
-      return responseData;
-    } else {
-      logger.e("❌ ACCEPT ORDER FAILED => ${response.body}");
+    } catch (e) {
+      logger.e("❌ ACCEPT ORDER ERROR => $e");
       return null;
     }
-  } catch (e) {
-    logger.e("❌ ACCEPT ORDER ERROR => $e");
-    return null;
   }
-}
 
-static Future<void> savePickupCarrierId(int id) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setInt("pickup_carrier_id", id);
-  debugPrint("✅ Saved pickup_carrier_id: $id");
-}
+  static Future<void> savePickupCarrierId(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt("pickup_carrier_id", id);
+    debugPrint("✅ Saved pickup_carrier_id: $id");
+  }
 
-static Future<int?> getPickupCarrierId() async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getInt("pickup_carrier_id");
-}
+  static Future<int?> getPickupCarrierId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("pickup_carrier_id");
+  }
 
-static Future<void> clearPickupCarrierId() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove("pickup_carrier_id");
-}
+  static Future<void> clearPickupCarrierId() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("pickup_carrier_id");
+  }
 
   Future<List<dynamic>?> getAcceptedOrders() async {
     final uri = Uri.parse("$baseurl/api/qdel/sender/view/sent/orders/");
@@ -1679,495 +1675,691 @@ static Future<void> clearPickupCarrierId() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('active_order_details');
   }
-Future<Map<String, dynamic>?> markArrivedSimple({
-  required int pickupCarrierId,
-}) async {
-  try {
-    final url = Uri.parse("$baseurl/api/qdel/carrier/arrived/$pickupCarrierId/");
-    
-    final headers = {
-      "Authorization": "Bearer ${ApiService.accessToken}",
-      "Content-Type": "application/json",
-    };
 
-    logger.i("🚚 MARK ARRIVED URL => $url");
-    logger.i("📤 MARK ARRIVED HEADERS => $headers");
+  Future<Map<String, dynamic>?> markArrivedSimple({
+    required int pickupCarrierId,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/carrier/arrived/$pickupCarrierId/",
+      );
 
-    final response = await http.post(url, headers: headers);
-
-    logger.i("📥 MARK ARRIVED STATUS => ${response.statusCode}");
-    logger.i("📥 MARK ARRIVED RESPONSE => ${response.body}");
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return {
-        "success": true,
-        "data": jsonDecode(response.body),
-        "statusCode": response.statusCode,
-      };
-    } else {
-      logger.e("❌ MARK ARRIVED FAILED => ${response.body}");
-      try {
-        final errorData = jsonDecode(response.body);
-        return {
-          "success": false,
-          "error": errorData['detail'] ?? errorData['message'] ?? "Failed to mark arrival",
-          "statusCode": response.statusCode,
-        };
-      } catch (_) {
-        return {
-          "success": false,
-          "error": "Failed to mark arrival with status ${response.statusCode}",
-          "statusCode": response.statusCode,
-        };
-      }
-    }
-  } catch (e) {
-    logger.e("❌ MARK ARRIVED EXCEPTION => $e");
-    return {"success": false, "error": "Exception: $e"};
-  }
-}
-Future<void> debugCheckAvailablePickups() async {
-  try {
-    final response = await http.get(
-      Uri.parse('$baseurl/api/qdel/carrier/active-pickups/'), 
-      headers: {
+      final headers = {
         "Authorization": "Bearer ${ApiService.accessToken}",
         "Content-Type": "application/json",
-      },
-    );
+      };
 
-    logger.i("📋 ACTIVE PICKUPS STATUS: ${response.statusCode}");
-    logger.i("📋 ACTIVE PICKUPS RESPONSE: ${response.body}");
+      logger.i("🚚 MARK ARRIVED URL => $url");
+      logger.i("📤 MARK ARRIVED HEADERS => $headers");
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      logger.i("✅ Active pickups data: $data");
-    } else {
-      logger.w("⚠️ Could not fetch active pickups");
+      final response = await http.post(url, headers: headers);
+
+      logger.i("📥 MARK ARRIVED STATUS => ${response.statusCode}");
+      logger.i("📥 MARK ARRIVED RESPONSE => ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          "success": true,
+          "data": jsonDecode(response.body),
+          "statusCode": response.statusCode,
+        };
+      } else {
+        logger.e("❌ MARK ARRIVED FAILED => ${response.body}");
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['detail'] ??
+                errorData['message'] ??
+                "Failed to mark arrival",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error":
+                "Failed to mark arrival with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
+      }
+    } catch (e) {
+      logger.e("❌ MARK ARRIVED EXCEPTION => $e");
+      return {"success": false, "error": "Exception: $e"};
     }
-  } catch (e) {
-    logger.e("Debug check failed: $e");
   }
-}
 
-// Add this method to ApiService.dart
-Future<void> debugCheckMyAcceptedOrders() async {
-  try {
-    // Try to get the carrier's accepted orders
-    final response = await http.get(
-      Uri.parse('$baseurl/api/qdel/carrier/my-accepted-orders/'), // You might need to adjust this endpoint
-      headers: {
+  Future<void> debugCheckAvailablePickups() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseurl/api/qdel/carrier/active-pickups/'),
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
+
+      logger.i("📋 ACTIVE PICKUPS STATUS: ${response.statusCode}");
+      logger.i("📋 ACTIVE PICKUPS RESPONSE: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        logger.i("✅ Active pickups data: $data");
+      } else {
+        logger.w("⚠️ Could not fetch active pickups");
+      }
+    } catch (e) {
+      logger.e("Debug check failed: $e");
+    }
+  }
+
+  Future<void> debugCheckMyAcceptedOrders() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseurl/api/qdel/carrier/my-accepted-orders/'),
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
+
+      logger.i("📋 MY ACCEPTED ORDERS STATUS: ${response.statusCode}");
+      logger.i("📋 MY ACCEPTED ORDERS RESPONSE: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        logger.i("✅ My accepted orders: $data");
+      } else {
+        logger.w("⚠️ Could not fetch my accepted orders");
+      }
+    } catch (e) {
+      logger.e("Debug check failed: $e");
+    }
+  }
+
+  Future<Map<String, dynamic>?> sendPickupOtp({
+    required int pickupCarrierId,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/carrier/request/otp/$pickupCarrierId/",
+      );
+
+      final headers = {
         "Authorization": "Bearer ${ApiService.accessToken}",
         "Content-Type": "application/json",
-      },
+      };
+
+      logger.i("=" * 80);
+      logger.i("SEND PICKUP OTP DEBUG");
+      logger.i("=" * 80);
+      logger.i("📍 URL: $url");
+      logger.i("🔑 Headers: $headers");
+      logger.i("📦 Body: {} (no fields required)");
+
+      final response = await http.post(url, headers: headers);
+
+      logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+      logger.i("📥 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        logger.i("✅ OTP sent successfully: $responseData");
+        return {
+          "success": true,
+          "data": responseData,
+          "statusCode": response.statusCode,
+        };
+      } else {
+        logger.e("❌ SEND OTP FAILED with status ${response.statusCode}");
+        logger.e("❌ Response body: ${response.body}");
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['detail'] ??
+                errorData['message'] ??
+                "Failed to send OTP",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error": "Failed to send OTP with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
+      }
+    } catch (e) {
+      logger.e("❌ SEND OTP EXCEPTION: $e");
+      return {"success": false, "error": "Exception: $e"};
+    } finally {
+      logger.i("=" * 80);
+    }
+  }
+
+  Future<Map<String, dynamic>?> verifyPickupOtp({
+    required int pickupCarrierId,
+    required String otp,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/carrier/verify/otp/$pickupCarrierId/",
+      );
+
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      final body = jsonEncode({"otp": otp});
+
+      logger.i("=" * 80);
+      logger.i("VERIFY PICKUP OTP DEBUG");
+      logger.i("=" * 80);
+      logger.i("📍 URL: $url");
+      logger.i("🔑 Headers: $headers");
+      logger.i("📦 Body: $body");
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+      logger.i("📥 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        logger.i("✅ OTP verified successfully: $responseData");
+        return {
+          "success": true,
+          "data": responseData,
+          "statusCode": response.statusCode,
+        };
+      } else {
+        logger.e("❌ VERIFY OTP FAILED with status ${response.statusCode}");
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['detail'] ??
+                errorData['message'] ??
+                "Failed to verify OTP",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error": "Failed to verify OTP with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
+      }
+    } catch (e) {
+      logger.e("❌ VERIFY OTP EXCEPTION: $e");
+      return {"success": false, "error": "Exception: $e"};
+    } finally {
+      logger.i("=" * 80);
+    }
+  }
+
+  static Future<void> saveArrivalStatus(int orderId, bool isArrived) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('arrived_$orderId', isArrived);
+    debugPrint("✅ Saved arrival status for order $orderId: $isArrived");
+  }
+
+  static Future<bool?> getArrivalStatus(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('arrived_$orderId');
+  }
+
+  static Future<void> saveOtpSentStatus(int orderId, bool isOtpSent) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('otp_sent_$orderId', isOtpSent);
+    debugPrint("✅ Saved OTP sent status for order $orderId: $isOtpSent");
+  }
+
+  static Future<bool?> getOtpSentStatus(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('otp_sent_$orderId');
+  }
+
+  static Future<void> saveVerificationStatus(
+    int orderId,
+    bool isVerified,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('verified_$orderId', isVerified);
+    debugPrint("✅ Saved verification status for order $orderId: $isVerified");
+  }
+
+  static Future<bool?> getVerificationStatus(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('verified_$orderId');
+  }
+
+  // static Future<void> clearOrderStatus(int orderId) async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   await prefs.remove('arrived_$orderId');
+  //   await prefs.remove('otp_sent_$orderId');
+  //   await prefs.remove('verified_$orderId');
+  //   debugPrint("🗑️ Cleared all status for order $orderId");
+  // }
+
+  Future<Map<String, dynamic>?> markDelivered({
+    required int pickupCarrierId,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/carrier/arrived/droplocation/$pickupCarrierId/",
+      );
+
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      logger.i("=" * 80);
+      logger.i("MARK DELIVERED DEBUG");
+      logger.i("=" * 80);
+      logger.i("📍 URL: $url");
+      logger.i("🔑 Headers: $headers");
+
+      final response = await http.post(url, headers: headers);
+
+      logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+      logger.i("📥 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        logger.i("✅ Delivery marked successfully: $responseData");
+        return {
+          "success": true,
+          "data": responseData,
+          "statusCode": response.statusCode,
+        };
+      } else {
+        logger.e("❌ MARK DELIVERED FAILED with status ${response.statusCode}");
+        logger.e("❌ Response body: ${response.body}");
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['detail'] ??
+                errorData['message'] ??
+                "Failed to mark delivery",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error":
+                "Failed to mark delivery with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
+      }
+    } catch (e) {
+      logger.e("❌ MARK DELIVERED EXCEPTION: $e");
+      return {"success": false, "error": "Exception: $e"};
+    } finally {
+      logger.i("=" * 80);
+    }
+  }
+
+  Future<Map<String, dynamic>?> sendDeliveryOtp({
+    required int pickupCarrierId,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/carrier/delivery/send/otp/$pickupCarrierId/",
+      );
+
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      logger.i("=" * 80);
+      logger.i("SEND DELIVERY OTP DEBUG");
+      logger.i("=" * 80);
+      logger.i("📍 URL: $url");
+      logger.i("🔑 Headers: $headers");
+      logger.i("📦 Body: {} (no fields required)");
+
+      final response = await http.post(url, headers: headers);
+
+      logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+      logger.i("📥 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        logger.i("✅ Delivery OTP sent successfully: $responseData");
+        return {
+          "success": true,
+          "data": responseData,
+          "statusCode": response.statusCode,
+        };
+      } else {
+        logger.e(
+          "❌ SEND DELIVERY OTP FAILED with status ${response.statusCode}",
+        );
+        logger.e("❌ Response body: ${response.body}");
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['detail'] ??
+                errorData['message'] ??
+                "Failed to send delivery OTP",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error":
+                "Failed to send delivery OTP with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
+      }
+    } catch (e) {
+      logger.e("❌ SEND DELIVERY OTP EXCEPTION: $e");
+      return {"success": false, "error": "Exception: $e"};
+    } finally {
+      logger.i("=" * 80);
+    }
+  }
+
+  Future<Map<String, dynamic>?> verifyDeliveryOtp({
+    required int pickupCarrierId,
+    required String otp,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/carrier/delivery/verify/otp/$pickupCarrierId/",
+      );
+
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      final body = jsonEncode({"otp": otp});
+
+      logger.i("=" * 80);
+      logger.i("VERIFY DELIVERY OTP DEBUG");
+      logger.i("=" * 80);
+      logger.i("📍 URL: $url");
+      logger.i("🔑 Headers: $headers");
+      logger.i("📦 Body: $body");
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+      logger.i("📥 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        logger.i("✅ Delivery OTP verified successfully: $responseData");
+        return {
+          "success": true,
+          "data": responseData,
+          "statusCode": response.statusCode,
+        };
+      } else {
+        logger.e(
+          "❌ VERIFY DELIVERY OTP FAILED with status ${response.statusCode}",
+        );
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['detail'] ??
+                errorData['message'] ??
+                "Failed to verify delivery OTP",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error":
+                "Failed to verify delivery OTP with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
+      }
+    } catch (e) {
+      logger.e("❌ VERIFY DELIVERY OTP EXCEPTION: $e");
+      return {"success": false, "error": "Exception: $e"};
+    } finally {
+      logger.i("=" * 80);
+    }
+  }
+
+  static Future<void> saveDeliveryArrivalStatus(
+    int orderId,
+    bool hasArrived,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('delivery_arrived_$orderId', hasArrived);
+    debugPrint(
+      "✅ Saved delivery arrival status for order $orderId: $hasArrived",
     );
-
-    logger.i("📋 MY ACCEPTED ORDERS STATUS: ${response.statusCode}");
-    logger.i("📋 MY ACCEPTED ORDERS RESPONSE: ${response.body}");
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      logger.i("✅ My accepted orders: $data");
-    } else {
-      logger.w("⚠️ Could not fetch my accepted orders");
-    }
-  } catch (e) {
-    logger.e("Debug check failed: $e");
   }
-}
 
-// Add this method to your ApiService class
+  static Future<bool?> getDeliveryArrivalStatus(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('delivery_arrived_$orderId');
+  }
 
-Future<Map<String, dynamic>?> sendPickupOtp({
-  required int pickupCarrierId,
-}) async {
-  try {
-    final url = Uri.parse("$baseurl/api/qdel/carrier/request/otp/$pickupCarrierId/");
-    
-    final headers = {
-      "Authorization": "Bearer ${ApiService.accessToken}",
-      "Content-Type": "application/json",
-    };
+  static Future<void> saveDeliveryOtpSentStatus(
+    int orderId,
+    bool isOtpSent,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('delivery_otp_sent_$orderId', isOtpSent);
+    debugPrint(
+      "✅ Saved delivery OTP sent status for order $orderId: $isOtpSent",
+    );
+  }
 
-    logger.i("=" * 80);
-    logger.i("SEND PICKUP OTP DEBUG");
-    logger.i("=" * 80);
-    logger.i("📍 URL: $url");
-    logger.i("🔑 Headers: $headers");
-    logger.i("📦 Body: {} (no fields required)");
+  static Future<bool?> getDeliveryOtpSentStatus(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('delivery_otp_sent_$orderId');
+  }
 
-    final response = await http.post(url, headers: headers);
+  static Future<void> saveDeliveryVerifiedStatus(
+    int orderId,
+    bool isVerified,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('delivery_verified_$orderId', isVerified);
+    debugPrint(
+      "✅ Saved delivery verified status for order $orderId: $isVerified",
+    );
+  }
 
-    logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
-    logger.i("📥 RESPONSE BODY: ${response.body}");
+  static Future<bool?> getDeliveryVerifiedStatus(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('delivery_verified_$orderId');
+  }
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final responseData = jsonDecode(response.body);
-      logger.i("✅ OTP sent successfully: $responseData");
-      return {
-        "success": true,
-        "data": responseData,
-        "statusCode": response.statusCode,
+  static Future<void> clearOrderStatus(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('arrived_$orderId');
+    await prefs.remove('otp_sent_$orderId');
+    await prefs.remove('verified_$orderId');
+    await prefs.remove('delivery_arrived_$orderId');
+    await prefs.remove('delivery_otp_sent_$orderId');
+    await prefs.remove('delivery_verified_$orderId');
+    debugPrint("🗑️ Cleared all status for order $orderId");
+  }
+
+  Future<Map<String, dynamic>?> getCarrierLiveLocation({
+    required int id,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/sender/carrier/live/location/$id/",
+      );
+
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
       };
-    } else {
-      logger.e("❌ SEND OTP FAILED with status ${response.statusCode}");
-      logger.e("❌ Response body: ${response.body}");
-      
-      try {
-        final errorData = jsonDecode(response.body);
+
+      logger.i("=" * 80);
+      logger.i("GET CARRIER LIVE LOCATION DEBUG");
+      logger.i("=" * 80);
+      logger.i("📍 URL: $url");
+      logger.i("🔑 Headers: $headers");
+
+      final response = await http.get(url, headers: headers);
+
+      logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+      logger.i("📥 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        logger.i("✅ Carrier live location fetched successfully");
         return {
-          "success": false,
-          "error": errorData['detail'] ?? errorData['message'] ?? "Failed to send OTP",
+          "success": true,
+          "data": responseData,
           "statusCode": response.statusCode,
         };
-      } catch (_) {
+      } else if (response.statusCode == 404) {
+        logger.e("❌ Carrier location not found for ID: $id");
         return {
           "success": false,
-          "error": "Failed to send OTP with status ${response.statusCode}",
+          "error": "Carrier location not found",
           "statusCode": response.statusCode,
         };
+      } else {
+        logger.e(
+          "❌ GET CARRIER LOCATION FAILED with status ${response.statusCode}",
+        );
+        logger.e("❌ Response body: ${response.body}");
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['detail'] ??
+                errorData['message'] ??
+                "Failed to get carrier location",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error":
+                "Failed to get carrier location with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
       }
+    } catch (e) {
+      logger.e("❌ GET CARRIER LIVE LOCATION EXCEPTION: $e");
+      return {"success": false, "error": "Exception: $e"};
+    } finally {
+      logger.i("=" * 80);
     }
-  } catch (e) {
-    logger.e("❌ SEND OTP EXCEPTION: $e");
-    return {"success": false, "error": "Exception: $e"};
-  } finally {
-    logger.i("=" * 80);
   }
-}
 
-// Add this method to your ApiService class for verifying OTP
-Future<Map<String, dynamic>?> verifyPickupOtp({
-  required int pickupCarrierId,
-  required String otp,
-}) async {
-  try {
-    // You might need to adjust this endpoint based on your backend
-    final url = Uri.parse("$baseurl/api/qdel/carrier/verify/otp/$pickupCarrierId/");
-    
-    final headers = {
-      "Authorization": "Bearer ${ApiService.accessToken}",
-      "Content-Type": "application/json",
-    };
+  
 
-    final body = jsonEncode({
-      "otp": otp,
-    });
+  Future<Map<String, dynamic>?> updateCarrierLocation({
+    required int pickupCarrierId,
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/users/pickups/carrier/update/$pickupCarrierId/",
+      );
 
-    logger.i("=" * 80);
-    logger.i("VERIFY PICKUP OTP DEBUG");
-    logger.i("=" * 80);
-    logger.i("📍 URL: $url");
-    logger.i("🔑 Headers: $headers");
-    logger.i("📦 Body: $body");
-
-    final response = await http.post(url, headers: headers, body: body);
-
-    logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
-    logger.i("📥 RESPONSE BODY: ${response.body}");
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final responseData = jsonDecode(response.body);
-      logger.i("✅ OTP verified successfully: $responseData");
-      return {
-        "success": true,
-        "data": responseData,
-        "statusCode": response.statusCode,
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
       };
-    } else {
-      logger.e("❌ VERIFY OTP FAILED with status ${response.statusCode}");
-      
-      try {
-        final errorData = jsonDecode(response.body);
+
+      final body = jsonEncode({
+        "latitude": latitude,
+        "longitude": longitude,
+        "timestamp": DateTime.now().toIso8601String(),
+      });
+
+      logger.i("=" * 80);
+      logger.i("UPDATE CARRIER LOCATION DEBUG");
+      logger.i("=" * 80);
+      logger.i("📍 URL: $url");
+      logger.i("🔑 Headers: $headers");
+      logger.i("📦 Body: $body");
+
+      final response = await http.put(url, headers: headers, body: body);
+
+      logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+      logger.i("📥 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        logger.i("✅ Carrier location updated successfully");
         return {
-          "success": false,
-          "error": errorData['detail'] ?? errorData['message'] ?? "Failed to verify OTP",
+          "success": true,
+          "data": responseData,
           "statusCode": response.statusCode,
         };
-      } catch (_) {
-        return {
-          "success": false,
-          "error": "Failed to verify OTP with status ${response.statusCode}",
-          "statusCode": response.statusCode,
-        };
+      } else {
+        logger.e("❌ UPDATE LOCATION FAILED with status ${response.statusCode}");
+        logger.e("❌ Response body: ${response.body}");
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['detail'] ??
+                errorData['message'] ??
+                "Failed to update location",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error":
+                "Failed to update location with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
       }
+    } catch (e) {
+      logger.e("❌ UPDATE LOCATION EXCEPTION: $e");
+      return {"success": false, "error": "Exception: $e"};
+    } finally {
+      logger.i("=" * 80);
     }
-  } catch (e) {
-    logger.e("❌ VERIFY OTP EXCEPTION: $e");
-    return {"success": false, "error": "Exception: $e"};
-  } finally {
-    logger.i("=" * 80);
   }
-}
 
-static Future<void> saveArrivalStatus(int orderId, bool isArrived) async {
+  static Future<void> savePickupCarrierIdForOrder(int orderId, int pickupCarrierId) async {
   final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('arrived_$orderId', isArrived);
-  debugPrint("✅ Saved arrival status for order $orderId: $isArrived");
+  await prefs.setInt("order_${orderId}_carrier_id", pickupCarrierId);
+  debugPrint("✅ Saved pickup_carrier_id $pickupCarrierId for order $orderId");
 }
 
-static Future<bool?> getArrivalStatus(int orderId) async {
+static Future<int?> getPickupCarrierIdForOrder(int orderId) async {
   final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool('arrived_$orderId');
+  return prefs.getInt("order_${orderId}_carrier_id");
 }
-
-static Future<void> saveOtpSentStatus(int orderId, bool isOtpSent) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('otp_sent_$orderId', isOtpSent);
-  debugPrint("✅ Saved OTP sent status for order $orderId: $isOtpSent");
-}
-
-static Future<bool?> getOtpSentStatus(int orderId) async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool('otp_sent_$orderId');
-}
-
-static Future<void> saveVerificationStatus(int orderId, bool isVerified) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('verified_$orderId', isVerified);
-  debugPrint("✅ Saved verification status for order $orderId: $isVerified");
-}
-
-static Future<bool?> getVerificationStatus(int orderId) async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool('verified_$orderId');
-}
-
-// static Future<void> clearOrderStatus(int orderId) async {
-//   final prefs = await SharedPreferences.getInstance();
-//   await prefs.remove('arrived_$orderId');
-//   await prefs.remove('otp_sent_$orderId');
-//   await prefs.remove('verified_$orderId');
-//   debugPrint("🗑️ Cleared all status for order $orderId");
-// }
-
-// MARK: - Delivery APIs
-
-/// API to confirm arrival at delivery/drop location
-Future<Map<String, dynamic>?> markDelivered({
-  required int pickupCarrierId,
-}) async {
-  try {
-    final url = Uri.parse("$baseurl/api/qdel/carrier/arrived/droplocation/$pickupCarrierId/");
-    
-    final headers = {
-      "Authorization": "Bearer ${ApiService.accessToken}",
-      "Content-Type": "application/json",
-    };
-
-    logger.i("=" * 80);
-    logger.i("MARK DELIVERED DEBUG");
-    logger.i("=" * 80);
-    logger.i("📍 URL: $url");
-    logger.i("🔑 Headers: $headers");
-
-    final response = await http.post(url, headers: headers);
-
-    logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
-    logger.i("📥 RESPONSE BODY: ${response.body}");
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final responseData = jsonDecode(response.body);
-      logger.i("✅ Delivery marked successfully: $responseData");
-      return {
-        "success": true,
-        "data": responseData,
-        "statusCode": response.statusCode,
-      };
-    } else {
-      logger.e("❌ MARK DELIVERED FAILED with status ${response.statusCode}");
-      logger.e("❌ Response body: ${response.body}");
-      
-      try {
-        final errorData = jsonDecode(response.body);
-        return {
-          "success": false,
-          "error": errorData['detail'] ?? errorData['message'] ?? "Failed to mark delivery",
-          "statusCode": response.statusCode,
-        };
-      } catch (_) {
-        return {
-          "success": false,
-          "error": "Failed to mark delivery with status ${response.statusCode}",
-          "statusCode": response.statusCode,
-        };
-      }
-    }
-  } catch (e) {
-    logger.e("❌ MARK DELIVERED EXCEPTION: $e");
-    return {"success": false, "error": "Exception: $e"};
-  } finally {
-    logger.i("=" * 80);
-  }
-}
-
-/// Send OTP for delivery verification
-Future<Map<String, dynamic>?> sendDeliveryOtp({
-  required int pickupCarrierId,
-}) async {
-  try {
-    final url = Uri.parse("$baseurl/api/qdel/carrier/delivery/send/otp/$pickupCarrierId/");
-    
-    final headers = {
-      "Authorization": "Bearer ${ApiService.accessToken}",
-      "Content-Type": "application/json",
-    };
-
-    logger.i("=" * 80);
-    logger.i("SEND DELIVERY OTP DEBUG");
-    logger.i("=" * 80);
-    logger.i("📍 URL: $url");
-    logger.i("🔑 Headers: $headers");
-    logger.i("📦 Body: {} (no fields required)");
-
-    final response = await http.post(url, headers: headers);
-
-    logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
-    logger.i("📥 RESPONSE BODY: ${response.body}");
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final responseData = jsonDecode(response.body);
-      logger.i("✅ Delivery OTP sent successfully: $responseData");
-      return {
-        "success": true,
-        "data": responseData,
-        "statusCode": response.statusCode,
-      };
-    } else {
-      logger.e("❌ SEND DELIVERY OTP FAILED with status ${response.statusCode}");
-      logger.e("❌ Response body: ${response.body}");
-      
-      try {
-        final errorData = jsonDecode(response.body);
-        return {
-          "success": false,
-          "error": errorData['detail'] ?? errorData['message'] ?? "Failed to send delivery OTP",
-          "statusCode": response.statusCode,
-        };
-      } catch (_) {
-        return {
-          "success": false,
-          "error": "Failed to send delivery OTP with status ${response.statusCode}",
-          "statusCode": response.statusCode,
-        };
-      }
-    }
-  } catch (e) {
-    logger.e("❌ SEND DELIVERY OTP EXCEPTION: $e");
-    return {"success": false, "error": "Exception: $e"};
-  } finally {
-    logger.i("=" * 80);
-  }
-}
-
-/// Verify OTP for delivery confirmation
-Future<Map<String, dynamic>?> verifyDeliveryOtp({
-  required int pickupCarrierId,
-  required String otp,
-}) async {
-  try {
-    final url = Uri.parse("$baseurl/api/qdel/carrier/delivery/verify/otp/$pickupCarrierId/");
-    
-    final headers = {
-      "Authorization": "Bearer ${ApiService.accessToken}",
-      "Content-Type": "application/json",
-    };
-
-    final body = jsonEncode({
-      "otp": otp,
-    });
-
-    logger.i("=" * 80);
-    logger.i("VERIFY DELIVERY OTP DEBUG");
-    logger.i("=" * 80);
-    logger.i("📍 URL: $url");
-    logger.i("🔑 Headers: $headers");
-    logger.i("📦 Body: $body");
-
-    final response = await http.post(url, headers: headers, body: body);
-
-    logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
-    logger.i("📥 RESPONSE BODY: ${response.body}");
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final responseData = jsonDecode(response.body);
-      logger.i("✅ Delivery OTP verified successfully: $responseData");
-      return {
-        "success": true,
-        "data": responseData,
-        "statusCode": response.statusCode,
-      };
-    } else {
-      logger.e("❌ VERIFY DELIVERY OTP FAILED with status ${response.statusCode}");
-      
-      try {
-        final errorData = jsonDecode(response.body);
-        return {
-          "success": false,
-          "error": errorData['detail'] ?? errorData['message'] ?? "Failed to verify delivery OTP",
-          "statusCode": response.statusCode,
-        };
-      } catch (_) {
-        return {
-          "success": false,
-          "error": "Failed to verify delivery OTP with status ${response.statusCode}",
-          "statusCode": response.statusCode,
-        };
-      }
-    }
-  } catch (e) {
-    logger.e("❌ VERIFY DELIVERY OTP EXCEPTION: $e");
-    return {"success": false, "error": "Exception: $e"};
-  } finally {
-    logger.i("=" * 80);
-  }
-}
-
-// Add these status tracking methods for delivery
-
-static Future<void> saveDeliveryArrivalStatus(int orderId, bool hasArrived) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('delivery_arrived_$orderId', hasArrived);
-  debugPrint("✅ Saved delivery arrival status for order $orderId: $hasArrived");
-}
-
-static Future<bool?> getDeliveryArrivalStatus(int orderId) async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool('delivery_arrived_$orderId');
-}
-
-static Future<void> saveDeliveryOtpSentStatus(int orderId, bool isOtpSent) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('delivery_otp_sent_$orderId', isOtpSent);
-  debugPrint("✅ Saved delivery OTP sent status for order $orderId: $isOtpSent");
-}
-
-static Future<bool?> getDeliveryOtpSentStatus(int orderId) async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool('delivery_otp_sent_$orderId');
-}
-
-static Future<void> saveDeliveryVerifiedStatus(int orderId, bool isVerified) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('delivery_verified_$orderId', isVerified);
-  debugPrint("✅ Saved delivery verified status for order $orderId: $isVerified");
-}
-
-static Future<bool?> getDeliveryVerifiedStatus(int orderId) async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool('delivery_verified_$orderId');
-}
-
-// Update clearOrderStatus to also clear delivery status
-static Future<void> clearOrderStatus(int orderId) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove('arrived_$orderId');
-  await prefs.remove('otp_sent_$orderId');
-  await prefs.remove('verified_$orderId');
-  await prefs.remove('delivery_arrived_$orderId');
-  await prefs.remove('delivery_otp_sent_$orderId');
-  await prefs.remove('delivery_verified_$orderId');
-  debugPrint("🗑️ Cleared all status for order $orderId");
-}
-
 }

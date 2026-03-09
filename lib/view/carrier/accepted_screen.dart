@@ -65,12 +65,252 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     }
   }
 
+  Timer? _locationUpdateTimer;
+  bool _isLocationUpdatesEnabled = false;
+
+  void _startLocationUpdates() async {
+    // Wait for order to be loaded
+    if (order == null) {
+      logger.w(
+        "Cannot start location updates: order is null, will retry in 1 second",
+      );
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) _startLocationUpdates();
+      });
+      return;
+    }
+
+    // Only start if we have pickup_carrier_id and order is active
+    int? pickupCarrierId = await ApiService.getPickupCarrierId();
+
+    if (pickupCarrierId == null) {
+      logger.w("Cannot start location updates: missing pickup_carrier_id");
+      return;
+    }
+
+    // Don't start updates if order is completed
+    if (isDeliveryVerified) {
+      logger.i("Order completed, stopping location updates");
+      return;
+    }
+
+    setState(() {
+      _isLocationUpdatesEnabled = true;
+    });
+
+    logger.i(
+      "🟢 Starting live location updates every 10 seconds for pickup_carrier_id: $pickupCarrierId",
+    );
+
+    // Cancel existing timer if any
+    _locationUpdateTimer?.cancel();
+
+    // Start new timer to send location every 10 seconds
+    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (
+      timer,
+    ) async {
+      if (!mounted || !_isLocationUpdatesEnabled) {
+        timer.cancel();
+        return;
+      }
+
+      // Stop if order is completed
+      if (isDeliveryVerified) {
+        logger.i("Order completed, stopping location updates");
+        timer.cancel();
+        return;
+      }
+
+      await _sendCurrentLocation();
+    });
+  }
+
+  Future<void> _sendCurrentLocation() async {
+    try {
+      if (carrierLocation == null) {
+        logger.w("Cannot send location: carrierLocation is null");
+        return;
+      }
+
+      int? pickupCarrierId = await ApiService.getPickupCarrierId();
+      if (pickupCarrierId == null) {
+        logger.w("Cannot send location: pickup_carrier_id is null");
+        return;
+      }
+
+      final response = await apiService.updateCarrierLocation(
+        pickupCarrierId: pickupCarrierId,
+        latitude: carrierLocation!.latitude,
+        longitude: carrierLocation!.longitude,
+      );
+
+      if (response != null && response['success'] == true) {
+        logger.i(
+          "📍 Location sent successfully - Lat: ${carrierLocation!.latitude}, Lng: ${carrierLocation!.longitude}",
+        );
+      } else {
+        logger.e("❌ Failed to send location: ${response?['error']}");
+      }
+    } catch (e) {
+      logger.e("Error sending location: $e");
+    }
+  }
+
+  void _stopLocationUpdates() {
+    _locationUpdateTimer?.cancel();
+    _locationUpdateTimer = null;
+    setState(() {
+      _isLocationUpdatesEnabled = false;
+    });
+    logger.i("🔴 Stopped live location updates");
+  }
+
   @override
   void initState() {
     super.initState();
     print("📱 initState called - order from widget: ${widget.order?.id}");
-
     _loadSavedState();
+    _startLiveLocation(); // This gets device location
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Start sending location when screen is fully loaded
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startLocationUpdates();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant AcceptedOrderScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Restart location updates if needed
+    if (widget.order != oldWidget.order) {
+      _stopLocationUpdates();
+      _startLocationUpdates();
+    }
+  }
+
+  // Update _markDelivered to stop updates when order completes
+  Future<void> _markDelivered() async {
+    setState(() => isSubmitting = true);
+
+    try {
+      int? pickupCarrierId = await ApiService.getPickupCarrierId();
+
+      if (pickupCarrierId == null) {
+        logger.e("❌ No pickup_carrier_id found!");
+        _showErrorSnackBar("No pickup carrier ID found");
+        setState(() => isSubmitting = false);
+        return;
+      }
+
+      final response = await apiService.markDelivered(
+        pickupCarrierId: pickupCarrierId,
+      );
+
+      if (!mounted) return;
+
+      if (response != null && response['success'] != false) {
+        setState(() {
+          isDeliveryArrived = true;
+          isSubmitting = false;
+        });
+
+        if (order != null) {
+          await ApiService.saveDeliveryArrivalStatus(order!.id, true);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Arrived at delivery location"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        _showDeliveryOtpBottomSheet();
+      } else {
+        setState(() => isSubmitting = false);
+        String errorMsg =
+            response?['error'] ?? "Failed to mark delivery arrival";
+        _showErrorSnackBar(errorMsg);
+      }
+    } catch (e) {
+      setState(() => isSubmitting = false);
+      _showErrorSnackBar("Error: $e");
+    }
+  }
+
+  // Update _verifyDeliveryOtp to stop updates when order is complete
+  Future<void> _verifyDeliveryOtp(String otp) async {
+    setState(() {
+      isDeliveryVerifying = true;
+    });
+
+    try {
+      int? pickupCarrierId = await ApiService.getPickupCarrierId();
+
+      if (pickupCarrierId == null) {
+        _showErrorSnackBar("No pickup carrier ID found");
+        setState(() => isDeliveryVerifying = false);
+        return;
+      }
+
+      final response = await apiService.verifyDeliveryOtp(
+        pickupCarrierId: pickupCarrierId,
+        otp: otp,
+      );
+
+      if (!mounted) return;
+
+      if (response != null && response['success'] == true) {
+        if (order != null) {
+          await ApiService.saveDeliveryVerifiedStatus(order!.id, true);
+        }
+
+        // Stop location updates before closing
+        _stopLocationUpdates();
+
+        Navigator.pop(context);
+
+        if (order != null) {
+          await ApiService.clearOrderStatus(order!.id);
+        }
+        await ApiService.clearActiveOrder();
+        await ApiService.clearPickupCarrierId();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Delivery completed successfully! Thank you."),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const CarrierDashboard()),
+          (route) => false,
+        );
+      } else {
+        String errorMsg = response?['error'] ?? "Invalid OTP";
+        _showErrorSnackBar(errorMsg);
+        setState(() => isDeliveryVerifying = false);
+      }
+    } catch (e) {
+      logger.e("Error verifying delivery OTP: $e");
+      _showErrorSnackBar("Error verifying OTP: $e");
+      setState(() => isDeliveryVerifying = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopLocationUpdates();
+    _locationStream?.cancel();
+    _otpController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSavedState() async {
@@ -139,66 +379,19 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     });
 
     _initializeOrder();
-    _startLiveLocation();
+    _startLiveLocation(); // This gets device location
+
+    // Start location updates AFTER order is initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startLocationUpdates();
+    });
+
     _debugOrderData();
     _debugPickupCarrierId();
 
     // Check if we need to show the bottom sheet after all initialization
     _checkAndShowBottomSheet();
     _checkAndShowDeliveryBottomSheet();
-  }
-
-  Future<void> _markDelivered() async {
-    setState(() => isSubmitting = true);
-
-    try {
-      int? pickupCarrierId = await ApiService.getPickupCarrierId();
-
-      if (pickupCarrierId == null) {
-        logger.e("❌ No pickup_carrier_id found in SharedPreferences!");
-        _showErrorSnackBar(
-          "No pickup carrier ID found. Please accept the order again.",
-        );
-        setState(() => isSubmitting = false);
-        return;
-      }
-
-      logger.i("🚚 Attempting to mark delivered with ID: $pickupCarrierId");
-
-      final response = await apiService.markDelivered(
-        pickupCarrierId: pickupCarrierId,
-      );
-
-      if (!mounted) return;
-
-      if (response != null && response['success'] != false) {
-        setState(() {
-          isDeliveryArrived = true;
-          isSubmitting = false;
-        });
-
-        if (order != null) {
-          await ApiService.saveDeliveryArrivalStatus(order!.id, true);
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Arrived at delivery location"),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        _showDeliveryOtpBottomSheet();
-      } else {
-        setState(() => isSubmitting = false);
-        String errorMsg =
-            response?['error'] ?? "Failed to mark delivery arrival";
-        _showErrorSnackBar(errorMsg);
-      }
-    } catch (e) {
-      setState(() => isSubmitting = false);
-      _showErrorSnackBar("Error: $e");
-    }
   }
 
   void _showDeliveryOtpBottomSheet() {
@@ -685,68 +878,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     }
   }
 
-  Future<void> _verifyDeliveryOtp(String otp) async {
-    setState(() {
-      isDeliveryVerifying = true;
-    });
-
-    try {
-      int? pickupCarrierId = await ApiService.getPickupCarrierId();
-
-      if (pickupCarrierId == null) {
-        _showErrorSnackBar("No pickup carrier ID found");
-        setState(() => isDeliveryVerifying = false);
-        return;
-      }
-
-      final response = await apiService.verifyDeliveryOtp(
-        pickupCarrierId: pickupCarrierId,
-        otp: otp,
-      );
-
-      if (!mounted) return;
-
-      if (response != null && response['success'] == true) {
-        if (order != null) {
-          await ApiService.saveDeliveryVerifiedStatus(order!.id, true);
-        }
-
-        // Close bottom sheet
-        Navigator.pop(context);
-
-        // Clear all statuses and go to dashboard
-        if (order != null) {
-          await ApiService.clearOrderStatus(order!.id);
-        }
-        await ApiService.clearActiveOrder();
-        await ApiService.clearPickupCarrierId();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Delivery completed successfully! Thank you."),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const CarrierDashboard()),
-          (route) => false,
-        );
-      } else {
-        String errorMsg =
-            response?['error'] ?? "Invalid OTP. Please try again.";
-        _showErrorSnackBar(errorMsg);
-        setState(() => isDeliveryVerifying = false);
-      }
-    } catch (e) {
-      logger.e("Error verifying delivery OTP: $e");
-      _showErrorSnackBar("Error verifying OTP: $e");
-      setState(() => isDeliveryVerifying = false);
-    }
-  }
-
   void _checkAndShowDeliveryBottomSheet() {
     if (isDeliveryArrived && !isDeliveryVerified && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -758,27 +889,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }
 
   @override
-  void didUpdateWidget(covariant AcceptedOrderScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    if (widget.order != null && widget.order != order) {
-      print("🔥 Hot reload detected with new order data!");
-      setState(() {
-        order = widget.order;
-        isLoading = false;
-      });
-
-      _loadSavedState();
-    } else if (widget.orderId != oldWidget.orderId) {
-      print(
-        "🔄 Order ID changed from ${oldWidget.orderId} to ${widget.orderId}",
-      );
-      _initializeOrder();
-    } else {
-      _checkAndShowBottomSheet();
-    }
-  }
-
   Future<void> _initializeOrder() async {
     if (widget.order != null) {
       print("📦 Using provided order: ${widget.order!.id}");
@@ -1480,13 +1590,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       _showErrorSnackBar("Error verifying OTP: $e");
       setState(() => isVerifying = false);
     }
-  }
-
-  @override
-  void dispose() {
-    _locationStream?.cancel();
-    _otpController.dispose();
-    super.dispose();
   }
 
   @override

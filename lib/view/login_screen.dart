@@ -23,33 +23,39 @@ class _LoginScreenState extends State<LoginScreen> {
     phonectrl.dispose();
   }
 
-  List<dynamic> countries = [];
-  bool isLoadingCountries = true;
-  String? selectedCode = "+91";
+  // Simple dummy country codes - no API needed
+  final List<Map<String, String>> countryCodes = [
+    {'name': 'India', 'code': '+91', 'flag': '🇮🇳'},
+    {'name': 'USA', 'code': '+1', 'flag': '🇺🇸'},
+    {'name': 'UK', 'code': '+44', 'flag': '🇬🇧'},
+    {'name': 'Australia', 'code': '+61', 'flag': '🇦🇺'},
+    {'name': 'Canada', 'code': '+1', 'flag': '🇨🇦'},
+    {'name': 'UAE', 'code': '+971', 'flag': '🇦🇪'},
+    {'name': 'Saudi Arabia', 'code': '+966', 'flag': '🇸🇦'},
+    {'name': 'Pakistan', 'code': '+92', 'flag': '🇵🇰'},
+    {'name': 'Bangladesh', 'code': '+880', 'flag': '🇧🇩'},
+    {'name': 'Sri Lanka', 'code': '+94', 'flag': '🇱🇰'},
+    {'name': 'Nepal', 'code': '+977', 'flag': '🇳🇵'},
+    {'name': 'Myanmar', 'code': '+95', 'flag': '🇲🇲'},
+  ];
+
+  String selectedCode = "+91"; // Default selection
+
+  // Remove fetchCountries or keep it but don't use it for dropdown
+  Future<void> fetchCountries() async {
+    // Optional: You can still call this if needed for other purposes
+    try {
+      final data = await apiService.countriesList();
+      debugPrint("Countries loaded: $data");
+    } catch (e) {
+      debugPrint("Error loading country codes: $e");
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    fetchCountries();
-  }
-
-  Future<void> fetchCountries() async {
-    try {
-      final data = await apiService.countriesList();
-
-      setState(() {
-        countries = data;
-        isLoadingCountries = false;
-
-        // Default select first country code
-        if (countries.isNotEmpty) {
-          selectedCode = "+${countries.first['code']}";
-        }
-      });
-    } catch (e) {
-      isLoadingCountries = false;
-      debugPrint("Error loading country codes: $e");
-    }
+    fetchCountries(); // Optional: keep if needed elsewhere
   }
 
   Future<bool> _login() async {
@@ -104,19 +110,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                // Positioned(
-                //   bottom: 315,
-                //   right: 68,
-                //   child: Container(
-                //     height: 50,
-                //     width: 50,
-                //     // color: Colors.white,
-                //     child: Image.asset(
-                //       "assets/image_assets/logo_qdel.png",
-                //       fit: BoxFit.contain,
-                //     ),
-                //   ),
-                // ),
                 Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -125,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       child: Column(
                         children: [
-                          Padding(padding: EdgeInsetsGeometry.only(top: 20)),
+                          const Padding(padding: EdgeInsets.only(top: 20)),
                           Text(
                             "QDEL",
                             style: TextStyle(
@@ -139,14 +132,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     Column(
                       children: [
-                        // Container(
-                        //   height: 300,
-                        //   width: 300,
-                        //   child: Image.asset(
-                        //     "assets/image_assets/qdel_boyy.png",
-                        //     fit: BoxFit.contain,
-                        //   ),
-                        // ),
                         _bottomLoginSheet(),
                       ],
                     ),
@@ -163,7 +148,6 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _bottomLoginSheet() {
     return AnimatedPadding(
       duration: const Duration(milliseconds: 1),
-      // curve: Curves.easeOut,
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
@@ -176,14 +160,12 @@ class _LoginScreenState extends State<LoginScreen> {
             topRight: Radius.circular(30),
           ),
         ),
-
-        // ✅ KEY FIX
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             child: Column(
-              mainAxisSize: MainAxisSize.min, // ✅ very important
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
@@ -194,16 +176,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 const SizedBox(height: 6),
-
                 const Text(
                   "Access our services with a valid phone number.",
                   style: TextStyle(color: Colors.white, fontSize: 15),
                 ),
-
                 const SizedBox(height: 20),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -212,9 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     _phoneInput(),
                   ],
                 ),
-
                 const SizedBox(height: 20),
-
                 if (isValidPhone)
                   Center(
                     child: GestureDetector(
@@ -259,45 +235,26 @@ class _LoginScreenState extends State<LoginScreen> {
           value: selectedCode,
           isExpanded: true,
           alignment: Alignment.center,
-          items: const [
-            DropdownMenuItem(
-              value: "+91",
+          icon: const Icon(Icons.arrow_drop_down),
+          items: countryCodes.map<DropdownMenuItem<String>>((country) {
+            return DropdownMenuItem<String>(
+              value: country['code'],
               child: Center(
                 child: Text(
-                  "+91",
-                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                  "${country['flag']} ${country['code']}",
+                  style: const TextStyle(
+                    fontSize: 18, 
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            DropdownMenuItem(
-              value: "+1",
-              child: Center(
-                child: Text(
-                  "+1",
-                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            DropdownMenuItem(
-              value: "+44",
-              child: Center(
-                child: Text(
-                  "+44",
-                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            DropdownMenuItem(
-              value: "+61",
-              child: Center(
-                child: Text(
-                  "+61",
-                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ],
-          onChanged: (v) => setState(() => selectedCode = v!),
+            );
+          }).toList(),
+          onChanged: (String? newValue) {
+            setState(() {
+              selectedCode = newValue!;
+            });
+          },
         ),
       ),
     );
@@ -312,7 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
         borderRadius: BorderRadius.circular(10),
       ),
       child: TextFormField(
-        style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+        style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
         controller: phonectrl,
         keyboardType: TextInputType.number,
         maxLength: 10,
