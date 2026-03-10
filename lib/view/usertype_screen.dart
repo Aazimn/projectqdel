@@ -3,6 +3,9 @@ import 'package:projectqdel/model/carrier_model.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Carrier/carrier_upload.dart';
+import 'package:projectqdel/view/Carrier/status_pending.dart';
+import 'package:projectqdel/view/Carrier/approved_screen.dart';
+import 'package:projectqdel/view/Carrier/rejected_screen.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 
 class UsertypeScreen extends StatefulWidget {
@@ -224,8 +227,15 @@ Future<void> _switchToCarrier() async {
   setState(() => switchingRole = false);
 
   if (profile == null) return;
-  if (profile.isApproved) {
 
+  // If user never started carrier verification (no status and no document), show upload
+  if (profile.approvalStatus.isEmpty && !profile.hasUploadedDocs) {
+    _goToUpload();
+    return;
+  }
+
+  // For any non-empty approvalStatus we assume docs were already submitted
+  if (profile.isApproved) {
     if (!profile.isCarrier) {
       final success = await apiService.updateUserType("carrier");
 
@@ -237,35 +247,42 @@ Future<void> _switchToCarrier() async {
       }
 
       await ApiService.setUserType("carrier");
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const SplashScreen()),
-        (_) => false,
-      );
     }
 
-    return;
-  }
-
-  if (!profile.hasUploadedDocs) {
-    _goToUpload();
-    return;
-  }
-
-  if (profile.isPending) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Your documents are under review")),
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const AccountApprovedScreen()),
+      (_) => false,
     );
     return;
   }
 
-  if (profile.isRejected) {
-    _goToUpload();
+  if (profile.isPending || profile.approvalStatus.toLowerCase() == "pending") {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StatusPending(phone: profile.phone),
+      ),
+    );
     return;
   }
 
-  _goToUpload();
+  if (profile.isRejected ||
+      profile.approvalStatus.toLowerCase() == "rejected") {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RejectedScreen()),
+    );
+    return;
+  }
+
+  // Fallback: if we reach here, show pending screen
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => StatusPending(phone: profile.phone),
+    ),
+  );
 }
 
 

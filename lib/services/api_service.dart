@@ -147,21 +147,45 @@ class ApiService {
     return null;
   }
 
-  Future<List<dynamic>> getCountries() async {
-    final url = Uri.parse("$baseurl/api/qdel/countries/add/");
-    final response = await http.get(
-      url,
-      headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
-    );
-    logger.i("COUNTRIES STATUS :: ${response.statusCode}");
-    logger.i("COUNTRIES BODY :: ${response.body}");
+  // Future<List<dynamic>> getCountries() async {
+  //   final url = Uri.parse("$baseurl/api/qdel/countries/add/");
+  //   final response = await http.get(
+  //     url,
+  //     headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
+  //   );
+  //   logger.i("COUNTRIES STATUS :: ${response.statusCode}");
+  //   logger.i("COUNTRIES BODY :: ${response.body}");
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception("Failed to load countries");
-    }
+  //   if (response.statusCode == 200) {
+  //     return jsonDecode(response.body);
+  //   } else {
+  //     throw Exception("Failed to load countries");
+  //   }
+  // }
+
+  Future<List<dynamic>> getCountries({int? page}) async {
+  String urlString = "$baseurl/api/qdel/countries/add/";
+  
+  // Add page parameter if provided
+  if (page != null) {
+    urlString += "?page=$page";
   }
+  
+  final url = Uri.parse(urlString);
+  final response = await http.get(
+    url,
+    headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
+  );
+  logger.i("COUNTRIES STATUS :: ${response.statusCode}");
+  logger.i("COUNTRIES BODY :: ${response.body}");
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    throw Exception("Failed to load countries");
+  }
+}
+
 
   Future<List<dynamic>> getStates({required int countryId}) async {
     final url = Uri.parse("$baseurl/api/qdel/states/add/?country=$countryId");
@@ -180,6 +204,31 @@ class ApiService {
       throw Exception("Failed to load states");
     }
   }
+
+  Future<List<dynamic>> getStatesbycountry({required int countryId, int? page}) async {
+  String urlString = "$baseurl/api/qdel/states/add/?country=$countryId";
+
+  // Add pagination
+  if (page != null) {
+    urlString += "&page=$page";
+  }
+
+  final url = Uri.parse(urlString);
+
+  final response = await http.get(
+    url,
+    headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
+  );
+
+  logger.i("STATES STATUS :: ${response.statusCode}");
+  logger.i("STATES BODY :: ${response.body}");
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    throw Exception("Failed to load states");
+  }
+}
 
   Future<List<dynamic>> getDistricts({required int stateId}) async {
     final url = Uri.parse("$baseurl/api/qdel/districts/add/?state=$stateId");
@@ -2278,8 +2327,6 @@ class ApiService {
     }
   }
 
-  
-
   Future<Map<String, dynamic>?> updateCarrierLocation({
     required int pickupCarrierId,
     required double latitude,
@@ -2352,14 +2399,19 @@ class ApiService {
     }
   }
 
-  static Future<void> savePickupCarrierIdForOrder(int orderId, int pickupCarrierId) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setInt("order_${orderId}_carrier_id", pickupCarrierId);
-  debugPrint("✅ Saved pickup_carrier_id $pickupCarrierId for order $orderId");
-}
+  static Future<void> savePickupCarrierIdForOrder(
+    int orderId,
+    int pickupCarrierId,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt("order_${orderId}_carrier_id", pickupCarrierId);
+    debugPrint("✅ Saved pickup_carrier_id $pickupCarrierId for order $orderId");
+  }
 
-static Future<int?> getPickupCarrierIdForOrder(int orderId) async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getInt("order_${orderId}_carrier_id");
-}
+  static Future<int?> getPickupCarrierIdForOrder(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("order_${orderId}_carrier_id");
+  }
+
+
 }

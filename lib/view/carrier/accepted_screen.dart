@@ -32,7 +32,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   bool isVerifying = false;
   bool _isLoadingState = true;
   Logger logger = Logger();
-  bool isPickupVerified = false; // New state to track if pickup is verified
+  bool isPickupVerified = false;
 
   bool isDeliveryArrived = false;
   bool isDeliveryOtpSent = false;
@@ -69,7 +69,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   bool _isLocationUpdatesEnabled = false;
 
   void _startLocationUpdates() async {
-    // Wait for order to be loaded
     if (order == null) {
       logger.w(
         "Cannot start location updates: order is null, will retry in 1 second",
@@ -79,8 +78,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       });
       return;
     }
-
-    // Only start if we have pickup_carrier_id and order is active
     int? pickupCarrierId = await ApiService.getPickupCarrierId();
 
     if (pickupCarrierId == null) {
@@ -88,7 +85,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       return;
     }
 
-    // Don't start updates if order is completed
     if (isDeliveryVerified) {
       logger.i("Order completed, stopping location updates");
       return;
@@ -102,10 +98,8 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       "🟢 Starting live location updates every 10 seconds for pickup_carrier_id: $pickupCarrierId",
     );
 
-    // Cancel existing timer if any
     _locationUpdateTimer?.cancel();
 
-    // Start new timer to send location every 10 seconds
     _locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (
       timer,
     ) async {
@@ -114,7 +108,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         return;
       }
 
-      // Stop if order is completed
       if (isDeliveryVerified) {
         logger.i("Order completed, stopping location updates");
         timer.cancel();
@@ -170,13 +163,12 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     super.initState();
     print("📱 initState called - order from widget: ${widget.order?.id}");
     _loadSavedState();
-    _startLiveLocation(); // This gets device location
+    _startLiveLocation();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Start sending location when screen is fully loaded
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startLocationUpdates();
     });
@@ -186,14 +178,12 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   void didUpdateWidget(covariant AcceptedOrderScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Restart location updates if needed
     if (widget.order != oldWidget.order) {
       _stopLocationUpdates();
       _startLocationUpdates();
     }
   }
 
-  // Update _markDelivered to stop updates when order completes
   Future<void> _markDelivered() async {
     setState(() => isSubmitting = true);
 
@@ -243,7 +233,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     }
   }
 
-  // Update _verifyDeliveryOtp to stop updates when order is complete
   Future<void> _verifyDeliveryOtp(String otp) async {
     setState(() {
       isDeliveryVerifying = true;
@@ -270,7 +259,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
           await ApiService.saveDeliveryVerifiedStatus(order!.id, true);
         }
 
-        // Stop location updates before closing
         _stopLocationUpdates();
 
         Navigator.pop(context);
@@ -314,11 +302,9 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }
 
   Future<void> _loadSavedState() async {
-    // Load all saved states from SharedPreferences
     if (widget.order != null) {
       int orderId = widget.order!.id;
 
-      // Load pickup arrival status
       bool? savedArrived = await ApiService.getArrivalStatus(orderId);
       if (savedArrived != null) {
         setState(() {
@@ -326,7 +312,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         });
       }
 
-      // Load pickup OTP sent status
       bool? savedOtpSent = await ApiService.getOtpSentStatus(orderId);
       if (savedOtpSent != null) {
         setState(() {
@@ -334,7 +319,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         });
       }
 
-      // Load pickup verification status
       bool? savedVerified = await ApiService.getVerificationStatus(orderId);
       if (savedVerified != null) {
         setState(() {
@@ -343,7 +327,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         });
       }
 
-      // Load delivery arrival status
       bool? savedDeliveryArrived = await ApiService.getDeliveryArrivalStatus(
         orderId,
       );
@@ -352,8 +335,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
           isDeliveryArrived = savedDeliveryArrived;
         });
       }
-
-      // Load delivery OTP sent status
       bool? savedDeliveryOtpSent = await ApiService.getDeliveryOtpSentStatus(
         orderId,
       );
@@ -363,7 +344,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         });
       }
 
-      // Load delivery verification status
       bool? savedDeliveryVerified = await ApiService.getDeliveryVerifiedStatus(
         orderId,
       );
@@ -379,17 +359,14 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     });
 
     _initializeOrder();
-    _startLiveLocation(); // This gets device location
+    _startLiveLocation();
 
-    // Start location updates AFTER order is initialized
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startLocationUpdates();
     });
 
     _debugOrderData();
     _debugPickupCarrierId();
-
-    // Check if we need to show the bottom sheet after all initialization
     _checkAndShowBottomSheet();
     _checkAndShowDeliveryBottomSheet();
   }
@@ -426,7 +403,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Handle bar
                               Container(
                                 width: 50,
                                 height: 5,
@@ -437,7 +413,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                               ),
                               const SizedBox(height: 20),
 
-                              // Close button
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
@@ -454,8 +429,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                     ),
                                 ],
                               ),
-
-                              // Title
                               const Text(
                                 "Verify Delivery",
                                 style: TextStyle(
@@ -473,8 +446,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                 ),
                               ),
                               const SizedBox(height: 24),
-
-                              // Receiver info
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
@@ -523,8 +494,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                 ),
                               ),
                               const SizedBox(height: 24),
-
-                              // Send OTP Button
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
@@ -573,8 +542,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                 ),
                               ),
                               const SizedBox(height: 20),
-
-                              // OTP Input Field
                               if (isDeliveryOtpSent) ...[
                                 Container(
                                   padding: const EdgeInsets.all(16),
@@ -692,7 +659,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                 ),
                                 const SizedBox(height: 20),
 
-                                // Verify Button
                                 SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(
@@ -748,7 +714,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                 ),
                               ],
 
-                              // Helper text
                               if (!isDeliveryVerifying)
                                 Padding(
                                   padding: const EdgeInsets.only(
@@ -888,7 +853,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     }
   }
 
-  @override
   Future<void> _initializeOrder() async {
     if (widget.order != null) {
       print("📦 Using provided order: ${widget.order!.id}");
@@ -1236,7 +1200,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                               ),
                               const SizedBox(height: 20),
 
-                              // OTP Input Field
                               if (isOtpSent) ...[
                                 Container(
                                   padding: const EdgeInsets.all(16),
@@ -1354,7 +1317,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                 ),
                                 const SizedBox(height: 20),
 
-                                // Verify Button
                                 SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(
@@ -1408,7 +1370,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                 ),
                               ],
 
-                              // Helper text
                               if (!isVerifying)
                                 Padding(
                                   padding: const EdgeInsets.only(
@@ -1562,10 +1523,8 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
           await ApiService.saveVerificationStatus(order!.id, true);
         }
 
-        // Close bottom sheet
         Navigator.pop(context);
 
-        // Switch to delivery mode
         setState(() {
           isPickupVerified = true;
           isVerifying = false;
@@ -1668,21 +1627,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     );
   }
 
-  //   Future<void> _completeDelivery() async {
-  //   if (order != null) {
-  //     await ApiService.clearOrderStatus(order!.id);
-  //     await ApiService.clearActiveOrder();
-  //     await ApiService.clearPickupCarrierId();
-  //     if (mounted) {
-  //       Navigator.pushAndRemoveUntil(
-  //         context,
-  //         MaterialPageRoute(builder: (_) => const CarrierDashboard()),
-  //         (route) => false,
-  //       );
-  //     }
-  //   }
-  // }
-
   Widget _buildBody() {
     return Stack(
       children: [
@@ -1781,7 +1725,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
             ),
             child: Column(
               children: [
-                // Person info
                 Row(
                   children: [
                     CircleAvatar(
@@ -1823,8 +1766,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                 ),
 
                 const SizedBox(height: 15),
-
-                // Address details
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1872,7 +1813,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
 
                 const SizedBox(height: 30),
 
-                // Navigate button
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1925,8 +1865,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                   style: TextStyle(color: ColorConstants.grey, fontSize: 12),
                 ),
                 SizedBox(height: 5),
-
-                // Distance
                 if (carrierLocation != null)
                   Center(
                     child: isPickupVerified
@@ -2135,39 +2073,4 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       ),
     );
   }
-  // Future<void> _markDelivered() async {
-  //   setState(() => isSubmitting = true);
-
-  //   try {
-  //     // Add your delivery API call here
-  //     // For example: await apiService.markDelivered(pickupCarrierId: pickupCarrierId);
-
-  //     await Future.delayed(const Duration(seconds: 1)); // Simulate API call
-
-  //     if (!mounted) return;
-
-  //     // Clear all statuses and go to dashboard
-  //     if (order != null) {
-  //       await ApiService.clearOrderStatus(order!.id);
-  //     }
-  //     await ApiService.clearActiveOrder();
-  //     await ApiService.clearPickupCarrierId();
-
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(
-  //         content: Text("Delivery completed successfully!"),
-  //         backgroundColor: Colors.green,
-  //       ),
-  //     );
-
-  //     Navigator.pushAndRemoveUntil(
-  //       context,
-  //       MaterialPageRoute(builder: (_) => const CarrierDashboard()),
-  //       (route) => false,
-  //     );
-  //   } catch (e) {
-  //     setState(() => isSubmitting = false);
-  //     _showErrorSnackBar("Error: $e");
-  //   }
-  // }
 }

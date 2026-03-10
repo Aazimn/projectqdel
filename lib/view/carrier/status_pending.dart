@@ -173,11 +173,11 @@ class _StatusPendingState extends State<StatusPending> {
               ),
             ),
             onPressed: () {
+              changeToClient();
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => LoginScreen()),
               );
-              changeToClient();
             },
             child: const Text("Continue as Client"),
           ),
@@ -193,17 +193,12 @@ class _StatusPendingState extends State<StatusPending> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+       
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: Colors.white.withOpacity(0.1),
-                    child: const Icon(Icons.close, color: ColorConstants.black),
-                  ),
-                  const Spacer(),
                   const Text(
                     "APPLICATION STATUS",
                     style: TextStyle(
@@ -212,14 +207,11 @@ class _StatusPendingState extends State<StatusPending> {
                       fontSize: 14,
                     ),
                   ),
-                  const Spacer(flex: 2),
                 ],
               ),
             ),
 
             const SizedBox(height: 20),
-
-            // Hourglass icon
             Container(
               height: 180,
               width: 180,
@@ -269,7 +261,6 @@ class _StatusPendingState extends State<StatusPending> {
 
             const SizedBox(height: 20),
 
-            // Status badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               decoration: BoxDecoration(
@@ -292,7 +283,6 @@ class _StatusPendingState extends State<StatusPending> {
 
             const SizedBox(height: 20),
 
-            // Continue as Client Button Section
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 30),
               padding: const EdgeInsets.all(16),
@@ -331,7 +321,6 @@ class _StatusPendingState extends State<StatusPending> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Continue as Client Button
                   GestureDetector(
                     onTap: isChangingToClient
                         ? null
@@ -410,8 +399,6 @@ class _StatusPendingState extends State<StatusPending> {
                   ),
 
                   const SizedBox(height: 8),
-
-                  // Helper text
                   const Center(
                     child: Text(
                       "Skip carrier verification and use Qdel as a client",
@@ -425,7 +412,6 @@ class _StatusPendingState extends State<StatusPending> {
 
             const SizedBox(height: 20),
 
-            // Description text
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 30),
               child: Text(
@@ -441,7 +427,6 @@ class _StatusPendingState extends State<StatusPending> {
 
             const Spacer(),
 
-            // Contact Support Button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(

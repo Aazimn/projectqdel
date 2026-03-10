@@ -20,8 +20,21 @@ class _CountryScreenState extends State<CountryScreen> {
   ApiService apiService = ApiService();
   List<dynamic> _allCountries = [];
   List<dynamic> _filteredCountries = [];
+  List<dynamic> _allCountriesCache = [];
+
+  int _currentPage = 1;
+  int _totalPages = 1;
+  bool _hasMorePages = true;
+  // ignore: unused_field
+  bool _isLoadingMore = false;
+  final int _itemsPerPage = 3; 
+
+  bool _isLoadingPrevious = false;
+  bool _isLoadingNext = false;
 
   bool isLoading = true;
+  bool _isSearching = false;
+  String _currentSearchQuery = '';
 
   int? selectedCountryId;
   String? selectedCountryName;
@@ -33,7 +46,12 @@ class _CountryScreenState extends State<CountryScreen> {
   void initState() {
     super.initState();
     loadData();
-    fetchCountries();
+  }
+
+  @override
+  void dispose() {
+    searchCtl.dispose();
+    super.dispose();
   }
 
   Future<void> loadData() async {
@@ -41,20 +59,61 @@ class _CountryScreenState extends State<CountryScreen> {
     await fetchCountries();
   }
 
-  Future<void> fetchCountries() async {
-    setState(() {
-      isLoading = true;
-    });
-    try {
-      final data = await apiService.countriesList();
+  Future<void> fetchCountries({int page = 1, bool isLoadMore = false}) async {
+    if (!isLoadMore) {
       setState(() {
-        _allCountries = data;
-        _filteredCountries = data;
-        isLoading = false;
+        isLoading = true;
+        _allCountries.clear();
+        _filteredCountries.clear();
       });
+    }
+
+    try {
+      final data = await apiService.getCountries(page: page);
+
+      setState(() {
+        if (isLoadMore) {
+          _allCountries.addAll(data);
+          _filteredCountries.addAll(data);
+        } else {
+          _allCountries = data;
+          _filteredCountries = data;
+        }
+
+        _allCountriesCache.addAll(data);
+
+        if (data.isNotEmpty) {
+          _hasMorePages = data.length == _itemsPerPage;
+
+          if (data.length < _itemsPerPage) {
+            _totalPages = page;
+          } else {
+            _totalPages = page + 1;
+          }
+        } else {
+          _hasMorePages = false;
+          if (page > 1) {
+            _totalPages = page - 1;
+          }
+        }
+
+        _currentPage = page;
+
+        isLoading = false;
+        _isLoadingMore = false;
+        _isLoadingPrevious = false;
+        _isLoadingNext = false;
+      });
+
+      print(
+        'Page: $_currentPage, HasMore: $_hasMorePages, Data Length: ${data.length}, Total Pages: $_totalPages',
+      );
     } catch (e) {
       setState(() {
         isLoading = false;
+        _isLoadingMore = false;
+        _isLoadingPrevious = false;
+        _isLoadingNext = false;
       });
       ScaffoldMessenger.of(
         context,
@@ -62,41 +121,136 @@ class _CountryScreenState extends State<CountryScreen> {
     }
   }
 
+  Future<void> _loadAllPagesForSearch(String query) async {
+    if (_isSearching) return;
+
+    setState(() {
+      _isSearching = true;
+    });
+
+    try {
+      _allCountriesCache.clear();
+
+      int page = 1;
+      bool hasMore = true;
+
+      while (hasMore) {
+        final data = await apiService.getCountries(page: page);
+        _allCountriesCache.addAll(data);
+
+        hasMore = data.length == _itemsPerPage;
+        page++;
+      }
+
+      _performSearch(query);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error loading all countries: $e")),
+      );
+    } finally {
+      setState(() {
+        _isSearching = false;
+      });
+    }
+  }
+
   void _searchCountry(String query) {
-    final results = _allCountries.where((country) {
+    _currentSearchQuery = query;
+
+    if (query.isEmpty) {
+      setState(() {
+        _filteredCountries = List.from(_allCountries);
+        _isSearching = false;
+      });
+      return;
+    }
+
+    if (_allCountriesCache.length >= _totalPages * _itemsPerPage) {
+      _performSearch(query);
+    } else {
+      _loadAllPagesForSearch(query);
+    }
+  }
+
+  void _performSearch(String query) {
+    final results = _allCountriesCache.where((country) {
       final name = country['name'].toString().toLowerCase();
-      return name.contains(query.toLowerCase());
+      final code = country['code']?.toString().toLowerCase() ?? '';
+      return name.contains(query.toLowerCase()) ||
+          code.contains(query.toLowerCase());
     }).toList();
+
     setState(() {
       _filteredCountries = results;
     });
   }
 
   Future<void> _onRefresh() async {
-    await fetchCountries();
+    setState(() {
+      _currentPage = 1;
+      _hasMorePages = true;
+      _allCountries.clear();
+      _filteredCountries.clear();
+      _allCountriesCache.clear();
+      _currentSearchQuery = '';
+      searchCtl.clear();
+    });
+    await fetchCountries(page: 1);
   }
 
+  Future<void> _goToNextPage() async {
+    if (_isLoadingNext || !_hasMorePages) return;
+
+    setState(() {
+      _isLoadingNext = true;
+    });
+
+    await fetchCountries(page: _currentPage + 1);
+  }
+
+  Future<void> _goToPreviousPage() async {
+    if (_isLoadingPrevious || _currentPage <= 1) return;
+
+    setState(() {
+      _isLoadingPrevious = true;
+    });
+
+    await fetchCountries(page: _currentPage - 1);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: ColorConstants.bg,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: ColorConstants.red,
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => AddCountryScreen()),
-          );
+      body: Stack(
+        children: [
+          _countryview(),
+          Positioned(
+            bottom: 90,
+            right: 16,
+            child: FloatingActionButton(
+              backgroundColor: ColorConstants.red,
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => AddCountryScreen()),
+                );
 
-          if (result == true) {
-            fetchCountries();
-          }
-        },
-        child: Icon(Icons.add, color: Colors.white),
+                if (result == true) {
+                  fetchCountries();
+                  setState(() {
+                    _allCountriesCache.clear();
+                    _currentSearchQuery = '';
+                    searchCtl.clear();
+                  });
+                }
+              },
+              child: Icon(Icons.add, color: Colors.white),
+            ),
+          ),
+        ],
       ),
-      body: _countryview(),
     );
   }
 
@@ -108,61 +262,207 @@ class _CountryScreenState extends State<CountryScreen> {
       height: 80,
       animSpeedFactor: 4.0,
       showChildOpacityTransition: true,
-
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 50,
-                bottom: 16,
-              ),
-              child: TextField(
-                controller: searchCtl,
-                onChanged: _searchCountry,
-                decoration: InputDecoration(
-                  hintText: "Search country...",
-                  hintStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white),
-                  filled: true,
-                  fillColor: ColorConstants.red,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 50,
+              bottom: 16,
+            ),
+            child: TextField(
+              controller: searchCtl,
+              onChanged: _searchCountry,
+              decoration: InputDecoration(
+                hintText: "Search country...",
+                hintStyle: const TextStyle(color: Colors.white),
+                prefixIcon: const Icon(Icons.search, color: Colors.white),
+                suffixIcon: _isSearching
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: Padding(
+                          padding: EdgeInsets.all(12),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        ),
+                      )
+                    : null,
+                filled: true,
+                fillColor: ColorConstants.red,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
                 ),
               ),
             ),
           ),
 
-          if (_filteredCountries.isEmpty)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: Text(
-                  "No countries found",
-                  style: TextStyle(color: ColorConstants.black),
-                ),
-              ),
-            )
-          else
-            SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final country = _filteredCountries[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 5,
+          Expanded(
+            child: isLoading || _isSearching
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        ColorConstants.red,
+                      ),
+                    ),
+                  )
+                : _filteredCountries.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.search_off,
+                          size: 64,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _currentSearchQuery.isNotEmpty
+                              ? "No countries match '$_currentSearchQuery'"
+                              : "No countries found",
+                          style: const TextStyle(
+                            color: ColorConstants.black,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    itemCount: _filteredCountries.length,
+                    itemBuilder: (context, index) {
+                      final country = _filteredCountries[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: countryCard(country),
+                      );
+                    },
                   ),
-                  child: countryCard(country),
-                );
-              }, childCount: _filteredCountries.length),
-            ),
+          ),
+
+          if (!_isSearching &&
+              _filteredCountries.isNotEmpty &&
+              (_totalPages > 1 || _currentPage > 1 || _hasMorePages))
+            _buildPaginationControls(),
+
+          const SizedBox(height: 10),
         ],
       ),
+    );
+  }
+
+  Widget _buildPaginationControls() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: _buildNavigationButton(
+              onPressed: _currentPage > 1 ? _goToPreviousPage : null,
+              isLoading: _isLoadingPrevious,
+              icon: Icons.arrow_back,
+              label: 'Prev',
+              isEnabled: _currentPage > 1,
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: ColorConstants.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _totalPages > 1
+                  ? 'Page $_currentPage of $_totalPages'
+                  : 'Page $_currentPage',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: ColorConstants.red,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          Expanded(
+            child: _buildNavigationButton(
+              onPressed: _hasMorePages ? _goToNextPage : null,
+              isLoading: _isLoadingNext,
+              icon: Icons.arrow_forward,
+              label: 'Next',
+              isEnabled: _hasMorePages,
+              isNext: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavigationButton({
+    required VoidCallback? onPressed,
+    required bool isLoading,
+    required IconData icon,
+    required String label,
+    required bool isEnabled,
+    bool isNext = false,
+  }) {
+    return ElevatedButton(
+      onPressed: isLoading ? null : onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isEnabled ? ColorConstants.red : Colors.grey.shade300,
+        foregroundColor: isEnabled ? Colors.white : Colors.grey.shade600,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: isEnabled ? 2 : 0,
+        minimumSize: const Size(double.infinity, 45),
+      ),
+      child: isLoading
+          ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (!isNext) ...[
+                  Icon(icon, size: 18),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (isNext) ...[const SizedBox(width: 4), Icon(icon, size: 18)],
+              ],
+            ),
     );
   }
 
@@ -239,16 +539,13 @@ class _CountryScreenState extends State<CountryScreen> {
             Row(
               children: [
                 Container(
-                  // padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: ColorConstants.red.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.public, color: Colors.red, size: 22),
                 ),
-
                 const SizedBox(width: 12),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,9 +581,7 @@ class _CountryScreenState extends State<CountryScreen> {
                 ),
               ],
             ),
-
             Divider(color: Colors.grey.shade200),
-
             const SizedBox(height: 6),
             Row(
               children: [
@@ -306,6 +601,11 @@ class _CountryScreenState extends State<CountryScreen> {
 
                       if (result == true) {
                         fetchCountries();
+                        setState(() {
+                          _allCountriesCache.clear();
+                          _currentSearchQuery = '';
+                          searchCtl.clear();
+                        });
                       }
                     },
                     icon: const Icon(Icons.edit, size: 18),
@@ -331,6 +631,11 @@ class _CountryScreenState extends State<CountryScreen> {
                           countryId: country['id'],
                         );
                         fetchCountries();
+                        setState(() {
+                          _allCountriesCache.clear();
+                          _currentSearchQuery = '';
+                          searchCtl.clear();
+                        });
                       }
                     },
                     icon: const Icon(Icons.delete, size: 18),
