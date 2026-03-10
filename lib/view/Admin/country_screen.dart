@@ -25,9 +25,8 @@ class _CountryScreenState extends State<CountryScreen> {
   int _currentPage = 1;
   int _totalPages = 1;
   bool _hasMorePages = true;
-  // ignore: unused_field
   bool _isLoadingMore = false;
-  final int _itemsPerPage = 3; 
+  final int _itemsPerPage = 3;
 
   bool _isLoadingPrevious = false;
   bool _isLoadingNext = false;
@@ -45,6 +44,7 @@ class _CountryScreenState extends State<CountryScreen> {
   @override
   void initState() {
     super.initState();
+    print('🟢 [INIT] CountryScreen initialized');
     loadData();
   }
 
@@ -55,11 +55,16 @@ class _CountryScreenState extends State<CountryScreen> {
   }
 
   Future<void> loadData() async {
+    print('📦 [LOAD] Loading data...');
     await ApiService.loadSession();
     await fetchCountries();
   }
 
   Future<void> fetchCountries({int page = 1, bool isLoadMore = false}) async {
+    print(
+      '🔍 [FETCH] Starting fetch - Page: $page, isLoadMore: $isLoadMore, Current Page: $_currentPage',
+    );
+
     if (!isLoadMore) {
       setState(() {
         isLoading = true;
@@ -69,7 +74,33 @@ class _CountryScreenState extends State<CountryScreen> {
     }
 
     try {
-      final data = await apiService.getCountries(page: page);
+      print('📡 [API] Calling getCountries with page: $page');
+      final response = await apiService.getCountries(page: page);
+      print('📦 [API] Response received - Type: ${response.runtimeType}');
+      print('📦 [API] Response data: $response');
+
+      List<dynamic> data;
+      int totalCount = 0;
+      bool hasNext = false;
+
+      // Handle different response types
+      if (response is List) {
+        // Direct list response (search results)
+        data = response;
+        totalCount = data.length;
+        hasNext = false; // Search results are not paginated
+        print('📋 [API] Direct list response with ${data.length} items');
+      } else if (response is Map) {
+        // Paginated response
+        data = response['results'] ?? [];
+        totalCount = response['count'] ?? 0;
+        hasNext = response['next'] != null;
+        print(
+          '📊 [API] Paginated response with ${data.length} items, total: $totalCount, hasNext: $hasNext',
+        );
+      } else {
+        throw Exception('Unexpected response type: ${response.runtimeType}');
+      }
 
       setState(() {
         if (isLoadMore) {
@@ -83,18 +114,36 @@ class _CountryScreenState extends State<CountryScreen> {
         _allCountriesCache.addAll(data);
 
         if (data.isNotEmpty) {
-          _hasMorePages = data.length == _itemsPerPage;
+          _hasMorePages = hasNext;
 
-          if (data.length < _itemsPerPage) {
-            _totalPages = page;
+          // Calculate total pages correctly using totalCount from API
+          if (totalCount > 0) {
+            _totalPages = (totalCount / _itemsPerPage).ceil();
+            print(
+              '📊 [PAGINATION] Total pages calculated: $_totalPages (total: $totalCount, per page: $_itemsPerPage)',
+            );
           } else {
-            _totalPages = page + 1;
+            // Fallback logic if totalCount is not provided
+            if (!hasNext) {
+              _totalPages = page;
+              print(
+                '📊 [PAGINATION] Last page detected - Total Pages: $_totalPages',
+              );
+            } else {
+              _totalPages = page + 1;
+              print(
+                '📊 [PAGINATION] More pages available - Total Pages: $_totalPages',
+              );
+            }
           }
         } else {
           _hasMorePages = false;
           if (page > 1) {
             _totalPages = page - 1;
           }
+          print(
+            '📊 [PAGINATION] Empty response - HasMore: $_hasMorePages, Total Pages: $_totalPages',
+          );
         }
 
         _currentPage = page;
@@ -104,11 +153,12 @@ class _CountryScreenState extends State<CountryScreen> {
         _isLoadingPrevious = false;
         _isLoadingNext = false;
       });
-
       print(
-        'Page: $_currentPage, HasMore: $_hasMorePages, Data Length: ${data.length}, Total Pages: $_totalPages',
+        '✅ [STATE] Updated - Page: $_currentPage, HasMore: $_hasMorePages, Data Length: ${data.length}, Total Pages: $_totalPages',
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ [ERROR] Exception: $e');
+      print('❌ [ERROR] Stack trace: $stackTrace');
       setState(() {
         isLoading = false;
         _isLoadingMore = false;
@@ -131,19 +181,24 @@ class _CountryScreenState extends State<CountryScreen> {
     try {
       _allCountriesCache.clear();
 
-      int page = 1;
-      bool hasMore = true;
+      // For search, we can just make one API call with search parameter
+      print('🔍 [SEARCH] Loading search results for query: "$query"');
+      final response = await apiService.getCountries(search: query);
 
-      while (hasMore) {
-        final data = await apiService.getCountries(page: page);
-        _allCountriesCache.addAll(data);
-
-        hasMore = data.length == _itemsPerPage;
-        page++;
+      List<dynamic> data;
+      if (response is List) {
+        data = response;
+      } else if (response is Map) {
+        data = response['results'] ?? [];
+      } else {
+        data = [];
       }
 
+      print('🔍 [SEARCH] Received ${data.length} items');
+      _allCountriesCache.addAll(data);
       _performSearch(query);
     } catch (e) {
+      print('❌ [SEARCH] Error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error loading all countries: $e")),
       );
@@ -155,9 +210,11 @@ class _CountryScreenState extends State<CountryScreen> {
   }
 
   void _searchCountry(String query) {
+    print('🔍 [SEARCH] Search query changed: "$query"');
     _currentSearchQuery = query;
 
     if (query.isEmpty) {
+      print('🔍 [SEARCH] Query empty, resetting to all countries');
       setState(() {
         _filteredCountries = List.from(_allCountries);
         _isSearching = false;
@@ -166,13 +223,20 @@ class _CountryScreenState extends State<CountryScreen> {
     }
 
     if (_allCountriesCache.length >= _totalPages * _itemsPerPage) {
+      print(
+        '🔍 [SEARCH] Using cached data - Cache size: ${_allCountriesCache.length}, Required: ${_totalPages * _itemsPerPage}',
+      );
       _performSearch(query);
     } else {
+      print('🔍 [SEARCH] Cache miss, loading all pages');
       _loadAllPagesForSearch(query);
     }
   }
 
   void _performSearch(String query) {
+    print(
+      '🔍 [SEARCH] Performing search on ${_allCountriesCache.length} items',
+    );
     final results = _allCountriesCache.where((country) {
       final name = country['name'].toString().toLowerCase();
       final code = country['code']?.toString().toLowerCase() ?? '';
@@ -180,12 +244,14 @@ class _CountryScreenState extends State<CountryScreen> {
           code.contains(query.toLowerCase());
     }).toList();
 
+    print('🔍 [SEARCH] Found ${results.length} matches');
     setState(() {
       _filteredCountries = results;
     });
   }
 
   Future<void> _onRefresh() async {
+    print('🔄 [REFRESH] Refreshing data');
     setState(() {
       _currentPage = 1;
       _hasMorePages = true;
@@ -199,8 +265,14 @@ class _CountryScreenState extends State<CountryScreen> {
   }
 
   Future<void> _goToNextPage() async {
-    if (_isLoadingNext || !_hasMorePages) return;
+    if (_isLoadingNext || !_hasMorePages) {
+      print(
+        '⛔ [NAV] Cannot go to next page - isLoadingNext: $_isLoadingNext, hasMorePages: $_hasMorePages',
+      );
+      return;
+    }
 
+    print('👉 [NAV] Going to next page: ${_currentPage + 1}');
     setState(() {
       _isLoadingNext = true;
     });
@@ -209,8 +281,14 @@ class _CountryScreenState extends State<CountryScreen> {
   }
 
   Future<void> _goToPreviousPage() async {
-    if (_isLoadingPrevious || _currentPage <= 1) return;
+    if (_isLoadingPrevious || _currentPage <= 1) {
+      print(
+        '⛔ [NAV] Cannot go to previous page - isLoadingPrevious: $_isLoadingPrevious, currentPage: $_currentPage',
+      );
+      return;
+    }
 
+    print('👈 [NAV] Going to previous page: ${_currentPage - 1}');
     setState(() {
       _isLoadingPrevious = true;
     });
@@ -220,6 +298,9 @@ class _CountryScreenState extends State<CountryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print(
+      '🎨 [BUILD] Building UI - Page: $_currentPage, TotalPages: $_totalPages, HasMore: $_hasMorePages, Items: ${_filteredCountries.length}',
+    );
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: ColorConstants.bg,
@@ -232,12 +313,14 @@ class _CountryScreenState extends State<CountryScreen> {
             child: FloatingActionButton(
               backgroundColor: ColorConstants.red,
               onPressed: () async {
+                print('➕ [FAB] Add button clicked');
                 final result = await Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => AddCountryScreen()),
                 );
 
                 if (result == true) {
+                  print('➕ [FAB] Add successful, refreshing');
                   fetchCountries();
                   setState(() {
                     _allCountriesCache.clear();
@@ -360,6 +443,9 @@ class _CountryScreenState extends State<CountryScreen> {
   }
 
   Widget _buildPaginationControls() {
+    print(
+      '🔢 [PAGINATION] Building pagination controls - Page $_currentPage of $_totalPages, HasMore: $_hasMorePages',
+    );
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
@@ -508,6 +594,9 @@ class _CountryScreenState extends State<CountryScreen> {
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: () {
+        print(
+          '👆 [CARD] Country tapped - ID: ${country['id']}, Name: ${country['name']}',
+        );
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -588,6 +677,9 @@ class _CountryScreenState extends State<CountryScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () async {
+                      print(
+                        '✏️ [UPDATE] Update button clicked for country ID: ${country['id']}',
+                      );
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -600,6 +692,7 @@ class _CountryScreenState extends State<CountryScreen> {
                       );
 
                       if (result == true) {
+                        print('✏️ [UPDATE] Update successful, refreshing');
                         fetchCountries();
                         setState(() {
                           _allCountriesCache.clear();
@@ -624,18 +717,25 @@ class _CountryScreenState extends State<CountryScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () async {
+                      print(
+                        '🗑️ [DELETE] Delete button clicked for country ID: ${country['id']}',
+                      );
                       final confirm = await _confirmDelete(context);
 
                       if (confirm == true) {
+                        print('🗑️ [DELETE] Delete confirmed');
                         await apiService.deleteCountry(
                           countryId: country['id'],
                         );
+                        print('🗑️ [DELETE] Delete API called, refreshing');
                         fetchCountries();
                         setState(() {
                           _allCountriesCache.clear();
                           _currentSearchQuery = '';
                           searchCtl.clear();
                         });
+                      } else {
+                        print('🗑️ [DELETE] Delete cancelled');
                       }
                     },
                     icon: const Icon(Icons.delete, size: 18),

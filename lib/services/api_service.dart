@@ -13,7 +13,7 @@ class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
   final String baseurl =
-      "https://benjamin-avi-char-consequences.trycloudflare.com";
+      "https://fiscal-administration-eminem-twist.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -163,29 +163,85 @@ class ApiService {
   //   }
   // }
 
-  Future<List<dynamic>> getCountries({int? page}) async {
-  String urlString = "$baseurl/api/qdel/countries/add/";
-  
-  // Add page parameter if provided
-  if (page != null) {
-    urlString += "?page=$page";
-  }
-  
-  final url = Uri.parse(urlString);
-  final response = await http.get(
-    url,
-    headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
-  );
-  logger.i("COUNTRIES STATUS :: ${response.statusCode}");
-  logger.i("COUNTRIES BODY :: ${response.body}");
+  Future<dynamic> getCountries({int? page, String? search}) async {
+    String urlString = "$baseurl/api/qdel/countries/add/";
+    List<String> queryParams = [];
 
-  if (response.statusCode == 200) {
-    return jsonDecode(response.body);
-  } else {
-    throw Exception("Failed to load countries");
-  }
-}
+    if (page != null) {
+      queryParams.add("page=$page");
+    }
+    if (search != null && search.isNotEmpty) {
+      queryParams.add("search=$search");
+    }
 
+    if (queryParams.isNotEmpty) {
+      urlString += "?" + queryParams.join("&");
+    }
+
+    final url = Uri.parse(urlString);
+    final response = await http.get(
+      url,
+      headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
+    );
+
+    logger.i("COUNTRIES STATUS :: ${response.statusCode}");
+    logger.i("COUNTRIES BODY :: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final dynamic data = jsonDecode(response.body);
+
+      // Check if it's a search response (list) or paginated response (map)
+      if (data is List) {
+        // Search response - return list directly
+        return data;
+      } else if (data is Map) {
+        // Paginated response - return the map
+        return data;
+      } else {
+        throw Exception("Unexpected response format");
+      }
+    } else {
+      throw Exception("Failed to load countries");
+    }
+  }
+
+  // Add this new method to your ApiService class
+  Future<Map<String, dynamic>> getCountriespagination({int? page}) async {
+    String urlString = "$baseurl/api/qdel/countries/add/";
+    if (page != null) {
+      urlString += "?page=$page";
+    }
+
+    final url = Uri.parse(urlString);
+    final response = await http.get(
+      url,
+      headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
+    );
+
+    logger.i("COUNTRIES STATUS :: ${response.statusCode}");
+    logger.i("COUNTRIES BODY :: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final dynamic data = jsonDecode(response.body);
+
+      // Check if the response is a Map (paginated) or List (non-paginated)
+      if (data is Map<String, dynamic>) {
+        return data;
+      } else if (data is List) {
+        // If it's a list, wrap it in a paginated format
+        return {
+          'count': data.length,
+          'next': null,
+          'previous': null,
+          'results': data,
+        };
+      } else {
+        throw Exception("Unexpected response format");
+      }
+    } else {
+      throw Exception("Failed to load countries");
+    }
+  }
 
   Future<List<dynamic>> getStates({required int countryId}) async {
     final url = Uri.parse("$baseurl/api/qdel/states/add/?country=$countryId");
@@ -205,30 +261,81 @@ class ApiService {
     }
   }
 
-  Future<List<dynamic>> getStatesbycountry({required int countryId, int? page}) async {
-  String urlString = "$baseurl/api/qdel/states/add/?country=$countryId";
+  Future<List<dynamic>> getStatesByCountry({
+    required int countryId,
+    required int page,
+  }) async {
+    final url = Uri.parse(
+      "$baseurl/api/qdel/states/by/country/$countryId/?page=$page",
+    );
 
-  // Add pagination
-  if (page != null) {
-    urlString += "&page=$page";
+    print('🌐 FETCHING STATES PAGE $page FROM: $url');
+
+    final response = await http.get(
+      url,
+      headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
+    );
+
+    print("📊 STATES STATUS: ${response.statusCode}");
+    print("📦 STATES BODY: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as List<dynamic>;
+      print("📋 GOT ${data.length} STATES FROM PAGE $page");
+      return data;
+    } else {
+      throw Exception("Failed to load states: ${response.statusCode}");
+    }
   }
+  // Future<List<dynamic>> getStatesbycountry({
+  //   required int countryId,
+  //   int? page,
+  // }) async {
+  //   String urlString = "$baseurl/api/qdel/states/by/country/$countryId/";
 
-  final url = Uri.parse(urlString);
+  //   // Attach page as a proper query parameter
+  //   if (page != null) {
+  //     urlString += "?page=$page";
+  //   }
 
-  final response = await http.get(
-    url,
-    headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
-  );
+  //   final url = Uri.parse(urlString);
 
-  logger.i("STATES STATUS :: ${response.statusCode}");
-  logger.i("STATES BODY :: ${response.body}");
+  //   final response = await http.get(
+  //     url,
+  //     headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
+  //   );
 
-  if (response.statusCode == 200) {
-    return jsonDecode(response.body);
-  } else {
-    throw Exception("Failed to load states");
-  }
-}
+  //   logger.i("STATES STATUS :: ${response.statusCode}");
+  //   logger.i("STATES BODY :: ${response.body}");
+
+  //   if (response.statusCode == 200) {
+  //     // Check if the response is paginated or a direct list
+  //     final dynamic responseData = jsonDecode(response.body);
+
+  //     // If the response has a 'results' field (typical for paginated DRF responses)
+  //     if (responseData is Map && responseData.containsKey('results')) {
+  //       // If page is null, we need to fetch all pages
+  //       if (page == null) {
+  //         List<dynamic> allResults = [];
+  //         allResults.addAll(responseData['results']);
+
+  //         // Check if there are more pages
+  //         if (responseData['next'] != null) {
+  //           // Recursively fetch next pages
+  //           // You might want to implement a loop to fetch all pages
+  //           // This is simplified - you'd need to parse the next URL and fetch
+  //         }
+  //         return allResults;
+  //       }
+  //       return responseData['results'];
+  //     }
+
+  //     // If it's a direct list
+  //     return responseData;
+  //   } else {
+  //     throw Exception("Failed to load states");
+  //   }
+  // }
 
   Future<List<dynamic>> getDistricts({required int stateId}) async {
     final url = Uri.parse("$baseurl/api/qdel/districts/add/?state=$stateId");
@@ -2412,6 +2519,4 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt("order_${orderId}_carrier_id");
   }
-
-
 }

@@ -5,6 +5,8 @@ import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/add_states.dart';
 import 'package:projectqdel/view/Admin/district_screen.dart';
 import 'package:projectqdel/view/Admin/update_state.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class StateScreen extends StatefulWidget {
   final int countryId;
@@ -20,32 +22,28 @@ class StateScreen extends StatefulWidget {
 }
 
 class _StateScreenState extends State<StateScreen> {
-  TextEditingController statectl = TextEditingController();
   TextEditingController searchCtl = TextEditingController();
   ApiService apiService = ApiService();
 
-  List<dynamic> allStates = [];
-  List<dynamic> filteredStates = [];
-  // Store all states from all pages for searching
-  List<dynamic> _allStatesCache = [];
+  List<dynamic> _states = []; // Current page states
+  List<dynamic> _allStatesCache = []; // Cache for search
 
-  // Pagination variables
   int _currentPage = 1;
   int _totalPages = 1;
+  int _totalItems = 0;
   bool _hasMorePages = true;
-  final int _itemsPerPage = 3; // Adjust based on your backend
+  final int _itemsPerPage = 3; // Based on your backend page size
 
-  // Loading states
   bool _isLoadingPrevious = false;
   bool _isLoadingNext = false;
-  bool _isSearching = false;
   bool isLoading = true;
+  bool _isSearching = false;
   String _currentSearchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    loadStates();
+    loadData();
   }
 
   @override
@@ -54,66 +52,62 @@ class _StateScreenState extends State<StateScreen> {
     super.dispose();
   }
 
-  Future<void> loadStates({int page = 1, bool isLoadMore = false}) async {
-    if (!isLoadMore) {
-      setState(() {
+  Future<void> loadData() async {
+    await ApiService.loadSession();
+    await fetchStates(page: 1);
+  }
+
+  Future<void> fetchStates({required int page}) async {
+    print(
+      '🚀 FETCH STATES - Requested page: $page, Current page: $_currentPage',
+    );
+
+    setState(() {
+      if (page > _currentPage) {
+        _isLoadingNext = true;
+      } else if (page < _currentPage) {
+        _isLoadingPrevious = true;
+      } else {
         isLoading = true;
-        allStates.clear();
-        filteredStates.clear();
-      });
-    }
+      }
+    });
 
     try {
-      // Backend already filters by country via getStates(countryId: ...)
-      final data = await apiService.getStatesbycountry(
-        countryId: widget.countryId,
-        page: page,
+      final responseData = await getStatesByCountry(page: page);
+
+      // Extract data from paginated response
+      final List<dynamic> data = responseData['results'] ?? [];
+      final int totalCount = responseData['count'] ?? 0;
+      final bool hasNext = responseData['next'] != null;
+
+      print(
+        '📥 RECEIVED DATA - Page $page: ${data.length} items, Total: $totalCount, HasNext: $hasNext',
       );
 
       setState(() {
-        if (isLoadMore) {
-          allStates.addAll(data);
-          filteredStates.addAll(data);
-        } else {
-          allStates = data;
-          filteredStates = data;
-        }
-
-        // Store in cache for search (all data fetched so far)
-        _allStatesCache.addAll(data);
-
-        // Check if we have more pages based on backend page size
-        if (data.isNotEmpty) {
-          _hasMorePages = data.length == _itemsPerPage;
-
-          // Calculate total pages (approximate, using page size)
-          if (data.length < _itemsPerPage) {
-            _totalPages = page;
-          } else {
-            _totalPages = page + 1;
-          }
-        } else {
-          _hasMorePages = false;
-          if (page > 1) {
-            _totalPages = page - 1;
-          }
-        }
-
+        _states = data;
         _currentPage = page;
+        _totalItems = totalCount;
+        _hasMorePages = hasNext;
+
+        // Calculate total pages
+        _totalPages = (totalCount / _itemsPerPage).ceil();
+        if (_totalPages == 0) _totalPages = 1;
 
         isLoading = false;
-        _isLoadingPrevious = false;
         _isLoadingNext = false;
+        _isLoadingPrevious = false;
       });
 
       print(
-        'State Page: $_currentPage, Data Length: ${data.length}, HasMore: $_hasMorePages',
+        '✅ STATE UPDATED - Page: $_currentPage, Items: ${_states.length}, Total: $_totalItems, HasMore: $_hasMorePages, TotalPages: $_totalPages',
       );
     } catch (e) {
+      print('❌ ERROR: $e');
       setState(() {
         isLoading = false;
-        _isLoadingPrevious = false;
         _isLoadingNext = false;
+        _isLoadingPrevious = false;
       });
       ScaffoldMessenger.of(
         context,
@@ -121,7 +115,34 @@ class _StateScreenState extends State<StateScreen> {
     }
   }
 
-  // Method to load all pages for search
+  Future<Map<String, dynamic>> getStatesByCountry({required int page}) async {
+    final url = Uri.parse(
+      "${apiService.baseurl}/api/qdel/states/by/country/${widget.countryId}/?page=$page",
+    );
+
+    print('🌐 FETCHING STATES PAGE $page FROM: $url');
+
+    final response = await http.get(
+      url,
+      headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
+    );
+
+    print("📊 STATES STATUS: ${response.statusCode}");
+    print("📦 STATES BODY: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+      print(
+        "📋 GOT ${jsonResponse['results']?.length ?? 0} STATES FROM PAGE $page",
+      );
+      print("📋 TOTAL COUNT: ${jsonResponse['count']}");
+      print("📋 NEXT PAGE: ${jsonResponse['next']}");
+      return jsonResponse;
+    } else {
+      throw Exception("Failed to load states: ${response.statusCode}");
+    }
+  }
+
   Future<void> _loadAllPagesForSearch(String query) async {
     if (_isSearching) return;
 
@@ -130,30 +151,27 @@ class _StateScreenState extends State<StateScreen> {
     });
 
     try {
-      // Clear cache before loading all pages
       _allStatesCache.clear();
 
       int page = 1;
       bool hasMore = true;
 
       while (hasMore) {
-        // Each call already returns only states for this country
-        final data = await apiService.getStatesbycountry(
-          countryId: widget.countryId,
-          page: page,
-        );
+        final responseData = await getStatesByCountry(page: page);
+        final List<dynamic> data = responseData['results'] ?? [];
 
-        _allStatesCache.addAll(data);
-
-        hasMore = data.length == _itemsPerPage;
-        page++;
+        if (data.isNotEmpty) {
+          _allStatesCache.addAll(data);
+          hasMore = responseData['next'] != null;
+          page++;
+        } else {
+          hasMore = false;
+        }
       }
 
       _performSearch(query);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error loading all states: $e")));
+      print('Error loading all states for search: $e');
     } finally {
       setState(() {
         _isSearching = false;
@@ -162,21 +180,19 @@ class _StateScreenState extends State<StateScreen> {
   }
 
   void _searchStates(String query) {
-    _currentSearchQuery = query;
+    setState(() {
+      _currentSearchQuery = query;
+    });
 
     if (query.isEmpty) {
       setState(() {
-        filteredStates = List.from(allStates);
         _isSearching = false;
       });
+      fetchStates(page: 1); // Reload first page
       return;
     }
 
-    if (_allStatesCache.length >= _totalPages * _itemsPerPage) {
-      _performSearch(query);
-    } else {
-      _loadAllPagesForSearch(query);
-    }
+    _loadAllPagesForSearch(query);
   }
 
   void _performSearch(String query) {
@@ -186,46 +202,42 @@ class _StateScreenState extends State<StateScreen> {
     }).toList();
 
     setState(() {
-      filteredStates = results;
+      _states = results; // Show search results
     });
   }
 
   Future<void> _onRefresh() async {
     setState(() {
       _currentPage = 1;
-      _hasMorePages = true;
-      allStates.clear();
-      filteredStates.clear();
-      _allStatesCache.clear();
       _currentSearchQuery = '';
+      _isSearching = false;
       searchCtl.clear();
+      _allStatesCache.clear();
+      isLoading = true;
     });
-    await loadStates(page: 1);
+    await fetchStates(page: 1);
   }
 
   Future<void> _goToNextPage() async {
-    if (_isLoadingNext || !_hasMorePages) return;
+    if (_isLoadingNext || !_hasMorePages || _isSearching) return;
 
-    setState(() {
-      _isLoadingNext = true;
-    });
-
-    await loadStates(page: _currentPage + 1, isLoadMore: false);
+    print(
+      '👉 NEXT CLICKED - Current page: $_currentPage, HasMore: $_hasMorePages',
+    );
+    await fetchStates(page: _currentPage + 1);
   }
 
   Future<void> _goToPreviousPage() async {
-    if (_isLoadingPrevious || _currentPage <= 1) return;
+    if (_isLoadingPrevious || _currentPage <= 1 || _isSearching) return;
 
-    setState(() {
-      _isLoadingPrevious = true;
-    });
-
-    await loadStates(page: _currentPage - 1, isLoadMore: false);
+    print('👈 PREV CLICKED - Current page: $_currentPage');
+    await fetchStates(page: _currentPage - 1);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: ColorConstants.bg,
       body: Stack(
         children: [
@@ -247,19 +259,10 @@ class _StateScreenState extends State<StateScreen> {
                 );
 
                 if (result == true) {
-                  setState(() {
-                    _currentPage = 1;
-                    _hasMorePages = true;
-                    allStates.clear();
-                    filteredStates.clear();
-                    _allStatesCache.clear();
-                    _currentSearchQuery = '';
-                    searchCtl.clear();
-                  });
-                  await loadStates(page: 1);
+                  _onRefresh();
                 }
               },
-              child: Icon(Icons.add, color: Colors.white),
+              child: const Icon(Icons.add, color: Colors.white),
             ),
           ),
         ],
@@ -347,7 +350,7 @@ class _StateScreenState extends State<StateScreen> {
           ),
 
           Expanded(
-            child: isLoading || _isSearching
+            child: isLoading
                 ? const Center(
                     child: CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(
@@ -355,7 +358,7 @@ class _StateScreenState extends State<StateScreen> {
                       ),
                     ),
                   )
-                : filteredStates.isEmpty
+                : _states.isEmpty && !_isSearching
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -381,16 +384,19 @@ class _StateScreenState extends State<StateScreen> {
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
-                    itemCount: filteredStates.length,
+                    itemCount: _states.length,
                     itemBuilder: (context, index) {
-                      final state = filteredStates[index];
-                      return stateCard(state);
+                      final state = _states[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: stateCard(state),
+                      );
                     },
                   ),
           ),
 
-          if (!_isSearching && filteredStates.isNotEmpty)
-            _buildPaginationControls(),
+          // Always show pagination when not searching and we have items
+          if (!_isSearching && _states.isNotEmpty) _buildPaginationControls(),
 
           const SizedBox(height: 10),
         ],
@@ -424,7 +430,6 @@ class _StateScreenState extends State<StateScreen> {
               isEnabled: _currentPage > 1,
             ),
           ),
-
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 12),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -443,7 +448,6 @@ class _StateScreenState extends State<StateScreen> {
               ),
             ),
           ),
-
           Expanded(
             child: _buildNavigationButton(
               onPressed: _hasMorePages ? _goToNextPage : null,
@@ -557,162 +561,158 @@ class _StateScreenState extends State<StateScreen> {
           ),
         );
       },
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 5),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: ColorConstants.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: ColorConstants.bgred),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 10,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: ColorConstants.red.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.location_on,
-                      color: Colors.red,
-                      size: 22,
-                    ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: ColorConstants.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: ColorConstants.bgred),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: ColorConstants.red.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          state['name'].toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: ColorConstants.black,
-                          ),
-                        ),
-                        Text(
-                          "Country: ${widget.countryName}",
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: ColorConstants.black,
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Colors.red,
+                    size: 22,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      widget.countryName,
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        state['name'].toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: ColorConstants.bgred,
+                        ),
                       ),
+                      Text(
+                        "Country: ${widget.countryName}",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: ColorConstants.black.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(color: Colors.grey, height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => UpdateStateScreen(
+                            stateId: state['id'],
+                            stateName: state['name'],
+                            countryId: widget.countryId,
+                          ),
+                        ),
+                      );
+
+                      if (result == true) {
+                        _onRefresh();
+                      }
+                    },
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text("Update"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: ColorConstants.green,
+                      side: const BorderSide(color: ColorConstants.green),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
-                ],
-              ),
-              Divider(color: Colors.grey.shade200),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => UpdateStateScreen(
-                              stateId: state['id'],
-                              stateName: state['name'],
-                              countryId: widget.countryId,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final confirm = await _confirmDelete(context);
+                      if (confirm == true) {
+                        try {
+                          // Show loading indicator
+                          setState(() {
+                            isLoading = true;
+                          });
+
+                          // Call delete API
+                          final success = await apiService.deleteState(
+                            stateId: state["id"],
+                          );
+
+                          if (success) {
+                            print(
+                              '✅ Delete successful, refreshing page $_currentPage',
+                            );
+
+                            // Refresh the current page data
+                            await fetchStates(page: _currentPage);
+
+                            // Show success message
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('State deleted successfully'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          print('❌ Delete error: $e');
+                          setState(() {
+                            isLoading = false;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error deleting state: $e'),
+                              backgroundColor: Colors.red,
                             ),
-                          ),
-                        );
-
-                        if (result == true) {
-                          setState(() {
-                            _currentPage = 1;
-                            _hasMorePages = true;
-                            allStates.clear();
-                            filteredStates.clear();
-                            _allStatesCache.clear();
-                            _currentSearchQuery = '';
-                            searchCtl.clear();
-                          });
-                          await loadStates(page: 1);
+                          );
                         }
-                      },
-                      icon: const Icon(Icons.edit, size: 18),
-                      label: const Text("Update"),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: ColorConstants.green,
-                        side: BorderSide(color: ColorConstants.green),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      }
+                    },
+                    icon: const Icon(Icons.delete, size: 18),
+                    label: const Text("Delete"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: BorderSide(color: Colors.red.withOpacity(0.4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final confirm = await _confirmDelete(context);
-
-                        if (confirm == true) {
-                          await apiService.deleteState(stateId: state["id"]);
-                          setState(() {
-                            _currentPage = 1;
-                            _hasMorePages = true;
-                            allStates.clear();
-                            filteredStates.clear();
-                            _allStatesCache.clear();
-                            _currentSearchQuery = '';
-                            searchCtl.clear();
-                          });
-                          await loadStates(page: 1);
-                        }
-                      },
-                      icon: const Icon(Icons.delete, size: 18),
-                      label: const Text("Delete"),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: BorderSide(color: Colors.red.withOpacity(0.4)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
