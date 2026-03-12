@@ -25,14 +25,12 @@ class _StateScreenState extends State<StateScreen> {
   TextEditingController searchCtl = TextEditingController();
   ApiService apiService = ApiService();
 
-  List<dynamic> _states = []; // Current page states
-  List<dynamic> _allStatesCache = []; // Cache for search
-
+  List<dynamic> _states = [];
   int _currentPage = 1;
   int _totalPages = 1;
   int _totalItems = 0;
   bool _hasMorePages = true;
-  final int _itemsPerPage = 3; // Based on your backend page size
+  final int _itemsPerPage = 3;
 
   bool _isLoadingPrevious = false;
   bool _isLoadingNext = false;
@@ -57,50 +55,72 @@ class _StateScreenState extends State<StateScreen> {
     await fetchStates(page: 1);
   }
 
-  Future<void> fetchStates({required int page}) async {
+  Future<void> fetchStates({required int page, String? searchQuery}) async {
     print(
-      '🚀 FETCH STATES - Requested page: $page, Current page: $_currentPage',
+      '🚀 FETCH STATES - Page: $page, Search: "$searchQuery", Current Page: $_currentPage',
     );
 
     setState(() {
-      if (page > _currentPage) {
-        _isLoadingNext = true;
-      } else if (page < _currentPage) {
-        _isLoadingPrevious = true;
-      } else {
-        isLoading = true;
+      if (!_isSearching) {
+        if (page > _currentPage) {
+          _isLoadingNext = true;
+        } else if (page < _currentPage) {
+          _isLoadingPrevious = true;
+        } else {
+          isLoading = true;
+        }
       }
     });
 
     try {
-      final responseData = await getStatesByCountry(page: page);
-
-      // Extract data from paginated response
-      final List<dynamic> data = responseData['results'] ?? [];
-      final int totalCount = responseData['count'] ?? 0;
-      final bool hasNext = responseData['next'] != null;
-
-      print(
-        '📥 RECEIVED DATA - Page $page: ${data.length} items, Total: $totalCount, HasNext: $hasNext',
+      final responseData = await getStatesByCountry(
+        page: page,
+        search: searchQuery,
       );
 
-      setState(() {
-        _states = data;
-        _currentPage = page;
-        _totalItems = totalCount;
-        _hasMorePages = hasNext;
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final List<dynamic> data = responseData['data'] ?? [];
+        final int totalCount = responseData['count'] ?? 0;
 
-        // Calculate total pages
-        _totalPages = (totalCount / _itemsPerPage).ceil();
-        if (_totalPages == 0) _totalPages = 1;
+        print(
+          '📥 SEARCH RESULTS - Found: ${data.length} items, Total: $totalCount',
+        );
 
-        isLoading = false;
-        _isLoadingNext = false;
-        _isLoadingPrevious = false;
-      });
+        setState(() {
+          _states = data;
+          _totalItems = totalCount;
+          _totalPages = 1; 
+          _hasMorePages = false;
+          _isSearching = true;
+          isLoading = false;
+          _isLoadingNext = false;
+          _isLoadingPrevious = false;
+        });
+      } else {
+        final List<dynamic> data = responseData['results'] ?? [];
+        final int totalCount = responseData['count'] ?? 0;
+        final bool hasNext = responseData['next'] != null;
+
+        print(
+          '📥 PAGINATED RESULTS - Page $page: ${data.length} items, Total: $totalCount, HasNext: $hasNext',
+        );
+
+        setState(() {
+          _states = data;
+          _currentPage = page;
+          _totalItems = totalCount;
+          _hasMorePages = hasNext;
+          _totalPages = (totalCount / _itemsPerPage).ceil();
+          if (_totalPages == 0) _totalPages = 1;
+          _isSearching = false;
+          isLoading = false;
+          _isLoadingNext = false;
+          _isLoadingPrevious = false;
+        });
+      }
 
       print(
-        '✅ STATE UPDATED - Page: $_currentPage, Items: ${_states.length}, Total: $_totalItems, HasMore: $_hasMorePages, TotalPages: $_totalPages',
+        '✅ STATE UPDATED - Items: ${_states.length}, Total: $_totalItems, HasMore: $_hasMorePages',
       );
     } catch (e) {
       print('❌ ERROR: $e');
@@ -115,12 +135,19 @@ class _StateScreenState extends State<StateScreen> {
     }
   }
 
-  Future<Map<String, dynamic>> getStatesByCountry({required int page}) async {
-    final url = Uri.parse(
-      "${apiService.baseurl}/api/qdel/states/by/country/${widget.countryId}/?page=$page",
-    );
+  Future<Map<String, dynamic>> getStatesByCountry({
+    required int page,
+    String? search,
+  }) async {
+    String urlString =
+        "${apiService.baseurl}/api/qdel/states/by/country/${widget.countryId}/?page=$page";
+    if (search != null && search.isNotEmpty) {
+      urlString += "&search=$search";
+    }
 
-    print('🌐 FETCHING STATES PAGE $page FROM: $url');
+    final url = Uri.parse(urlString);
+
+    print('🌐 FETCHING STATES FROM: $url');
 
     final response = await http.get(
       url,
@@ -132,87 +159,34 @@ class _StateScreenState extends State<StateScreen> {
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-      print(
-        "📋 GOT ${jsonResponse['results']?.length ?? 0} STATES FROM PAGE $page",
-      );
-      print("📋 TOTAL COUNT: ${jsonResponse['count']}");
-      print("📋 NEXT PAGE: ${jsonResponse['next']}");
       return jsonResponse;
     } else {
       throw Exception("Failed to load states: ${response.statusCode}");
     }
   }
 
-  Future<void> _loadAllPagesForSearch(String query) async {
-    if (_isSearching) return;
-
-    setState(() {
-      _isSearching = true;
-    });
-
-    try {
-      _allStatesCache.clear();
-
-      int page = 1;
-      bool hasMore = true;
-
-      while (hasMore) {
-        final responseData = await getStatesByCountry(page: page);
-        final List<dynamic> data = responseData['results'] ?? [];
-
-        if (data.isNotEmpty) {
-          _allStatesCache.addAll(data);
-          hasMore = responseData['next'] != null;
-          page++;
-        } else {
-          hasMore = false;
-        }
-      }
-
-      _performSearch(query);
-    } catch (e) {
-      print('Error loading all states for search: $e');
-    } finally {
-      setState(() {
-        _isSearching = false;
-      });
-    }
-  }
-
   void _searchStates(String query) {
+    print('🔍 SEARCH - Query: "$query"');
+
     setState(() {
       _currentSearchQuery = query;
+      isLoading = true;
     });
 
     if (query.isEmpty) {
-      setState(() {
-        _isSearching = false;
-      });
-      fetchStates(page: 1); // Reload first page
-      return;
+      fetchStates(page: 1);
+    } else {
+      fetchStates(page: 1, searchQuery: query);
     }
-
-    _loadAllPagesForSearch(query);
-  }
-
-  void _performSearch(String query) {
-    final results = _allStatesCache.where((state) {
-      final name = state['name'].toString().toLowerCase();
-      return name.contains(query.toLowerCase());
-    }).toList();
-
-    setState(() {
-      _states = results; // Show search results
-    });
   }
 
   Future<void> _onRefresh() async {
+    print('🔄 REFRESH');
     setState(() {
       _currentPage = 1;
       _currentSearchQuery = '';
       _isSearching = false;
       searchCtl.clear();
-      _allStatesCache.clear();
       isLoading = true;
     });
     await fetchStates(page: 1);
@@ -220,18 +194,52 @@ class _StateScreenState extends State<StateScreen> {
 
   Future<void> _goToNextPage() async {
     if (_isLoadingNext || !_hasMorePages || _isSearching) return;
-
-    print(
-      '👉 NEXT CLICKED - Current page: $_currentPage, HasMore: $_hasMorePages',
-    );
+    print('👉 NEXT PAGE - Current: $_currentPage');
     await fetchStates(page: _currentPage + 1);
   }
 
   Future<void> _goToPreviousPage() async {
     if (_isLoadingPrevious || _currentPage <= 1 || _isSearching) return;
-
-    print('👈 PREV CLICKED - Current page: $_currentPage');
+    print('👈 PREV PAGE - Current: $_currentPage');
     await fetchStates(page: _currentPage - 1);
+  }
+
+  Future<void> _deleteState(int stateId) async {
+    try {
+      setState(() => isLoading = true);
+
+      final success = await apiService.deleteState(stateId: stateId);
+
+      if (success) {
+        print('✅ Delete successful');
+
+        if (_isSearching) {
+          await fetchStates(page: 1, searchQuery: _currentSearchQuery);
+        } else {
+          await fetchStates(page: _currentPage);
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('State deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ Delete error: $e');
+      setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting state: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -322,21 +330,6 @@ class _StateScreenState extends State<StateScreen> {
                     hintText: "Search states...",
                     hintStyle: const TextStyle(color: Colors.white),
                     prefixIcon: const Icon(Icons.search, color: Colors.white),
-                    suffixIcon: _isSearching
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: Padding(
-                              padding: EdgeInsets.all(12),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            ),
-                          )
-                        : null,
                     filled: true,
                     fillColor: ColorConstants.red,
                     border: OutlineInputBorder(
@@ -358,7 +351,7 @@ class _StateScreenState extends State<StateScreen> {
                       ),
                     ),
                   )
-                : _states.isEmpty && !_isSearching
+                : _states.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -395,8 +388,8 @@ class _StateScreenState extends State<StateScreen> {
                   ),
           ),
 
-          // Always show pagination when not searching and we have items
-          if (!_isSearching && _states.isNotEmpty) _buildPaginationControls(),
+          if (!_isSearching && _states.isNotEmpty && _totalPages > 1)
+            _buildPaginationControls(),
 
           const SizedBox(height: 10),
         ],
@@ -565,7 +558,7 @@ class _StateScreenState extends State<StateScreen> {
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: ColorConstants.white,
+          color: ColorConstants.red.withOpacity(0.15),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: ColorConstants.bgred),
           boxShadow: [
@@ -657,45 +650,7 @@ class _StateScreenState extends State<StateScreen> {
                     onPressed: () async {
                       final confirm = await _confirmDelete(context);
                       if (confirm == true) {
-                        try {
-                          // Show loading indicator
-                          setState(() {
-                            isLoading = true;
-                          });
-
-                          // Call delete API
-                          final success = await apiService.deleteState(
-                            stateId: state["id"],
-                          );
-
-                          if (success) {
-                            print(
-                              '✅ Delete successful, refreshing page $_currentPage',
-                            );
-
-                            // Refresh the current page data
-                            await fetchStates(page: _currentPage);
-
-                            // Show success message
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('State deleted successfully'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          print('❌ Delete error: $e');
-                          setState(() {
-                            isLoading = false;
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error deleting state: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
+                        await _deleteState(state["id"]);
                       }
                     },
                     icon: const Icon(Icons.delete, size: 18),

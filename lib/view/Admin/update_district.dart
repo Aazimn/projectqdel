@@ -31,7 +31,7 @@ class _UpdateDistrictScreenState extends State<UpdateDistrictScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorConstants.bgred,
+      backgroundColor: ColorConstants.white,
       appBar: AppBar(
         backgroundColor: ColorConstants.red,
         title: const Center(
@@ -124,7 +124,7 @@ class _UpdateDistrictScreenState extends State<UpdateDistrictScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: ColorConstants.white,
+            color: ColorConstants.black,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -140,8 +140,7 @@ class _UpdateDistrictScreenState extends State<UpdateDistrictScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide:
-                  const BorderSide(color: ColorConstants.red, width: 2),
+              borderSide: const BorderSide(color: ColorConstants.red, width: 2),
             ),
           ),
         ),

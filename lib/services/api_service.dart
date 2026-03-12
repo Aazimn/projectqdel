@@ -13,7 +13,7 @@ class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
   final String baseurl =
-      "https://fiscal-administration-eminem-twist.trycloudflare.com";
+      "https://national-sunglasses-frontpage-sold.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -33,18 +33,18 @@ class ApiService {
 
   static bool sessionLoaded = false;
 
-  static Future<void> loadSession() async {
-    if (sessionLoaded) return;
+  // static Future<void> loadSession() async {
+  //   if (sessionLoaded) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    accessToken = prefs.getString('accessToken');
-    userType = prefs.getString('user_type');
-    approvalStatus = prefs.getString('approval_status');
-    phone = prefs.getString('phone');
-    isFirstTime = prefs.getBool('first_time');
+  //   final prefs = await SharedPreferences.getInstance();
+  //   accessToken = prefs.getString('accessToken');
+  //   userType = prefs.getString('user_type');
+  //   approvalStatus = prefs.getString('approval_status');
+  //   phone = prefs.getString('phone');
+  //   isFirstTime = prefs.getBool('first_time');
 
-    sessionLoaded = true;
-  }
+  //   sessionLoaded = true;
+  // }
 
   static String? accessToken;
 
@@ -59,6 +59,41 @@ class ApiService {
     accessToken = prefs.getString('accessToken');
   }
 
+  // Add these static variables at the top with other static variables
+  static bool? hasUploadedDocs;
+  static const String _hasUploadedDocsKey = 'has_uploaded_docs';
+
+  // Add these methods to your ApiService class
+  static Future<void> setHasUploadedDocs(bool value) async {
+    hasUploadedDocs = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_hasUploadedDocsKey, value);
+  }
+
+  static Future<bool?> getHasUploadedDocs() async {
+    if (hasUploadedDocs != null) return hasUploadedDocs;
+
+    final prefs = await SharedPreferences.getInstance();
+    hasUploadedDocs = prefs.getBool(_hasUploadedDocsKey);
+    return hasUploadedDocs;
+  }
+
+  // Update your loadSession method to include hasUploadedDocs
+  static Future<void> loadSession() async {
+    if (sessionLoaded) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    accessToken = prefs.getString('accessToken');
+    userType = prefs.getString('user_type');
+    approvalStatus = prefs.getString('approval_status');
+    phone = prefs.getString('phone');
+    isFirstTime = prefs.getBool('first_time');
+    hasUploadedDocs = prefs.getBool(_hasUploadedDocsKey); // Add this line
+
+    sessionLoaded = true;
+  }
+
+  // Update your logout method
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -67,11 +102,41 @@ class ApiService {
     await prefs.remove('approval_status');
     await prefs.remove('phone');
     await prefs.remove('first_time');
+    await prefs.remove(_hasUploadedDocsKey); // Add this line
+
     accessToken = null;
     userType = null;
     approvalStatus = null;
     phone = null;
     isFirstTime = null;
+    hasUploadedDocs = null; // Add this line
+  }
+
+  // Add a method to check document status from API
+  Future<bool> checkDocumentStatus() async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseurl/api/qdel/carrier/document-status/"),
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
+
+      logger.i("DOCUMENT STATUS CHECK :: ${response.statusCode}");
+      logger.i("DOCUMENT STATUS BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final hasDocs = data['has_documents'] ?? false;
+        await ApiService.setHasUploadedDocs(hasDocs);
+        return hasDocs;
+      }
+      return false;
+    } catch (e) {
+      logger.e("DOCUMENT STATUS ERROR => $e");
+      return false;
+    }
   }
 
   static String? userType;
@@ -147,22 +212,6 @@ class ApiService {
     return null;
   }
 
-  // Future<List<dynamic>> getCountries() async {
-  //   final url = Uri.parse("$baseurl/api/qdel/countries/add/");
-  //   final response = await http.get(
-  //     url,
-  //     headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
-  //   );
-  //   logger.i("COUNTRIES STATUS :: ${response.statusCode}");
-  //   logger.i("COUNTRIES BODY :: ${response.body}");
-
-  //   if (response.statusCode == 200) {
-  //     return jsonDecode(response.body);
-  //   } else {
-  //     throw Exception("Failed to load countries");
-  //   }
-  // }
-
   Future<dynamic> getCountries({int? page, String? search}) async {
     String urlString = "$baseurl/api/qdel/countries/add/";
     List<String> queryParams = [];
@@ -173,29 +222,21 @@ class ApiService {
     if (search != null && search.isNotEmpty) {
       queryParams.add("search=$search");
     }
-
     if (queryParams.isNotEmpty) {
       urlString += "?" + queryParams.join("&");
     }
-
     final url = Uri.parse(urlString);
     final response = await http.get(
       url,
       headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
     );
-
     logger.i("COUNTRIES STATUS :: ${response.statusCode}");
     logger.i("COUNTRIES BODY :: ${response.body}");
-
     if (response.statusCode == 200) {
       final dynamic data = jsonDecode(response.body);
-
-      // Check if it's a search response (list) or paginated response (map)
       if (data is List) {
-        // Search response - return list directly
         return data;
       } else if (data is Map) {
-        // Paginated response - return the map
         return data;
       } else {
         throw Exception("Unexpected response format");
@@ -205,153 +246,71 @@ class ApiService {
     }
   }
 
-  // Add this new method to your ApiService class
-  Future<Map<String, dynamic>> getCountriespagination({int? page}) async {
-    String urlString = "$baseurl/api/qdel/countries/add/";
-    if (page != null) {
-      urlString += "?page=$page";
+  Future<dynamic> getStatesByCountry({
+    required int countryId,
+    int? page,
+    String? search,
+  }) async {
+    String urlString = "$baseurl/api/qdel/states/by/country/$countryId/";
+    final queryParams = <String>[];
+    if (page != null) queryParams.add("page=$page");
+    if (search != null && search.isNotEmpty) {
+      queryParams.add("search=$search");
+    }
+    if (queryParams.isNotEmpty) {
+      urlString += "?${queryParams.join("&")}";
     }
 
     final url = Uri.parse(urlString);
-    final response = await http.get(
-      url,
-      headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
-    );
-
-    logger.i("COUNTRIES STATUS :: ${response.statusCode}");
-    logger.i("COUNTRIES BODY :: ${response.body}");
-
-    if (response.statusCode == 200) {
-      final dynamic data = jsonDecode(response.body);
-
-      // Check if the response is a Map (paginated) or List (non-paginated)
-      if (data is Map<String, dynamic>) {
-        return data;
-      } else if (data is List) {
-        // If it's a list, wrap it in a paginated format
-        return {
-          'count': data.length,
-          'next': null,
-          'previous': null,
-          'results': data,
-        };
-      } else {
-        throw Exception("Unexpected response format");
-      }
-    } else {
-      throw Exception("Failed to load countries");
-    }
-  }
-
-  Future<List<dynamic>> getStates({required int countryId}) async {
-    final url = Uri.parse("$baseurl/api/qdel/states/add/?country=$countryId");
+    logger.i("🌐 STATES BY COUNTRY URL :: $url");
 
     final response = await http.get(
       url,
       headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
     );
 
-    logger.i("STATES STATUS :: ${response.statusCode}");
-    logger.i("STATES BODY :: ${response.body}");
+    logger.i("📊 STATES BY COUNTRY STATUS :: ${response.statusCode}");
+    logger.i("📦 STATES BY COUNTRY BODY :: ${response.body}");
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception("Failed to load states");
-    }
-  }
-
-  Future<List<dynamic>> getStatesByCountry({
-    required int countryId,
-    required int page,
-  }) async {
-    final url = Uri.parse(
-      "$baseurl/api/qdel/states/by/country/$countryId/?page=$page",
-    );
-
-    print('🌐 FETCHING STATES PAGE $page FROM: $url');
-
-    final response = await http.get(
-      url,
-      headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
-    );
-
-    print("📊 STATES STATUS: ${response.statusCode}");
-    print("📦 STATES BODY: ${response.body}");
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as List<dynamic>;
-      print("📋 GOT ${data.length} STATES FROM PAGE $page");
-      return data;
+      final decoded = jsonDecode(response.body);
+      return decoded;
     } else {
       throw Exception("Failed to load states: ${response.statusCode}");
     }
   }
-  // Future<List<dynamic>> getStatesbycountry({
-  //   required int countryId,
-  //   int? page,
-  // }) async {
-  //   String urlString = "$baseurl/api/qdel/states/by/country/$countryId/";
 
-  //   // Attach page as a proper query parameter
-  //   if (page != null) {
-  //     urlString += "?page=$page";
-  //   }
+  Future<dynamic> getDistrictsByState({
+    required int stateId,
+    int? page,
+    String? search,
+  }) async {
+    String urlString = "$baseurl/api/qdel/districts/by/state/$stateId/";
+    final queryParams = <String>[];
+    if (page != null) queryParams.add("page=$page");
+    if (search != null && search.isNotEmpty) {
+      queryParams.add("search=$search");
+    }
+    if (queryParams.isNotEmpty) {
+      urlString += "?${queryParams.join("&")}";
+    }
 
-  //   final url = Uri.parse(urlString);
-
-  //   final response = await http.get(
-  //     url,
-  //     headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
-  //   );
-
-  //   logger.i("STATES STATUS :: ${response.statusCode}");
-  //   logger.i("STATES BODY :: ${response.body}");
-
-  //   if (response.statusCode == 200) {
-  //     // Check if the response is paginated or a direct list
-  //     final dynamic responseData = jsonDecode(response.body);
-
-  //     // If the response has a 'results' field (typical for paginated DRF responses)
-  //     if (responseData is Map && responseData.containsKey('results')) {
-  //       // If page is null, we need to fetch all pages
-  //       if (page == null) {
-  //         List<dynamic> allResults = [];
-  //         allResults.addAll(responseData['results']);
-
-  //         // Check if there are more pages
-  //         if (responseData['next'] != null) {
-  //           // Recursively fetch next pages
-  //           // You might want to implement a loop to fetch all pages
-  //           // This is simplified - you'd need to parse the next URL and fetch
-  //         }
-  //         return allResults;
-  //       }
-  //       return responseData['results'];
-  //     }
-
-  //     // If it's a direct list
-  //     return responseData;
-  //   } else {
-  //     throw Exception("Failed to load states");
-  //   }
-  // }
-
-  Future<List<dynamic>> getDistricts({required int stateId}) async {
-    final url = Uri.parse("$baseurl/api/qdel/districts/add/?state=$stateId");
+    final url = Uri.parse(urlString);
+    logger.i("🌐 DISTRICTS BY STATE URL :: $url");
 
     final response = await http.get(
       url,
       headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
     );
 
-    logger.i("DISTRICTS STATUS :: ${response.statusCode}");
-    logger.i("DISTRICTS BODY :: ${response.body}");
+    logger.i("📊 DISTRICTS BY STATE STATUS :: ${response.statusCode}");
+    logger.i("📦 DISTRICTS BY STATE BODY :: ${response.body}");
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
+      return decoded;
     } else {
-      throw Exception("Failed to load districts");
+      throw Exception("Failed to load districts: ${response.statusCode}");
     }
   }
 
@@ -460,56 +419,56 @@ class ApiService {
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
-  Future<bool> registerCarrierWithDocument({
-    required String phone,
-    required String firstname,
-    required String lastname,
-    required String email,
-    required String userType,
-    required int? countryId,
-    required int? stateId,
-    required int? districtId,
-    required File document,
-  }) async {
-    final url = Uri.parse("$baseurl/api/qdel/register/");
+Future<bool> registerCarrierWithDocument({
+  required String phone,
+  required String firstname,
+  required String lastname,
+  required String email,
+  required String userType,
+  required int? countryId,
+  required int? stateId,
+  required int? districtId,
+  required File document,
+}) async {
+  final url = Uri.parse("$baseurl/api/qdel/register/");
 
-    final request = http.MultipartRequest("POST", url);
+  final request = http.MultipartRequest("POST", url);
 
-    request.headers.addAll({
-      "Authorization": "Bearer ${ApiService.accessToken}",
-    });
+  request.headers.addAll({
+    "Authorization": "Bearer ${ApiService.accessToken}",
+  });
 
-    request.fields.addAll({
-      "phone": phone,
-      "first_name": firstname,
-      "last_name": lastname,
-      "email": email,
-      "user_type": userType,
-      "country": countryId?.toString() ?? "",
-      "state": stateId?.toString() ?? "",
-      "district": districtId?.toString() ?? "",
-    });
+  request.fields.addAll({
+    "phone": phone,
+    "first_name": firstname,
+    "last_name": lastname,
+    "email": email,
+    "user_type": userType,
+    "country": countryId?.toString() ?? "",
+    "state": stateId?.toString() ?? "",
+    "district": districtId?.toString() ?? "",
+  });
 
-    request.files.add(
-      await http.MultipartFile.fromPath("document", document.path),
-    );
+  request.files.add(
+    await http.MultipartFile.fromPath("document", document.path),
+  );
 
-    final response = await request.send();
-    final responseBody = await response.stream.bytesToString();
+  final response = await request.send();
+  final responseBody = await response.stream.bytesToString();
 
-    logger.i("STATUS :: ${response.statusCode}");
-    logger.i("BODY :: $responseBody");
+  logger.i("STATUS :: ${response.statusCode}");
+  logger.i("BODY :: $responseBody");
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      await ApiService.setApprovalStatus("pending");
-      await ApiService.markRegistrationComplete();
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    await ApiService.setApprovalStatus("pending");
+    await ApiService.setHasUploadedDocs(true); // Add this line
+    await ApiService.markRegistrationComplete();
 
-      return true;
-    } else {
-      return false;
-    }
+    return true;
+  } else {
+    return false;
   }
-
+}
   static Future<void> markRegistrationComplete() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('first_time', false);
@@ -545,8 +504,9 @@ class ApiService {
     required int userId,
     required bool approve,
   }) async {
-    final url = Uri.parse("$baseurl/api/qdel/admin/carrier-approval/$userId/");
-
+    final url = Uri.parse(
+      "$baseurl/api/qdel/admin/carrier-approval/status/$userId/",
+    );
     final response = await http.patch(
       url,
       headers: {
@@ -555,7 +515,6 @@ class ApiService {
       },
       body: jsonEncode({"approval_status": approve ? "approved" : "rejected"}),
     );
-
     logger.i("PATCH URL :: $url");
     logger.i("STATUS :: ${response.statusCode}");
     logger.i("BODY :: ${response.body}");
@@ -577,7 +536,6 @@ class ApiService {
     await prefs.setString('approval_status', approvalStatus);
     await prefs.setString('phone', phone);
     await prefs.setBool('first_time', firstTime);
-
     ApiService.accessToken = token;
     ApiService.userType = userType;
     ApiService.approvalStatus = approvalStatus;
@@ -1187,7 +1145,9 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> getSenderAddressById(int addressId) async {
-    final url = Uri.parse("$baseurl/api/qdel/users/addresses/$addressId/");
+    final url = Uri.parse(
+      "$baseurl/api/qdel/users/addresses/update/$addressId/",
+    );
 
     try {
       final response = await http.get(
@@ -1246,7 +1206,9 @@ class ApiService {
   }
 
   Future<bool> deleteSenderAddress({required int addressId}) async {
-    final url = Uri.parse("$baseurl/api/qdel/users/addresses/$addressId/");
+    final url = Uri.parse(
+      "$baseurl/api/qdel/users/addresses/update/$addressId/",
+    );
 
     try {
       final response = await http.delete(
@@ -1279,7 +1241,9 @@ class ApiService {
     required String latitude,
     required String longitude,
   }) async {
-    final url = Uri.parse("$baseurl/api/qdel/users/addresses/$addressId/");
+    final url = Uri.parse(
+      "$baseurl/api/qdel/users/addresses/update/$addressId/",
+    );
     try {
       final response = await http.put(
         url,
@@ -1313,7 +1277,9 @@ class ApiService {
   Future<Map<String, dynamic>?> getReceiverAddressByPickupId(
     int pickupId,
   ) async {
-    final url = Uri.parse("$baseurl/api/qdel/receiver/address/$pickupId/");
+    final url = Uri.parse(
+      "$baseurl/api/qdel/receiver/address/update/$pickupId/",
+    );
     try {
       final response = await http.get(
         url,
@@ -1349,7 +1315,9 @@ class ApiService {
     required String latitude,
     required String longitude,
   }) async {
-    final url = Uri.parse("$baseurl/api/qdel/receiver/address/$addressId/");
+    final url = Uri.parse(
+      "$baseurl/api/qdel/receiver/address/update/$addressId/",
+    );
     try {
       final response = await http.put(
         url,
@@ -1382,7 +1350,9 @@ class ApiService {
   }
 
   Future<bool> deleteReceiverAddress({required int addressId}) async {
-    final url = Uri.parse("$baseurl/api/qdel/receiver/address/$addressId/");
+    final url = Uri.parse(
+      "$baseurl/api/qdel/receiver/address/update/$addressId/",
+    );
 
     try {
       final response = await http.delete(
@@ -1613,32 +1583,83 @@ class ApiService {
     await prefs.remove("pickup_carrier_id");
   }
 
-  Future<List<dynamic>?> getAcceptedOrders() async {
-    final uri = Uri.parse("$baseurl/api/qdel/sender/view/sent/orders/");
+  // Future<List<dynamic>?> getAcceptedOrders() async {
+  //   final uri = Uri.parse("$baseurl/api/qdel/sender/view/sent/orders/");
+  //   final headers = {
+  //     "Authorization": "Bearer ${ApiService.accessToken}",
+  //     "Content-Type": "application/json",
+  //   };
+
+  //   try {
+  //     final response = await http.get(uri, headers: headers);
+
+  //     if (response.statusCode == 200) {
+  //       final decoded = jsonDecode(response.body);
+  //       if (decoded is List) {
+  //         return decoded;
+  //       }
+
+  //       if (decoded is Map<String, dynamic>) {
+  //         return decoded["results"] ?? decoded["data"] ?? decoded["orders"];
+  //       }
+  //       return null;
+  //     } else {
+  //       logger.e("GET ACCEPTED ORDERS FAILED => ${response.body}");
+  //       return null;
+  //     }
+  //   } catch (e) {
+  //     logger.e("GET ACCEPTED ORDERS ERROR => $e");
+  //     return null;
+  //   }
+  // }
+
+  // In api_service.dart
+  Future<dynamic> getAcceptedOrders({
+    int? page,
+    String? search,
+    String?
+    status, // This will now be either "pending", "active", or "completed"
+  }) async {
+    String urlString = "$baseurl/api/qdel/sender/view/sent/orders/";
+    List<String> queryParams = [];
+
+    if (page != null) {
+      queryParams.add("page=$page");
+    }
+    if (search != null && search.isNotEmpty) {
+      queryParams.add("search=$search");
+    }
+    if (status != null && status.isNotEmpty) {
+      queryParams.add("status=$status"); // Now sending single values
+    }
+
+    if (queryParams.isNotEmpty) {
+      urlString += "?" + queryParams.join("&");
+    }
+
+    final uri = Uri.parse(urlString);
     final headers = {
       "Authorization": "Bearer ${ApiService.accessToken}",
       "Content-Type": "application/json",
     };
 
     try {
+      print("📡 Fetching accepted orders - URL: $urlString");
       final response = await http.get(uri, headers: headers);
 
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        if (decoded is List) {
-          return decoded;
-        }
+      print("📦 ACCEPTED ORDERS STATUS :: ${response.statusCode}");
 
-        if (decoded is Map<String, dynamic>) {
-          return decoded["results"] ?? decoded["data"] ?? decoded["orders"];
-        }
-        return null;
+      if (response.statusCode == 200) {
+        final dynamic data = jsonDecode(response.body);
+        return data;
       } else {
-        logger.e("GET ACCEPTED ORDERS FAILED => ${response.body}");
-        return null;
+        print("❌ GET ACCEPTED ORDERS FAILED => ${response.body}");
+        throw Exception(
+          "Failed to load accepted orders (Status: ${response.statusCode})",
+        );
       }
     } catch (e) {
-      logger.e("GET ACCEPTED ORDERS ERROR => $e");
+      print("🔥 GET ACCEPTED ORDERS ERROR => $e");
       return null;
     }
   }
@@ -2098,14 +2119,6 @@ class ApiService {
     return prefs.getBool('verified_$orderId');
   }
 
-  // static Future<void> clearOrderStatus(int orderId) async {
-  //   final prefs = await SharedPreferences.getInstance();
-  //   await prefs.remove('arrived_$orderId');
-  //   await prefs.remove('otp_sent_$orderId');
-  //   await prefs.remove('verified_$orderId');
-  //   debugPrint("🗑️ Cleared all status for order $orderId");
-  // }
-
   Future<Map<String, dynamic>?> markDelivered({
     required int pickupCarrierId,
   }) async {
@@ -2504,6 +2517,12 @@ class ApiService {
     } finally {
       logger.i("=" * 80);
     }
+  }
+
+  static int? _savedPickupCarrierId;
+
+  Future<int?> getSavedPickupCarrierId() async {
+    return _savedPickupCarrierId;
   }
 
   static Future<void> savePickupCarrierIdForOrder(

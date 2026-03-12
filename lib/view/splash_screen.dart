@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:projectqdel/model/carrier_model.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/dashboard_screen.dart';
-import 'package:projectqdel/view/Carrier/accepted_screen.dart';
-import 'package:projectqdel/view/Carrier/rejected_screen.dart';
-import 'package:projectqdel/view/Carrier/status_pending.dart';
+import 'package:projectqdel/view/carrier/accepted_screen.dart';
+import 'package:projectqdel/view/carrier/approved_screen.dart';
+import 'package:projectqdel/view/carrier/carrier_dashboard.dart';
+import 'package:projectqdel/view/carrier/carrier_upload.dart';
+import 'package:projectqdel/view/carrier/rejected_screen.dart';
+import 'package:projectqdel/view/carrier/status_pending.dart';
 import 'package:projectqdel/view/Client/client_dashboard.dart';
-import 'package:projectqdel/view/Carrier/carrier_dashboard.dart';
 import 'package:projectqdel/view/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -56,26 +59,60 @@ class _SplashScreenState extends State<SplashScreen> {
         break;
 
       case "carrier":
+        final profile = await apiService.getMyProfile();
+
+        final hasDocs = profile?.hasUploadedDocs ?? false;
+        final status = profile?.approvalStatus.toLowerCase();
+
         final activeOrderId = await ApiService.getActiveOrder();
         final cachedOrder = await ApiService.getActiveOrderDetails();
 
         if (cachedOrder != null && cachedOrder.id == activeOrderId) {
-          // Use the cached order - NO API CALL NEEDED!
           go(AcceptedOrderScreen(orderId: activeOrderId!, order: cachedOrder));
           return;
         }
 
-        if (status == "approved") {
-          go(const CarrierDashboard());
-        } else if (status == "pending") {
-          go(StatusPending(phone: ApiService.phone!));
-        } else {
-          go(const RejectedScreen());
+        /// 1️⃣ No documents uploaded
+        if (!hasDocs) {
+          go(
+            CarrierUploadScreen(
+              registrationData: CarrierRegistrationData(
+                phone: profile!.phone,
+                firstname: profile.firstName,
+                lastname: profile.lastName,
+                email: profile.email,
+                userType: "carrier",
+                countryId: profile.countryId,
+                stateId: profile.stateId,
+                districtId: profile.districtId,
+                isExistingUser: true,
+              ),
+            ),
+          );
+          return;
         }
-        break;
 
-      default:
-        go(const LoginScreen());
+        /// 2️⃣ Documents uploaded but waiting approval
+        if (status == "pending") {
+          go(StatusPending(phone: profile!.phone));
+          return;
+        }
+
+        /// 3️⃣ Approved
+        if (status == "approved") {
+          go(const AccountApprovedScreen());
+          return;
+        }
+
+        /// 4️⃣ Rejected
+        if (status == "rejected") {
+          go(const RejectedScreen());
+          return;
+        }
+
+        /// fallback
+        go(const CarrierDashboard());
+        break;
     }
   }
 
@@ -86,10 +123,6 @@ class _SplashScreenState extends State<SplashScreen> {
       (_) => false,
     );
   }
-
-  // void _go(Widget page) {
-  //   Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => page));
-  // }
 
   @override
   Widget build(BuildContext context) {

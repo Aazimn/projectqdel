@@ -25,6 +25,7 @@ class _CountryScreenState extends State<CountryScreen> {
   int _currentPage = 1;
   int _totalPages = 1;
   bool _hasMorePages = true;
+  // ignore: unused_field
   bool _isLoadingMore = false;
   final int _itemsPerPage = 3;
 
@@ -83,12 +84,10 @@ class _CountryScreenState extends State<CountryScreen> {
       int totalCount = 0;
       bool hasNext = false;
 
-      // Handle different response types
       if (response is List) {
-        // Direct list response (search results)
         data = response;
         totalCount = data.length;
-        hasNext = false; // Search results are not paginated
+        hasNext = false; 
         print('📋 [API] Direct list response with ${data.length} items');
       } else if (response is Map) {
         // Paginated response
@@ -116,14 +115,12 @@ class _CountryScreenState extends State<CountryScreen> {
         if (data.isNotEmpty) {
           _hasMorePages = hasNext;
 
-          // Calculate total pages correctly using totalCount from API
           if (totalCount > 0) {
             _totalPages = (totalCount / _itemsPerPage).ceil();
             print(
               '📊 [PAGINATION] Total pages calculated: $_totalPages (total: $totalCount, per page: $_itemsPerPage)',
             );
           } else {
-            // Fallback logic if totalCount is not provided
             if (!hasNext) {
               _totalPages = page;
               print(
@@ -180,8 +177,6 @@ class _CountryScreenState extends State<CountryScreen> {
 
     try {
       _allCountriesCache.clear();
-
-      // For search, we can just make one API call with search parameter
       print('🔍 [SEARCH] Loading search results for query: "$query"');
       final response = await apiService.getCountries(search: query);
 
@@ -361,21 +356,6 @@ class _CountryScreenState extends State<CountryScreen> {
                 hintText: "Search country...",
                 hintStyle: const TextStyle(color: Colors.white),
                 prefixIcon: const Icon(Icons.search, color: Colors.white),
-                suffixIcon: _isSearching
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        ),
-                      )
-                    : null,
                 filled: true,
                 fillColor: ColorConstants.red,
                 border: OutlineInputBorder(
@@ -435,8 +415,6 @@ class _CountryScreenState extends State<CountryScreen> {
               _filteredCountries.isNotEmpty &&
               (_totalPages > 1 || _currentPage > 1 || _hasMorePages))
             _buildPaginationControls(),
-
-          const SizedBox(height: 10),
         ],
       ),
     );
@@ -447,9 +425,9 @@ class _CountryScreenState extends State<CountryScreen> {
       '🔢 [PAGINATION] Building pagination controls - Page $_currentPage of $_totalPages, HasMore: $_hasMorePages',
     );
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: ColorConstants.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
@@ -520,7 +498,7 @@ class _CountryScreenState extends State<CountryScreen> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: isEnabled ? 2 : 0,
-        minimumSize: const Size(double.infinity, 45),
+        minimumSize: const Size(double.infinity, 25),
       ),
       child: isLoading
           ? const SizedBox(
@@ -611,7 +589,7 @@ class _CountryScreenState extends State<CountryScreen> {
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: ColorConstants.white,
+          color: ColorConstants.red.withOpacity(0.15),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: ColorConstants.bgred),
           boxShadow: [

@@ -7,7 +7,12 @@ import 'package:projectqdel/view/Client/order_adding.dart';
 
 class ClientDashboard extends StatefulWidget {
   final int initialIndex;
-  const ClientDashboard({super.key, this.initialIndex = 0});
+  final int ordersInitialTab;
+  const ClientDashboard({
+    super.key,
+    this.initialIndex = 0,
+    this.ordersInitialTab = 0,
+  });
 
   @override
   State<ClientDashboard> createState() => _ClientDashboardState();
@@ -16,10 +21,10 @@ class ClientDashboard extends StatefulWidget {
 class _ClientDashboardState extends State<ClientDashboard> {
   late int _currentIndex;
 
-  final List<Widget> _pages = const [
+  late final List<Widget> _pages = [
     UserHomeScreen(),
     AddShipmentScreen(),
-    MyOrdersScreen(),
+    MyOrdersScreen(initialTab: widget.ordersInitialTab),
     ClientSettings(),
   ];
 
@@ -38,8 +43,8 @@ class _ClientDashboardState extends State<ClientDashboard> {
         backgroundColor: ColorConstants.red,
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.black87,
+        selectedItemColor: Colors.black87,
+        unselectedItemColor: Colors.white,
         onTap: (index) {
           setState(() => _currentIndex = index);
         },

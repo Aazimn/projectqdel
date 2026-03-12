@@ -33,7 +33,7 @@ class _UpdateCountryScreenState extends State<UpdateCountryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorConstants.bgred,
+      backgroundColor: ColorConstants.white,
       appBar: AppBar(
         backgroundColor: ColorConstants.red,
         automaticallyImplyLeading: false,
@@ -127,7 +127,7 @@ class _UpdateCountryScreenState extends State<UpdateCountryScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: ColorConstants.white,
+            color: ColorConstants.black,
             fontWeight: FontWeight.w600,
           ),
         ),

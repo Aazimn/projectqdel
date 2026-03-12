@@ -134,8 +134,139 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
     if (selectedRole == "client") {
       _confirmClientSwitch();
     } else {
-      _confirmCarrierSwitch();
+      _checkCarrierStatusAndNavigate();
     }
+  }
+
+  Future<void> _checkCarrierStatusAndNavigate() async {
+    setState(() => switchingRole = true);
+
+    try {
+      /// 1️⃣ Update user type first
+      final success = await apiService.updateUserType("carrier");
+
+      if (!success) {
+        setState(() => switchingRole = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to switch to carrier")),
+        );
+        return;
+      }
+
+      await ApiService.setUserType("carrier");
+
+      /// 2️⃣ Get updated profile
+      final updatedUser = await apiService.getMyProfile();
+
+      if (updatedUser == null) {
+        setState(() => switchingRole = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Failed to load profile")));
+        return;
+      }
+
+      setState(() {
+        user = updatedUser;
+        switchingRole = false;
+      });
+
+      /// 3️⃣ Check if document uploaded
+      final bool hasDocs =
+          updatedUser.document != null && updatedUser.document!.isNotEmpty;
+
+      final status = updatedUser.approvalStatus.toLowerCase();
+
+      print("========= CARRIER FLOW DEBUG =========");
+      print("User Type: ${updatedUser.userType}");
+      print("Document: ${updatedUser.document}");
+      print("Has Docs: $hasDocs");
+      print("Approval Status: $status");
+      print("======================================");
+
+      /// 🚨 CASE 1 → No document
+      if (!hasDocs) {
+        print("➡️ NAVIGATE → Upload Screen");
+        _navigateToUploadScreen();
+        return;
+      }
+
+      /// 🚨 CASE 2 → Pending
+      if (status == "pending") {
+        print("➡️ NAVIGATE → Pending Screen");
+        _navigateToPendingScreen();
+        return;
+      }
+
+      /// 🚨 CASE 3 → Approved
+      if (status == "approved") {
+        print("➡️ NAVIGATE → Approved Screen");
+        _navigateToApprovedScreen();
+        return;
+      }
+
+      /// 🚨 CASE 4 → Rejected
+      if (status == "rejected") {
+        print("➡️ NAVIGATE → Rejected Screen");
+        _navigateToRejectedScreen();
+        return;
+      }
+
+      /// 🚨 FALLBACK
+      print("➡️ NAVIGATE → Upload Screen (fallback)");
+      _navigateToUploadScreen();
+    } catch (e) {
+      setState(() => switchingRole = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+    }
+  }
+
+  void _navigateToUploadScreen() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CarrierUploadScreen(
+          registrationData: CarrierRegistrationData(
+            phone: user.phone,
+            firstname: user.firstName,
+            lastname: user.lastName,
+            email: user.email,
+            userType: "carrier",
+            countryId: user.countryId,
+            stateId: user.stateId,
+            districtId: user.districtId,
+            isExistingUser: true,
+          ),
+        ),
+      ),
+      (route) => false,
+    );
+  }
+
+  void _navigateToPendingScreen() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => StatusPending(phone: user.phone)),
+      (route) => false,
+    );
+  }
+
+  void _navigateToApprovedScreen() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const AccountApprovedScreen()),
+      (route) => false,
+    );
+  }
+
+  void _navigateToRejectedScreen() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const RejectedScreen()),
+      (route) => false,
+    );
   }
 
   void _confirmClientSwitch() {
@@ -187,123 +318,6 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
       context,
       MaterialPageRoute(builder: (_) => const SplashScreen()),
       (_) => false,
-    );
-  }
-
-  void _confirmCarrierSwitch() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Change Account Type"),
-        content: const Text(
-          "Do you want to change your account to Carrier?\n\n"
-          "You will need to upload documents for approval.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _switchToCarrier();
-            },
-            child: const Text(
-              "Yes, Continue",
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-Future<void> _switchToCarrier() async {
-  setState(() => switchingRole = true);
-
-  final profile = await apiService.getMyProfile();
-
-  setState(() => switchingRole = false);
-
-  if (profile == null) return;
-
-  // If user never started carrier verification (no status and no document), show upload
-  if (profile.approvalStatus.isEmpty && !profile.hasUploadedDocs) {
-    _goToUpload();
-    return;
-  }
-
-  // For any non-empty approvalStatus we assume docs were already submitted
-  if (profile.isApproved) {
-    if (!profile.isCarrier) {
-      final success = await apiService.updateUserType("carrier");
-
-      if (!success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to switch to carrier")),
-        );
-        return;
-      }
-
-      await ApiService.setUserType("carrier");
-    }
-
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const AccountApprovedScreen()),
-      (_) => false,
-    );
-    return;
-  }
-
-  if (profile.isPending || profile.approvalStatus.toLowerCase() == "pending") {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StatusPending(phone: profile.phone),
-      ),
-    );
-    return;
-  }
-
-  if (profile.isRejected ||
-      profile.approvalStatus.toLowerCase() == "rejected") {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const RejectedScreen()),
-    );
-    return;
-  }
-
-  // Fallback: if we reach here, show pending screen
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => StatusPending(phone: profile.phone),
-    ),
-  );
-}
-
-
-  void _goToUpload() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CarrierUploadScreen(
-          registrationData: CarrierRegistrationData(
-            phone: user.phone,
-            firstname: user.firstName,
-            lastname: user.lastName,
-            email: user.email,
-            userType: "carrier",
-            countryId: user.countryId,
-            stateId: user.stateId,
-            districtId: user.districtId,
-            isExistingUser: true,
-          ),
-        ),
-      ),
     );
   }
 

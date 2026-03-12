@@ -17,10 +17,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = const [
-    AdminHomeScreen(), // 0        // 1
-    UserDirectoryScreen(), // 2
-    CountryScreen(), // 3 ✅ Country → State → District handled inside
-    AdminSettingsScreen(), // 4
+    AdminHomeScreen(), 
+    UserDirectoryScreen(),
+    CountryScreen(), 
+    AdminSettingsScreen(),
   ];
 
   @override

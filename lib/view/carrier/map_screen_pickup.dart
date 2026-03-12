@@ -36,10 +36,32 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
             accuracy: LocationAccuracy.high,
             distanceFilter: 50,
           ),
-        ).listen((position) {
+        ).listen((position) async {
           setState(() {
             carrierLocation = LatLng(position.latitude, position.longitude);
           });
+
+          try {
+            // Get saved pickup_carrier_id
+            int? pickupCarrierId = await ApiService().getSavedPickupCarrierId();
+
+            if (pickupCarrierId == null) {
+              logger.w("⚠️ pickupCarrierId not available yet");
+              return;
+            }
+
+            await ApiService().updateCarrierLocation(
+              pickupCarrierId: pickupCarrierId,
+              latitude: position.latitude,
+              longitude: position.longitude,
+            );
+
+            logger.i(
+              "📍 Location Updated -> ${position.latitude}, ${position.longitude} | ID: $pickupCarrierId",
+            );
+          } catch (e) {
+            logger.e("❌ Live location update error: $e");
+          }
         });
   }
 

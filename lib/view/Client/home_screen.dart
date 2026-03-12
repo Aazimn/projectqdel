@@ -14,112 +14,122 @@ class UserHomeScreen extends StatefulWidget {
 }
 
 class _UserHomeScreenState extends State<UserHomeScreen> {
-  @override
-  void initState() {
-    super.initState();
-    loadProfile();
-    loadOrders();
-  }
+  final ApiService _api = ApiService();
 
   UserModel? user;
-  List<dynamic>? allOrders;
-  bool loading = true;
-  bool ordersLoading = true;
+  bool profileLoading = true;
 
+  // Server-side counts from API `count` field
   int pendingCount = 0;
   int activeCount = 0;
   int completedCount = 0;
+  bool countsLoading = true;
 
-  Future<void> loadProfile() async {
-    final api = ApiService();
-    user = await api.getMyProfile();
-    setState(() => loading = false);
+  // Active orders for home preview (page 1 only, max 3 shown)
+  List<dynamic> activeOrders = [];
+  bool activeOrdersLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAll();
   }
 
-  Future<void> loadOrders() async {
-    setState(() => ordersLoading = true);
-    try {
-      final api = ApiService();
-      final orders = await api.getAcceptedOrders();
+  Future<void> _loadAll() async {
+    await Future.wait([
+      _loadProfile(),
+      _loadCounts(),
+      _loadActiveOrders(),
+    ]);
+  }
 
+  Future<void> _onRefresh() async => _loadAll();
+
+  // ── Profile ────────────────────────────────────────────────────────────────
+  Future<void> _loadProfile() async {
+    setState(() => profileLoading = true);
+    try {
+      final result = await _api.getMyProfile();
       setState(() {
-        allOrders = orders ?? [];
-        _calculateStatusCounts();
-        ordersLoading = false;
+        user = result;
+        profileLoading = false;
       });
     } catch (e) {
-      print("Error loading orders: $e");
+      setState(() => profileLoading = false);
+    }
+  }
+
+  // ── Counts (3 parallel calls, read only `count`) ───────────────────────────
+  Future<void> _loadCounts() async {
+    setState(() => countsLoading = true);
+    try {
+      final results = await Future.wait([
+        _api.getAcceptedOrders(page: 1, status: 'pending'),
+        _api.getAcceptedOrders(page: 1, status: 'active'),
+        _api.getAcceptedOrders(page: 1, status: 'completed'),
+      ]);
       setState(() {
-        allOrders = [];
-        ordersLoading = false;
+        pendingCount   = _extractCount(results[0]);
+        activeCount    = _extractCount(results[1]);
+        completedCount = _extractCount(results[2]);
+        countsLoading  = false;
+      });
+    } catch (e) {
+      print('❌ Count load error: $e');
+      setState(() => countsLoading = false);
+    }
+  }
+
+  // ── Active orders preview ──────────────────────────────────────────────────
+  Future<void> _loadActiveOrders() async {
+    setState(() => activeOrdersLoading = true);
+    try {
+      final response = await _api.getAcceptedOrders(page: 1, status: 'active');
+      setState(() {
+        activeOrders = _extractOrders(response);
+        activeOrdersLoading = false;
+      });
+    } catch (e) {
+      print('❌ Active orders error: $e');
+      setState(() {
+        activeOrders = [];
+        activeOrdersLoading = false;
       });
     }
   }
 
-  Future<void> _onRefresh() async {
-    await loadOrders();
-    await loadProfile();
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  int _extractCount(dynamic response) {
+    if (response is Map) {
+      final c = response['count'];
+      if (c != null) return c is int ? c : (c as num).toInt();
+    }
+    if (response is List) return response.length;
+    return 0;
+  }
+
+  List<dynamic> _extractOrders(dynamic response) {
+    if (response is Map) return (response['data'] as List?) ?? [];
+    if (response is List) return response;
+    return [];
   }
 
   String resolveOrderState(Map<String, dynamic> order) {
-    final shipment = order["shipment_status"];
-    if (shipment == null) {
-      return "searching";
-    }
-
-    final status = shipment["status"]?.toString().toLowerCase();
-    final trackingNo = shipment["carrier_tracking_no"];
-
-    if (status == "pending" &&
-        (trackingNo == null || trackingNo.toString().isEmpty)) {
-      return "searching";
-    }
-    return status ?? "unknown";
+    final shipment = order['shipment_status'];
+    if (shipment == null) return 'unknown';
+    return shipment['status']?.toString().toLowerCase() ?? 'unknown';
   }
 
-  void _calculateStatusCounts() {
-    if (allOrders == null || allOrders!.isEmpty) {
-      pendingCount = 0;
-      activeCount = 0;
-      completedCount = 0;
-      return;
-    }
-
-    pendingCount = 0;
-    activeCount = 0;
-    completedCount = 0;
-
-    for (var order in allOrders!) {
-      final state = resolveOrderState(order);
-
-      if (state == "searching") {
-        pendingCount++;
-      } else if (state == "pending" ||
-          state == "arrived" ||
-          state == "picked_up" ||
-          state == "in_transit" ||
-          state == "arrived_at_drop") {
-        activeCount++;
-      } else if (state == "delivered") {
-        completedCount++;
-      }
-    }
-
-    print(
-      "📊 Status Counts - Pending: $pendingCount, Active: $activeCount, Completed: $completedCount",
+  void _navigateToOrdersTab(int tab) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ClientDashboard(
+          initialIndex: 2,      
+          ordersInitialTab: tab, 
+        ),
+      ),
     );
-  }
-
-  List<dynamic> getActiveOrders() {
-    if (allOrders == null) return [];
-    return allOrders!.where((order) {
-      final state = resolveOrderState(order);
-      return state == "pending" ||
-          state == "arrived" ||
-          state == "picked_up" ||
-          state == "in_transit" ||
-          state == "arrived_at_drop";
-    }).toList();
   }
 
   @override
@@ -136,124 +146,15 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            SliverToBoxAdapter(child: _header()),
+            SliverToBoxAdapter(child: _buildHeader()),
             SliverPadding(
               padding: const EdgeInsets.all(16),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _statusCard(
-                        "Pending",
-                        ordersLoading ? "..." : pendingCount.toString(),
-                        Icons.pending_actions,
-                        subtitle: "Searching for partners",
-                      ),
-                      _statusCard(
-                        "Active",
-                        ordersLoading ? "..." : activeCount.toString(),
-                        Icons.local_shipping,
-                        subtitle: "Orders in progress",
-                      ),
-                      _statusCard(
-                        "Completed",
-                        ordersLoading ? "..." : completedCount.toString(),
-                        Icons.check_circle,
-                        subtitle: "Orders Delivered",
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Active Orders",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (!ordersLoading && getActiveOrders().isNotEmpty)
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const ClientDashboard(initialIndex: 2),
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            "View All",
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (ordersLoading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  else if (getActiveOrders().isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(30),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.inbox,
-                            size: 50,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            "No active orders",
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    ...getActiveOrders()
-                        .take(3)
-                        .map((order) => _buildOrderCardFromOrder(order))
-                        .toList(),
-
-                  if (!ordersLoading && getActiveOrders().length > 3)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Center(
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const ClientDashboard(initialIndex: 2),
-                              ),
-                            );
-                          },
-                          child: Text(
-                            "+ ${getActiveOrders().length - 3} more active orders",
-                            style: const TextStyle(color: ColorConstants.red),
-                          ),
-                        ),
-                      ),
-                    ),
+                  _buildStatusCards(),
+                  const SizedBox(height: 20),
+                  _buildActiveOrdersSection(),
                 ]),
               ),
             ),
@@ -263,10 +164,11 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     );
   }
 
-  Widget _header() {
+  Widget _buildHeader() {
     final name = user != null
-        ? "${user!.firstName} ${user!.lastName}"
-        : "GUEST USER";
+        ? '${user!.firstName} ${user!.lastName}'.toUpperCase()
+        : 'GUEST USER';
+
     return Container(
       height: 160,
       width: double.infinity,
@@ -290,26 +192,14 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text("Welcome 👋", style: TextStyle(color: Colors.white70)),
-              Column(
-                children: [
-                  Text(
-                    name.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      color: ColorConstants.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  // if (user == null)
-                  //   const Padding(
-                  //     padding: EdgeInsets.only(top: 6),
-                  //     child: Text(
-                  //       "Profile data not available",
-                  //       style: TextStyle(color: Colors.grey, fontSize: 12),
-                  //     ),
-                  //   ),
-                ],
+              const Text('Welcome 👋', style: TextStyle(color: Colors.white70)),
+              Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 22,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -318,75 +208,181 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     );
   }
 
-  Widget _statusCard(
-    String title,
-    String count,
-    IconData icon, {
+  Widget _buildStatusCards() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _statusCard(
+          title: 'Searching',
+          count: countsLoading ? '...' : pendingCount.toString(),
+          icon: Icons.search,
+          subtitle: 'Finding partners',
+          onTap: () => _navigateToOrdersTab(0),
+        ),
+        _statusCard(
+          title: 'Active',
+          count: countsLoading ? '...' : activeCount.toString(),
+          icon: Icons.local_shipping,
+          subtitle: 'In progress',
+          onTap: () => _navigateToOrdersTab(1),
+        ),
+        _statusCard(
+          title: 'Completed',
+          count: countsLoading ? '...' : completedCount.toString(),
+          icon: Icons.check_circle,
+          subtitle: 'Delivered',
+          onTap: () => _navigateToOrdersTab(2),
+        ),
+      ],
+    );
+  }
+
+  Widget _statusCard({
+    required String title,
+    required String count,
+    required IconData icon,
+    required VoidCallback onTap,
     String? subtitle,
   }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: ColorConstants.red, size: 28),
+            const SizedBox(height: 5),
+            Text(
+              count,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: ColorConstants.red,
+              ),
+            ),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
+            if (subtitle != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveOrdersSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Active Orders',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            if (!activeOrdersLoading && activeCount > 0)
+              TextButton(
+                onPressed: () => _navigateToOrdersTab(1),
+                child: const Text('View All',
+                    style: TextStyle(color: Colors.red)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (activeOrdersLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(ColorConstants.red),
+              ),
+            ),
+          )
+        else if (activeOrders.isEmpty)
+          _buildEmptyState()
+        else ...[
+          ...activeOrders.take(3).map(_buildOrderCard),
+          if (activeCount > 3)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Center(
+                child: TextButton(
+                  onPressed: () => _navigateToOrdersTab(1),
+                  child: Text(
+                    '+ ${activeCount - 3} more active orders',
+                    style: const TextStyle(color: ColorConstants.red),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
     return Container(
-      width: 100,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.withOpacity(0.3)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         children: [
-          Icon(icon, color: ColorConstants.red, size: 28),
-          const SizedBox(height: 5),
-          Text(
-            count,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: ColorConstants.red,
-            ),
-          ),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          if (subtitle != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
-              ),
-            ),
+          Icon(Icons.inbox, size: 50, color: Colors.grey.shade400),
+          const SizedBox(height: 10),
+          Text('No active orders',
+              style: TextStyle(color: Colors.grey.shade600)),
         ],
       ),
     );
   }
 
-  Widget _buildOrderCardFromOrder(Map<String, dynamic> order) {
-    final orderId = order["pickup_no"]?.toString() ?? "N/A";
-    final productName = order["product_details"]?["name"] ?? "Product";
+  Widget _buildOrderCard(dynamic order) {
+    final orderId = order['pickup_no']?.toString() ?? 'N/A';
+    final productName = order['product_details']?['name'] ?? 'Product';
+    final pickupId = order['id'];
     final state = resolveOrderState(order);
-    final pickupId = order["id"];
 
     String statusText;
     Color statusColor;
-
     switch (state) {
-      case "pending":
-        statusText = "GOING TO PICKUP";
+      case 'pending':
+        statusText = 'GOING TO PICKUP';
         statusColor = Colors.teal;
         break;
-      case "arrived":
-        statusText = "ARRIVED AT PICKUP";
+      case 'arrived':
+        statusText = 'ARRIVED AT PICKUP';
         statusColor = Colors.blue;
         break;
-      case "picked_up":
-        statusText = "PICKED UP";
+      case 'picked_up':
+        statusText = 'PICKED UP';
         statusColor = Colors.indigo;
         break;
-      case "in_transit":
-        statusText = "IN TRANSIT";
+      case 'in_transit':
+        statusText = 'IN TRANSIT';
         statusColor = Colors.blueAccent;
         break;
-      case "arrived_at_drop":
-        statusText = "ARRIVED AT DROP";
+      case 'arrived_at_drop':
+        statusText = 'ARRIVED AT DROP';
         statusColor = Colors.green;
         break;
       default:
@@ -396,15 +392,14 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: statusColor.withOpacity(.4)),
+        border: Border.all(color: statusColor.withOpacity(0.4)),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 5,
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
@@ -418,68 +413,62 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                 builder: (_) => OrderDetailsScreen(pickupId: pickupId),
               ),
             );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Unable to open order details"),
-                backgroundColor: ColorConstants.red,
-              ),
-            );
           }
         },
         borderRadius: BorderRadius.circular(14),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.inventory, size: 28, color: statusColor),
               ),
-              child: Icon(Icons.inventory, size: 28, color: statusColor),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    orderId,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      orderId,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    productName,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      statusText,
+                    const SizedBox(height: 4),
+                    Text(
+                      productName,
                       style: TextStyle(
-                        color: statusColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600, fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+              Icon(Icons.chevron_right, color: Colors.grey.shade400),
+            ],
+          ),
         ),
       ),
     );

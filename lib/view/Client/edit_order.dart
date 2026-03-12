@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:projectqdel/core/constants/color_constants.dart';
@@ -7,6 +6,687 @@ import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Client/map_picker.dart';
 import 'package:projectqdel/view/Client/client_dashboard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:logger/logger.dart';
+
+class AddressColors {
+  static const Color senderPrimary = Color.fromARGB(255, 236, 47, 47);
+  static const Color senderLight = Color(0xFFE8F5E9);
+  static const Color senderAccent = Color.fromARGB(255, 158, 29, 29);
+
+  static const Color receiverPrimary = Color.fromARGB(255, 236, 47, 47);
+  static const Color receiverLight = Color(0xFFE3F2FD);
+  static const Color receiverAccent = Color.fromARGB(255, 158, 29, 29);
+
+  static const Color surface = Color(0xFFF5F7FA);
+  static const Color textPrimary = Color(0xFF1E293B);
+  static const Color textSecondary = Color(0xFF64748B);
+  static const Color border = Color(0xFFE2E8F0);
+}
+
+class CountrySelector extends StatefulWidget {
+  final int? selectedId;
+  final Color color;
+  final Function(Map<String, dynamic>) onSelected;
+
+  const CountrySelector({
+    super.key,
+    this.selectedId,
+    required this.color,
+    required this.onSelected,
+  });
+
+  @override
+  State<CountrySelector> createState() => _CountrySelectorState();
+}
+
+class _CountrySelectorState extends State<CountrySelector> {
+  final ApiService apiService = ApiService();
+  final Logger logger = Logger();
+  final TextEditingController searchController = TextEditingController();
+
+  List<dynamic> countries = [];
+  bool isLoading = false;
+  int currentPage = 1;
+  bool hasNext = false;
+  String currentSearch = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCountries();
+  }
+
+  Future<void> _loadCountries() async {
+    setState(() => isLoading = true);
+    try {
+      final response = await apiService.getCountries(
+        page: currentPage,
+        search: currentSearch.isEmpty ? null : currentSearch,
+      );
+
+      if (response is List) {
+        countries = response;
+        hasNext = false;
+      } else if (response is Map) {
+        countries =
+            (response['results'] as List?) ??
+            (response['data'] as List?) ??
+            <dynamic>[];
+        hasNext = response['next'] != null;
+      }
+    } catch (e) {
+      logger.e("Country load error: $e");
+      countries = [];
+      hasNext = false;
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _search(String query) async {
+    currentSearch = query;
+    currentPage = 1;
+    await _loadCountries();
+  }
+
+  Future<void> _nextPage() async {
+    if (!hasNext) return;
+    currentPage++;
+    await _loadCountries();
+  }
+
+  Future<void> _prevPage() async {
+    if (currentPage <= 1) return;
+    currentPage--;
+    await _loadCountries();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
+      ),
+      child: Column(
+        children: [
+          _buildHeader("Select Country", widget.color),
+          _buildSearchField(searchController, (query) => _search(query)),
+          _buildPaginationHeader(),
+          Expanded(
+            child: isLoading
+                ? Center(child: CircularProgressIndicator(color: widget.color))
+                : countries.isEmpty
+                ? _buildEmptyState("No countries found", widget.color)
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: countries.length,
+                    itemBuilder: (context, index) {
+                      final country = countries[index];
+                      final isSelected = widget.selectedId == country['id'];
+                      return _buildListItem(
+                        country,
+                        isSelected,
+                        widget.color,
+                        () {
+                          widget.onSelected(country);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaginationHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: currentPage > 1 ? _prevPage : null,
+                  icon: Icon(
+                    Icons.chevron_left,
+                    color: currentPage > 1 ? widget.color : Colors.grey,
+                  ),
+                  splashRadius: 24,
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: widget.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Page $currentPage',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: widget.color,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: hasNext ? _nextPage : null,
+                  icon: Icon(
+                    Icons.chevron_right,
+                    color: hasNext ? widget.color : Colors.grey,
+                  ),
+                  splashRadius: 24,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class StateSelector extends StatefulWidget {
+  final int? selectedId;
+  final int countryId;
+  final Color color;
+  final Function(Map<String, dynamic>) onSelected;
+
+  const StateSelector({
+    super.key,
+    this.selectedId,
+    required this.countryId,
+    required this.color,
+    required this.onSelected,
+  });
+
+  @override
+  State<StateSelector> createState() => _StateSelectorState();
+}
+
+class _StateSelectorState extends State<StateSelector> {
+  final ApiService apiService = ApiService();
+  final Logger logger = Logger();
+  final TextEditingController searchController = TextEditingController();
+
+  List<dynamic> states = [];
+  bool isLoading = false;
+  int currentPage = 1;
+  bool hasNext = false;
+  String currentSearch = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStates();
+  }
+
+  Future<void> _loadStates() async {
+    setState(() => isLoading = true);
+    try {
+      final response = await apiService.getStatesByCountry(
+        countryId: widget.countryId,
+        page: currentPage,
+        search: currentSearch.isEmpty ? null : currentSearch,
+      );
+
+      if (response is List) {
+        states = response;
+        hasNext = false;
+      } else if (response is Map) {
+        states =
+            (response['results'] as List?) ??
+            (response['data'] as List?) ??
+            <dynamic>[];
+        hasNext = response['next'] != null;
+      }
+    } catch (e) {
+      logger.e("State load error: $e");
+      states = [];
+      hasNext = false;
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _search(String query) async {
+    currentSearch = query;
+    currentPage = 1;
+    await _loadStates();
+  }
+
+  Future<void> _nextPage() async {
+    if (!hasNext) return;
+    currentPage++;
+    await _loadStates();
+  }
+
+  Future<void> _prevPage() async {
+    if (currentPage <= 1) return;
+    currentPage--;
+    await _loadStates();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
+      ),
+      child: Column(
+        children: [
+          _buildHeader("Select State", widget.color),
+          _buildSearchField(searchController, (query) => _search(query)),
+          _buildPaginationHeader(),
+          Expanded(
+            child: isLoading
+                ? Center(child: CircularProgressIndicator(color: widget.color))
+                : states.isEmpty
+                ? _buildEmptyState("No states found", widget.color)
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: states.length,
+                    itemBuilder: (context, index) {
+                      final state = states[index];
+                      final isSelected = widget.selectedId == state['id'];
+                      return _buildListItem(
+                        state,
+                        isSelected,
+                        widget.color,
+                        () {
+                          widget.onSelected(state);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaginationHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: currentPage > 1 ? _prevPage : null,
+                  icon: Icon(
+                    Icons.chevron_left,
+                    color: currentPage > 1 ? widget.color : Colors.grey,
+                  ),
+                  splashRadius: 24,
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: widget.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Page $currentPage',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: widget.color,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: hasNext ? _nextPage : null,
+                  icon: Icon(
+                    Icons.chevron_right,
+                    color: hasNext ? widget.color : Colors.grey,
+                  ),
+                  splashRadius: 24,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DistrictSelector extends StatefulWidget {
+  final int? selectedId;
+  final int stateId;
+  final Color color;
+  final Function(Map<String, dynamic>) onSelected;
+
+  const DistrictSelector({
+    super.key,
+    this.selectedId,
+    required this.stateId,
+    required this.color,
+    required this.onSelected,
+  });
+
+  @override
+  State<DistrictSelector> createState() => _DistrictSelectorState();
+}
+
+class _DistrictSelectorState extends State<DistrictSelector> {
+  final ApiService apiService = ApiService();
+  final Logger logger = Logger();
+  final TextEditingController searchController = TextEditingController();
+
+  List<dynamic> districts = [];
+  bool isLoading = false;
+  int currentPage = 1;
+  bool hasNext = false;
+  String currentSearch = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDistricts();
+  }
+
+  Future<void> _loadDistricts() async {
+    setState(() => isLoading = true);
+    try {
+      final response = await apiService.getDistrictsByState(
+        stateId: widget.stateId,
+        page: currentPage,
+        search: currentSearch.isEmpty ? null : currentSearch,
+      );
+
+      if (response is List) {
+        districts = response;
+        hasNext = false;
+      } else if (response is Map) {
+        districts =
+            (response['results'] as List?) ??
+            (response['data'] as List?) ??
+            <dynamic>[];
+        hasNext = response['next'] != null;
+      }
+    } catch (e) {
+      logger.e("District load error: $e");
+      districts = [];
+      hasNext = false;
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _search(String query) async {
+    currentSearch = query;
+    currentPage = 1;
+    await _loadDistricts();
+  }
+
+  Future<void> _nextPage() async {
+    if (!hasNext) return;
+    currentPage++;
+    await _loadDistricts();
+  }
+
+  Future<void> _prevPage() async {
+    if (currentPage <= 1) return;
+    currentPage--;
+    await _loadDistricts();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
+      ),
+      child: Column(
+        children: [
+          _buildHeader("Select District", widget.color),
+          _buildSearchField(searchController, (query) => _search(query)),
+          _buildPaginationHeader(),
+          Expanded(
+            child: isLoading
+                ? Center(child: CircularProgressIndicator(color: widget.color))
+                : districts.isEmpty
+                ? _buildEmptyState("No districts found", widget.color)
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: districts.length,
+                    itemBuilder: (context, index) {
+                      final district = districts[index];
+                      final isSelected = widget.selectedId == district['id'];
+                      return _buildListItem(
+                        district,
+                        isSelected,
+                        widget.color,
+                        () {
+                          widget.onSelected(district);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaginationHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: currentPage > 1 ? _prevPage : null,
+                  icon: Icon(
+                    Icons.chevron_left,
+                    color: currentPage > 1 ? widget.color : Colors.grey,
+                  ),
+                  splashRadius: 24,
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: widget.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Page $currentPage',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: widget.color,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: hasNext ? _nextPage : null,
+                  icon: Icon(
+                    Icons.chevron_right,
+                    color: hasNext ? widget.color : Colors.grey,
+                  ),
+                  splashRadius: 24,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _buildHeader(String title, Color color) {
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(30),
+        topRight: Radius.circular(30),
+      ),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildSearchField(
+  TextEditingController controller,
+  Function(String) onChanged,
+) {
+  return Padding(
+    padding: const EdgeInsets.all(16),
+    child: TextField(
+      controller: controller,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        hintText: "Search...",
+        prefixIcon: const Icon(Icons.search),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide.none,
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade100,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 12,
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _buildListItem(
+  dynamic item,
+  bool isSelected,
+  Color color,
+  VoidCallback onTap,
+) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Material(
+      elevation: isSelected ? 2 : 0,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(0.1) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? color : Colors.grey.shade200,
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item['name'] ?? '',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                    color: isSelected ? color : AddressColors.textPrimary,
+                  ),
+                ),
+              ),
+              if (isSelected) Icon(Icons.check_circle, color: color, size: 24),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _buildEmptyState(String message, Color color) {
+  return Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.location_off, size: 80, color: color.withOpacity(0.3)),
+        const SizedBox(height: 16),
+        Text(
+          message,
+          style: TextStyle(fontSize: 18, color: AddressColors.textSecondary),
+        ),
+      ],
+    ),
+  );
+}
 
 class EditOrder extends StatefulWidget {
   final int productId;
@@ -24,6 +704,7 @@ class EditOrder extends StatefulWidget {
 }
 
 class _EditOrderState extends State<EditOrder> {
+  final Logger logger = Logger();
   final ApiService apiService = ApiService();
   Map<String, dynamic>? product;
   bool loading = true;
@@ -67,6 +748,26 @@ class _EditOrderState extends State<EditOrder> {
   final TextEditingController receiverCountryCtrl = TextEditingController();
   final TextEditingController receiverZipCtrl = TextEditingController();
 
+  int _countryPage = 1;
+  bool _countryHasNext = false;
+  String _countrySearchQuery = '';
+
+  int _senderStatePage = 1;
+  bool _senderStateHasNext = false;
+  String _senderStateSearchQuery = '';
+
+  int _receiverStatePage = 1;
+  bool _receiverStateHasNext = false;
+  String _receiverStateSearchQuery = '';
+
+  int _senderDistrictPage = 1;
+  bool _senderDistrictHasNext = false;
+  String _senderDistrictSearchQuery = '';
+
+  int _receiverDistrictPage = 1;
+  bool _receiverDistrictHasNext = false;
+  String _receiverDistrictSearchQuery = '';
+
   List<dynamic> countries = [];
   List<dynamic> states = [];
   List<dynamic> districts = [];
@@ -104,71 +805,49 @@ class _EditOrderState extends State<EditOrder> {
   }
 
   Future<void> _loadReceiverStates(int countryId) async {
-    isReceiverStateLoading = true;
-    setState(() {});
+    setState(() => isReceiverStateLoading = true);
     try {
-      if (!stateCache.containsKey(countryId)) {
-        stateCache[countryId] = await apiService.getStates(
-          countryId: countryId,
-        );
+      logger.i("📡 Fetching receiver states for countryId=$countryId");
+      final response = await apiService.getStatesByCountry(
+        countryId: countryId,
+        page: 1,
+      );
+
+      if (response is List) {
+        receiverStates = response;
+      } else if (response is Map) {
+        receiverStates = (response['results'] as List?) ?? [];
       }
-      final country = countries.firstWhere(
-        (c) => c['id'] == countryId,
-        orElse: () => null,
-      );
-      if (country == null) {
-        debugPrint("Country not found for ID: $countryId");
-        receiverStates = [];
-      } else {
-        final countryName = country['name'];
-        debugPrint("Filtering states for country name: $countryName");
-        receiverStates = stateCache[countryId]!
-            .where((s) => s['country'] == countryName)
-            .toList();
-      }
-      debugPrint(
-        "Loaded ${receiverStates.length} states for country $countryId",
-      );
-      debugPrint(
-        "States: ${receiverStates.map((s) => '${s['id']}: ${s['name']}').toList()}",
-      );
+      logger.i("✅ Loaded ${receiverStates.length} receiver states");
     } catch (e) {
-      debugPrint("Receiver State load error: $e");
+      logger.e("Receiver State load error: $e");
+      receiverStates = [];
+    } finally {
+      setState(() => isReceiverStateLoading = false);
     }
-    isReceiverStateLoading = false;
   }
 
   Future<void> _loadReceiverDistricts(int stateId) async {
-    isReceiverDistrictLoading = true;
-    setState(() {});
+    setState(() => isReceiverDistrictLoading = true);
     try {
-      if (!districtCache.containsKey(stateId)) {
-        districtCache[stateId] = await apiService.getDistricts(
-          stateId: stateId,
-        );
-      }
-      final state = receiverStates.firstWhere(
-        (s) => s['id'] == stateId,
-        orElse: () => null,
+      logger.i("📡 Fetching receiver districts for stateId=$stateId");
+      final response = await apiService.getDistrictsByState(
+        stateId: stateId,
+        page: 1,
       );
 
-      if (state == null) {
-        receiverDistricts = [];
-      } else {
-        receiverDistricts = districtCache[stateId]!
-            .where((d) => d['state'] == stateId)
-            .toList();
+      if (response is List) {
+        receiverDistricts = response;
+      } else if (response is Map) {
+        receiverDistricts = (response['results'] as List?) ?? [];
       }
-      debugPrint(
-        "Loaded ${receiverDistricts.length} districts for state $stateId",
-      );
-      debugPrint(
-        "Districts: ${receiverDistricts.map((d) => '${d['id']}: ${d['name']}').toList()}",
-      );
+      logger.i("✅ Loaded ${receiverDistricts.length} receiver districts");
     } catch (e) {
-      debugPrint("Receiver District load error: $e");
+      logger.e("Receiver District load error: $e");
+      receiverDistricts = [];
+    } finally {
+      setState(() => isReceiverDistrictLoading = false);
     }
-    isReceiverDistrictLoading = false;
   }
 
   bool isInitializingDefaults = true;
@@ -187,75 +866,174 @@ class _EditOrderState extends State<EditOrder> {
     debugPrint(
       "Saved IDs => country:$savedCountryId state:$savedStateId district:$savedDistrictId",
     );
-    await _loadCountries();
+    await _fetchCountries(page: 1, loadAll: true);
     isInitializingDefaults = false;
     setState(() {});
   }
 
-  Future<void> _loadCountries() async {
+  Future<void> _fetchCountries({
+    int page = 1,
+    String? search,
+    bool loadAll = false,
+  }) async {
     setState(() => isCountryLoading = true);
     try {
-      countries = await apiService.getCountries();
+      logger.i("📡 Fetching countries page=$page search=$search");
+      final response = await apiService.getCountries(
+        page: page,
+        search: search,
+      );
+
+      List<dynamic> data;
+      bool hasNext = false;
+
+      if (response is List) {
+        data = response;
+        hasNext = false;
+      } else if (response is Map) {
+        data =
+            (response['results'] as List?) ??
+            (response['data'] as List?) ??
+            <dynamic>[];
+        hasNext = response['next'] != null;
+      } else {
+        throw Exception('Unexpected countries response type');
+      }
+
+      logger.i("✅ Countries loaded: ${data.length}, hasNext=$hasNext");
+
+      setState(() {
+        if (page == 1) {
+          countries = data;
+        } else {
+          countries.addAll(data);
+        }
+        _countryPage = page;
+        _countrySearchQuery = search ?? '';
+        _countryHasNext = hasNext;
+      });
+
+      if (loadAll && hasNext) {
+        await _fetchCountries(page: page + 1, search: search, loadAll: true);
+      }
     } catch (e) {
-      debugPrint("Country load error: $e");
+      logger.e("❌ Country load error: $e");
+      setState(() {
+        if (page == 1) countries = [];
+        _countryHasNext = false;
+      });
+    } finally {
+      setState(() => isCountryLoading = false);
     }
-    setState(() => isCountryLoading = false);
   }
 
   Future<void> _loadStates(int countryId) async {
-    setState(() {
-      isStateLoading = true;
-      states = [];
-      districts = [];
-    });
-    try {
-      if (!stateCache.containsKey(countryId)) {
-        stateCache[countryId] = await apiService.getStates(
-          countryId: countryId,
-        );
-      }
-      final country = countries.firstWhere(
-        (c) => c['id'] == countryId,
-        orElse: () => null,
-      );
-      if (country != null) {
-        final countryName = country['name'];
-
-        states = stateCache[countryId]!
-            .where((s) => s['country'] == countryName)
-            .toList();
-      }
-    } catch (e) {
-      debugPrint("State load error: $e");
-    }
-    setState(() => isStateLoading = false);
+    await _fetchSenderStates(countryId: countryId, page: 1, search: null);
   }
 
   Future<void> _loadDistricts(int stateId) async {
-    setState(() {
-      isDistrictLoading = true;
-      districts = [];
-    });
+    await _fetchSenderDistricts(stateId: stateId, page: 1, search: null);
+  }
 
+  Future<void> _fetchSenderStates({
+    required int countryId,
+    required int page,
+    String? search,
+  }) async {
+    setState(() => isStateLoading = true);
     try {
-      if (!districtCache.containsKey(stateId)) {
-        districtCache[stateId] = await apiService.getDistricts(
-          stateId: stateId,
-        );
-      }
-      districts = districtCache[stateId] ?? [];
-
-      debugPrint("Loaded ${districts.length} districts for state $stateId");
-      debugPrint(
-        "Districts: ${districts.map((d) => '${d['id']}: ${d['name']}').toList()}",
+      logger.i(
+        "📡 Fetching sender states countryId=$countryId page=$page search=$search",
       );
-    } catch (e) {
-      debugPrint("District load error: $e");
-      districts = [];
-    } finally {
+      final response = await apiService.getStatesByCountry(
+        countryId: countryId,
+        page: page,
+        search: search,
+      );
+
+      List<dynamic> data;
+      bool hasNext = false;
+
+      if (response is List) {
+        data = response;
+        hasNext = false;
+      } else if (response is Map) {
+        data =
+            (response['results'] as List?) ??
+            (response['data'] as List?) ??
+            <dynamic>[];
+        hasNext = response['next'] != null;
+      } else {
+        throw Exception('Unexpected states response type');
+      }
+
+      logger.i("✅ Sender states loaded: ${data.length}, hasNext=$hasNext");
+
       setState(() {
-        isDistrictLoading = false;
+        states = data;
+        _senderStatePage = page;
+        _senderStateSearchQuery = search ?? '';
+        _senderStateHasNext = hasNext;
       });
+    } catch (e) {
+      logger.e("❌ Sender state load error: $e");
+      setState(() {
+        states = [];
+        _senderStateHasNext = false;
+      });
+    } finally {
+      setState(() => isStateLoading = false);
+    }
+  }
+
+  Future<void> _fetchSenderDistricts({
+    required int stateId,
+    required int page,
+    String? search,
+  }) async {
+    setState(() => isDistrictLoading = true);
+    try {
+      logger.i(
+        "📡 Fetching sender districts stateId=$stateId page=$page search=$search",
+      );
+      final response = await apiService.getDistrictsByState(
+        stateId: stateId,
+        page: page,
+        search: search,
+      );
+
+      List<dynamic> data;
+      bool hasNext = false;
+
+      if (response is List) {
+        data = response;
+        hasNext = false;
+      } else if (response is Map) {
+        data =
+            (response['results'] as List?) ??
+            (response['data'] as List?) ??
+            <dynamic>[];
+        hasNext = response['next'] != null;
+      } else {
+        throw Exception('Unexpected districts response type');
+      }
+
+      logger.i("✅ Sender districts loaded: ${data.length}, hasNext=$hasNext");
+
+      setState(() {
+        districts = data;
+        _senderDistrictPage = page;
+        _senderDistrictSearchQuery = search ?? '';
+        _senderDistrictHasNext = hasNext;
+      });
+    } catch (e) {
+      logger.e("❌ Sender district load error: $e");
+      setState(() {
+        districts = [];
+        _senderDistrictHasNext = false;
+      });
+    } finally {
+      setState(() => isDistrictLoading = false);
     }
   }
 
@@ -775,6 +1553,109 @@ class _EditOrderState extends State<EditOrder> {
     );
   }
 
+
+  Future<void> _fetchReceiverStates({
+    required int countryId,
+    required int page,
+    String? search,
+  }) async {
+    setState(() => isReceiverStateLoading = true);
+    try {
+      logger.i(
+        "📡 Fetching receiver states countryId=$countryId page=$page search=$search",
+      );
+      final response = await apiService.getStatesByCountry(
+        countryId: countryId,
+        page: page,
+        search: search,
+      );
+
+      List<dynamic> data;
+      bool hasNext = false;
+
+      if (response is List) {
+        data = response;
+        hasNext = false;
+      } else if (response is Map) {
+        data =
+            (response['results'] as List?) ??
+            (response['data'] as List?) ??
+            <dynamic>[];
+        hasNext = response['next'] != null;
+      } else {
+        throw Exception('Unexpected states response type');
+      }
+
+      logger.i("✅ Receiver states loaded: ${data.length}, hasNext=$hasNext");
+
+      setState(() {
+        receiverStates = data;
+        _receiverStatePage = page;
+        _receiverStateSearchQuery = search ?? '';
+        _receiverStateHasNext = hasNext;
+      });
+    } catch (e) {
+      logger.e("❌ Receiver state load error: $e");
+      setState(() {
+        receiverStates = [];
+        _receiverStateHasNext = false;
+      });
+    } finally {
+      setState(() => isReceiverStateLoading = false);
+    }
+  }
+
+  Future<void> _fetchReceiverDistricts({
+    required int stateId,
+    required int page,
+    String? search,
+  }) async {
+    setState(() => isReceiverDistrictLoading = true);
+    try {
+      logger.i(
+        "📡 Fetching receiver districts stateId=$stateId page=$page search=$search",
+      );
+      final response = await apiService.getDistrictsByState(
+        stateId: stateId,
+        page: page,
+        search: search,
+      );
+
+      List<dynamic> data;
+      bool hasNext = false;
+
+      if (response is List) {
+        data = response;
+        hasNext = false;
+      } else if (response is Map) {
+        data =
+            (response['results'] as List?) ??
+            (response['data'] as List?) ??
+            <dynamic>[];
+        hasNext = response['next'] != null;
+      } else {
+        throw Exception('Unexpected districts response type');
+      }
+
+      logger.i("✅ Receiver districts loaded: ${data.length}, hasNext=$hasNext");
+
+      setState(() {
+        receiverDistricts = data;
+        _receiverDistrictPage = page;
+        _receiverDistrictSearchQuery = search ?? '';
+        _receiverDistrictHasNext = hasNext;
+      });
+    } catch (e) {
+      logger.e("❌ Receiver district load error: $e");
+      setState(() {
+        receiverDistricts = [];
+        _receiverDistrictHasNext = false;
+      });
+    } finally {
+      setState(() => isReceiverDistrictLoading = false);
+    }
+  }
+
   void _openEditProductSheet() {
     showModalBottomSheet(
       context: context,
@@ -1063,8 +1944,355 @@ class _EditOrderState extends State<EditOrder> {
     );
   }
 
+  Widget _buildLocationSelectorButtons(
+    StateSetter setModalState, {
+    required bool isSender,
+  }) {
+    final currentCountryId = isSender
+        ? selectedCountryId
+        : selectedReceiverCountryId;
+    final currentStateId = isSender ? selectedStateId : selectedReceiverStateId;
+    final currentDistrictId = isSender
+        ? selectedDistrictId
+        : selectedReceiverDistrictId;
+
+    final countryCtrl = isSender ? senderCountryCtrl : receiverCountryCtrl;
+    final stateCtrl = isSender ? senderStateCtrl : receiverStateCtrl;
+    final districtCtrl = isSender ? senderDistrictCtrl : receiverDistrictCtrl;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: InkWell(
+            onTap: () async {
+              // ignore: unused_local_variable
+              final selected = await showModalBottomSheet<Map<String, dynamic>>(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => CountrySelector(
+                  selectedId: currentCountryId,
+                  color: isSender
+                      ? AddressColors.senderPrimary
+                      : AddressColors.receiverPrimary,
+                  onSelected: (country) async {
+                    if (isSender) {
+                      setState(() {
+                        selectedCountryId = country['id'];
+                        senderCountryCtrl.text = country['name'];
+                        selectedStateId = null;
+                        selectedDistrictId = null;
+                      });
+                      states.clear();
+                      districts.clear();
+
+                      if (selectedCountryId != null) {
+                        await _fetchSenderStates(
+                          countryId: selectedCountryId!,
+                          page: 1,
+                          search: null,
+                        );
+                      }
+                    } else {
+                      setState(() {
+                        selectedReceiverCountryId = country['id'];
+                        receiverCountryCtrl.text = country['name'];
+                        selectedReceiverStateId = null;
+                        selectedReceiverDistrictId = null;
+                      });
+                      receiverStates.clear();
+                      receiverDistricts.clear();
+
+                      if (selectedReceiverCountryId != null) {
+                        await _fetchReceiverStates(
+                          countryId: selectedReceiverCountryId!,
+                          page: 1,
+                          search: null,
+                        );
+                      }
+                    }
+                    setModalState(() {});
+                  },
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color:
+                      (isSender
+                              ? AddressColors.senderPrimary
+                              : AddressColors.receiverPrimary)
+                          .withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.public,
+                    color: isSender
+                        ? AddressColors.senderPrimary
+                        : AddressColors.receiverPrimary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Country",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AddressColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          countryCtrl.text.isEmpty
+                              ? "Select Country"
+                              : countryCtrl.text,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: countryCtrl.text.isEmpty
+                                ? AddressColors.textSecondary
+                                : AddressColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: isSender
+                        ? AddressColors.senderPrimary
+                        : AddressColors.receiverPrimary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        if (currentCountryId != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: InkWell(
+              onTap: () async {
+                // ignore: unused_local_variable
+                final selected =
+                    await showModalBottomSheet<Map<String, dynamic>>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => StateSelector(
+                        selectedId: currentStateId,
+                        countryId: currentCountryId,
+                        color: isSender
+                            ? AddressColors.senderPrimary
+                            : AddressColors.receiverPrimary,
+                        onSelected: (state) async {
+                          if (isSender) {
+                            setState(() {
+                              selectedStateId = state['id'];
+                              senderStateCtrl.text = state['name'];
+                              selectedDistrictId = null;
+                            });
+                            districts.clear();
+
+                            if (selectedStateId != null) {
+                              await _fetchSenderDistricts(
+                                stateId: selectedStateId!,
+                                page: 1,
+                                search: null,
+                              );
+                            }
+                          } else {
+                            setState(() {
+                              selectedReceiverStateId = state['id'];
+                              receiverStateCtrl.text = state['name'];
+                              selectedReceiverDistrictId = null;
+                            });
+                            receiverDistricts.clear();
+
+                            if (selectedReceiverStateId != null) {
+                              await _fetchReceiverDistricts(
+                                stateId: selectedReceiverStateId!,
+                                page: 1,
+                                search: null,
+                              );
+                            }
+                          }
+                          setModalState(() {});
+                        },
+                      ),
+                    );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color:
+                        (isSender
+                                ? AddressColors.senderPrimary
+                                : AddressColors.receiverPrimary)
+                            .withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.map,
+                      color: isSender
+                          ? AddressColors.senderPrimary
+                          : AddressColors.receiverPrimary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "State",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AddressColors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            stateCtrl.text.isEmpty
+                                ? "Select State"
+                                : stateCtrl.text,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: stateCtrl.text.isEmpty
+                                  ? AddressColors.textSecondary
+                                  : AddressColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: isSender
+                          ? AddressColors.senderPrimary
+                          : AddressColors.receiverPrimary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        if (currentStateId != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: InkWell(
+              onTap: () async {
+                // ignore: unused_local_variable
+                final selected =
+                    await showModalBottomSheet<Map<String, dynamic>>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => DistrictSelector(
+                        selectedId: currentDistrictId,
+                        stateId: currentStateId,
+                        color: isSender
+                            ? AddressColors.senderPrimary
+                            : AddressColors.receiverPrimary,
+                        onSelected: (district) {
+                          if (isSender) {
+                            setState(() {
+                              selectedDistrictId = district['id'];
+                              senderDistrictCtrl.text = district['name'];
+                            });
+                          } else {
+                            setState(() {
+                              selectedReceiverDistrictId = district['id'];
+                              receiverDistrictCtrl.text = district['name'];
+                            });
+                          }
+                          setModalState(() {});
+                        },
+                      ),
+                    );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color:
+                        (isSender
+                                ? AddressColors.senderPrimary
+                                : AddressColors.receiverPrimary)
+                            .withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.location_city,
+                      color: isSender
+                          ? AddressColors.senderPrimary
+                          : AddressColors.receiverPrimary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "District",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AddressColors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            districtCtrl.text.isEmpty
+                                ? "Select District"
+                                : districtCtrl.text,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: districtCtrl.text.isEmpty
+                                  ? AddressColors.textSecondary
+                                  : AddressColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: isSender
+                          ? AddressColors.senderPrimary
+                          : AddressColors.receiverPrimary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Future<void> _openEditReceiverSheet() async {
     await _setReceiverDropdownDefaults();
+
     receiverLatitude = double.tryParse(
       receiverAddress?['latitude']?.toString() ?? '',
     );
@@ -1088,16 +2316,27 @@ class _EditOrderState extends State<EditOrder> {
                   bottom: MediaQuery.of(context).viewInsets.bottom,
                   left: 16,
                   right: 16,
-                  top: 20,
+                  top: 25,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      "Edit Receiver Address",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    Container(
+                      height: 50,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: ColorConstants.red,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Center(
+                        child: const Text(
+                          "Edit Receiver Address",
+                          style: TextStyle(
+                            color: ColorConstants.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -1143,71 +2382,10 @@ class _EditOrderState extends State<EditOrder> {
                       Colors.red,
                       locationName: receiverLocationName,
                     ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: apiDropdown(
-                            hint: "Country",
-                            items: countries,
-                            loading: isCountryLoading,
-                            selectedId: selectedReceiverCountryId,
-                            onChanged: (value) async {
-                              if (value == null) return;
-                              final countryId = value['id'];
-                              setModalState(() {
-                                selectedReceiverCountryId = countryId;
-                                receiverCountryCtrl.text = value['name'];
-                                selectedReceiverStateId = null;
-                                selectedReceiverDistrictId = null;
-                                receiverStates.clear();
-                                receiverDistricts.clear();
-                                receiverStateCtrl.clear();
-                                receiverDistrictCtrl.clear();
-                              });
-
-                              await _loadReceiverStates(countryId);
-                            },
-                          ),
-                        ),
-                        Expanded(
-                          child: apiDropdown(
-                            hint: "State",
-                            items: receiverStates,
-                            loading: isReceiverStateLoading,
-                            selectedId: selectedReceiverStateId,
-                            onChanged: (value) async {
-                              if (value == null) return;
-                              final stateId = value['id'];
-                              setModalState(() {
-                                selectedReceiverStateId = stateId;
-                                receiverStateCtrl.text = value['name'];
-                                selectedReceiverDistrictId = null;
-                                receiverDistricts = [];
-                                receiverDistrictCtrl.clear();
-                                isReceiverDistrictLoading = true;
-                              });
-                              await _loadReceiverDistricts(stateId);
-                              setState(() {
-                                isReceiverDistrictLoading = false;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    apiDropdown(
-                      hint: "District",
-                      items: selectedReceiverStateId == null
-                          ? []
-                          : receiverDistricts,
-                      loading: isReceiverDistrictLoading,
-                      selectedId: selectedReceiverDistrictId,
-                      onChanged: (value) {
-                        setModalState(() {
-                          selectedReceiverDistrictId = value["id"];
-                          receiverDistrictCtrl.text = value["name"];
-                        });
-                      },
+                    const SizedBox(height: 16),
+                    _buildLocationSelectorButtons(
+                      setModalState,
+                      isSender: false,
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(
@@ -1402,16 +2580,28 @@ class _EditOrderState extends State<EditOrder> {
                   bottom: MediaQuery.of(context).viewInsets.bottom,
                   left: 16,
                   right: 16,
-                  top: 20,
+                  top: 25,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      "Edit Sender Address",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    Container(
+                      decoration: BoxDecoration(
+                        color: ColorConstants.red,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      width: double.infinity,
+                      height: 50,
+
+                      child: Center(
+                        child: const Text(
+                          "Edit Sender Address",
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: ColorConstants.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -1460,76 +2650,12 @@ class _EditOrderState extends State<EditOrder> {
                       locationName: senderLocationName,
                     ),
 
-                    Row(
-                      children: [
-                        Expanded(
-                          child: apiDropdown(
-                            hint: "Country",
-                            items: countries,
-                            loading: isCountryLoading,
-                            selectedId: selectedCountryId,
-                            onChanged: (value) async {
-                              if (value == null) return;
-                              final countryId = value['id'];
-                              setModalState(() {
-                                selectedCountryId = countryId;
-                                senderCountryCtrl.text = value['name'];
-                                selectedStateId = null;
-                                selectedDistrictId = null;
-                                states = [];
-                                districts = [];
-                                senderStateCtrl.clear();
-                                senderDistrictCtrl.clear();
-                                isStateLoading = true;
-                              });
-                              await _loadStates(countryId);
-                              setState(() {
-                                isStateLoading = false;
-                              });
-                            },
-                          ),
-                        ),
-                        Expanded(
-                          child: apiDropdown(
-                            hint: "State",
-                            items: states,
-                            loading: isStateLoading,
-                            selectedId: selectedStateId,
-                            onChanged: (value) async {
-                              if (value == null) return;
-                              final stateId = value['id'];
-
-                              setModalState(() {
-                                selectedStateId = stateId;
-                                senderStateCtrl.text = value['name'];
-                                selectedDistrictId = null;
-                                districts = [];
-                                senderDistrictCtrl.clear();
-                                isDistrictLoading = true;
-                              });
-
-                              await _loadDistricts(stateId);
-
-                              setModalState(() {
-                                isDistrictLoading = false;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 16),
+                    _buildLocationSelectorButtons(
+                      setModalState,
+                      isSender: true,
                     ),
-                    apiDropdown(
-                      hint: "District",
-                      items: selectedStateId == null ? [] : districts,
-                      loading: isDistrictLoading,
-                      selectedId: selectedDistrictId,
-                      onChanged: (value) {
-                        setModalState(() {
-                          selectedDistrictId = value["id"];
-                          senderDistrictCtrl.text = value["name"];
-                        });
-                      },
-                    ),
+
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: _updateSenderAddress,
@@ -1819,71 +2945,23 @@ class _EditOrderState extends State<EditOrder> {
     );
   }
 
-  Widget apiDropdown({
-    required String hint,
-    required List<dynamic> items,
-    required bool loading,
-    required int? selectedId,
-    required Function(dynamic) onChanged,
-  }) {
-    final bool hasValidValue =
-        selectedId != null && items.any((item) => item['id'] == selectedId);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: DropdownButtonFormField<int>(
-        key: ValueKey('${hint}_${selectedId}_${items.length}'),
-        value: hasValidValue ? selectedId : null,
-        isExpanded: true,
-        hint: Text(hint),
-        items: items
-            .map<DropdownMenuItem<int>>(
-              (item) => DropdownMenuItem<int>(
-                value: item['id'],
-                child: Text(item['name']),
-              ),
-            )
-            .toList(),
-        onChanged: loading || items.isEmpty
-            ? null
-            : (id) {
-                final selectedItem = items.firstWhere((e) => e['id'] == id);
-                onChanged(selectedItem);
-              },
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: const Color(0xffEFF1F7),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.red),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.red, width: 2),
-          ),
-          disabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.red),
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _setSenderDropdownDefaults() async {
     if (senderAddress == null) return;
 
-    debugPrint("Setting sender defaults with address: $senderAddress");
+    debugPrint("🎯 Setting sender defaults with address: $senderAddress");
 
     final countryName = senderAddress?['country'];
     final stateName = senderAddress?['state'];
     final districtName = senderAddress?['district'];
 
-    debugPrint("Looking for country: $countryName");
+    debugPrint("🔍 Looking for country: $countryName");
 
     final country = countries.firstWhere(
       (c) => c['name'] == countryName,
-      orElse: () => null,
+      orElse: () {
+        debugPrint("❌ Country not found: $countryName");
+        return null;
+      },
     );
 
     if (country != null) {
@@ -1892,13 +2970,22 @@ class _EditOrderState extends State<EditOrder> {
         senderCountryCtrl.text = country['name'];
       });
 
-      debugPrint("Found country: ${country['name']} with ID: ${country['id']}");
-      await _loadStates(selectedCountryId!);
+      debugPrint(
+        "✅ Found country: ${country['name']} with ID: ${country['id']}",
+      );
 
-      debugPrint("Looking for state: $stateName in states: $states");
+      await _loadStates(selectedCountryId!);
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      debugPrint("🔍 Looking for state: $stateName in ${states.length} states");
+      debugPrint("Available states: ${states.map((s) => s['name']).toList()}");
+
       final state = states.firstWhere(
         (s) => s['name'] == stateName,
-        orElse: () => null,
+        orElse: () {
+          debugPrint("❌ State not found: $stateName");
+          return null;
+        },
       );
 
       if (state != null) {
@@ -1907,15 +2994,24 @@ class _EditOrderState extends State<EditOrder> {
           senderStateCtrl.text = state['name'];
         });
 
-        debugPrint("Found state: ${state['name']} with ID: ${state['id']}");
+        debugPrint("✅ Found state: ${state['name']} with ID: ${state['id']}");
         await _loadDistricts(selectedStateId!);
 
+        await Future.delayed(const Duration(milliseconds: 100));
+
         debugPrint(
-          "Looking for district: $districtName in districts: $districts",
+          "🔍 Looking for district: $districtName in ${districts.length} districts",
         );
+        debugPrint(
+          "Available districts: ${districts.map((d) => d['name']).toList()}",
+        );
+
         final district = districts.firstWhere(
           (d) => d['name'] == districtName,
-          orElse: () => null,
+          orElse: () {
+            debugPrint("❌ District not found: $districtName");
+            return null;
+          },
         );
 
         if (district != null) {
@@ -1924,16 +3020,10 @@ class _EditOrderState extends State<EditOrder> {
             senderDistrictCtrl.text = district['name'];
           });
           debugPrint(
-            "Found district: ${district['name']} with ID: ${district['id']}",
+            "✅ Found district: ${district['name']} with ID: ${district['id']}",
           );
-        } else {
-          debugPrint("District not found: $districtName");
         }
-      } else {
-        debugPrint("State not found: $stateName");
       }
-    } else {
-      debugPrint("Country not found: $countryName");
     }
 
     setState(() {});
@@ -1946,31 +3036,68 @@ class _EditOrderState extends State<EditOrder> {
     final stateName = receiverAddress?['state'];
     final districtName = receiverAddress?['district'];
 
+    logger.i(
+      "Setting receiver defaults - Country: $countryName, State: $stateName, District: $districtName",
+    );
+
     final country = countries.firstWhere(
       (c) => c['name'] == countryName,
-      orElse: () => null,
+      orElse: () {
+        logger.w("Country not found: $countryName");
+        return null;
+      },
     );
 
     if (country != null) {
-      selectedReceiverCountryId = country['id'];
-      await _loadReceiverStates(selectedReceiverCountryId!);
+      setState(() {
+        selectedReceiverCountryId = country['id'];
+        receiverCountryCtrl.text = country['name'];
+      });
 
+      logger.i("Found country: ${country['name']} with ID: ${country['id']}");
+      await _loadReceiverStates(selectedReceiverCountryId!);
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      logger.i(
+        "Looking for state: $stateName in ${receiverStates.length} states",
+      );
       final state = receiverStates.firstWhere(
         (s) => s['name'] == stateName,
-        orElse: () => null,
+        orElse: () {
+          logger.w("State not found: $stateName");
+          return null;
+        },
       );
 
       if (state != null) {
-        selectedReceiverStateId = state['id'];
-        await _loadReceiverDistricts(selectedReceiverStateId!);
+        setState(() {
+          selectedReceiverStateId = state['id'];
+          receiverStateCtrl.text = state['name'];
+        });
 
+        logger.i("Found state: ${state['name']} with ID: ${state['id']}");
+        await _loadReceiverDistricts(selectedReceiverStateId!);
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        logger.i(
+          "Looking for district: $districtName in ${receiverDistricts.length} districts",
+        );
         final district = receiverDistricts.firstWhere(
           (d) => d['name'] == districtName,
-          orElse: () => null,
+          orElse: () {
+            logger.w("District not found: $districtName");
+            return null;
+          },
         );
 
         if (district != null) {
-          selectedReceiverDistrictId = district['id'];
+          setState(() {
+            selectedReceiverDistrictId = district['id'];
+            receiverDistrictCtrl.text = district['name'];
+          });
+          logger.i(
+            "Found district: ${district['name']} with ID: ${district['id']}",
+          );
         }
       }
     }
