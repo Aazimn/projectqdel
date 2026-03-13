@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/model/carrier_model.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:projectqdel/view/Carrier/carrier_dashboard.dart';
 import 'package:projectqdel/view/Carrier/carrier_upload.dart';
 import 'package:projectqdel/view/Carrier/status_pending.dart';
 import 'package:projectqdel/view/Carrier/approved_screen.dart';
@@ -138,91 +139,118 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
     }
   }
 
-  Future<void> _checkCarrierStatusAndNavigate() async {
-    setState(() => switchingRole = true);
+Future<void> _checkCarrierStatusAndNavigate() async {
+  setState(() => switchingRole = true);
 
-    try {
-      /// 1️⃣ Update user type first
-      final success = await apiService.updateUserType("carrier");
+  try {
+    /// 1️⃣ Update user type first
+    final success = await apiService.updateUserType("carrier");
 
-      if (!success) {
-        setState(() => switchingRole = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to switch to carrier")),
-        );
-        return;
-      }
+    if (!success) {
+      setState(() => switchingRole = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to switch to carrier")),
+      );
+      return;
+    }
 
-      await ApiService.setUserType("carrier");
+    await ApiService.setUserType("carrier");
 
-      /// 2️⃣ Get updated profile
-      final updatedUser = await apiService.getMyProfile();
+    /// 2️⃣ Get updated profile
+    final updatedUser = await apiService.getMyProfile();
 
-      if (updatedUser == null) {
-        setState(() => switchingRole = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Failed to load profile")));
-        return;
-      }
-
-      setState(() {
-        user = updatedUser;
-        switchingRole = false;
-      });
-
-      /// 3️⃣ Check if document uploaded
-      final bool hasDocs =
-          updatedUser.document != null && updatedUser.document!.isNotEmpty;
-
-      final status = updatedUser.approvalStatus.toLowerCase();
-
-      print("========= CARRIER FLOW DEBUG =========");
-      print("User Type: ${updatedUser.userType}");
-      print("Document: ${updatedUser.document}");
-      print("Has Docs: $hasDocs");
-      print("Approval Status: $status");
-      print("======================================");
-
-      /// 🚨 CASE 1 → No document
-      if (!hasDocs) {
-        print("➡️ NAVIGATE → Upload Screen");
-        _navigateToUploadScreen();
-        return;
-      }
-
-      /// 🚨 CASE 2 → Pending
-      if (status == "pending") {
-        print("➡️ NAVIGATE → Pending Screen");
-        _navigateToPendingScreen();
-        return;
-      }
-
-      /// 🚨 CASE 3 → Approved
-      if (status == "approved") {
-        print("➡️ NAVIGATE → Approved Screen");
-        _navigateToApprovedScreen();
-        return;
-      }
-
-      /// 🚨 CASE 4 → Rejected
-      if (status == "rejected") {
-        print("➡️ NAVIGATE → Rejected Screen");
-        _navigateToRejectedScreen();
-        return;
-      }
-
-      /// 🚨 FALLBACK
-      print("➡️ NAVIGATE → Upload Screen (fallback)");
-      _navigateToUploadScreen();
-    } catch (e) {
+    if (updatedUser == null) {
       setState(() => switchingRole = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+      ).showSnackBar(const SnackBar(content: Text("Failed to load profile")));
+      return;
     }
-  }
 
+    setState(() {
+      user = updatedUser;
+      switchingRole = false;
+    });
+
+    /// 3️⃣ Check if document uploaded
+    final bool profileHasDocs =
+        updatedUser.document != null && updatedUser.document!.isNotEmpty;
+
+    bool apiHasDocs = false;
+    try {
+      apiHasDocs = await apiService.checkDocumentStatus();
+    } catch (_) {}
+
+    final storedHasDocs = await ApiService.getHasUploadedDocs() ?? false;
+
+    final bool hasDocs = profileHasDocs || apiHasDocs || storedHasDocs;
+
+    String status = updatedUser.approvalStatus.trim().toLowerCase();
+
+    /// If docs exist but profile status is empty, fetch live status
+    if (hasDocs && status.isEmpty) {
+      try {
+        final apiStatusRaw = await apiService.checkApprovalStatus();
+        if (apiStatusRaw != null && apiStatusRaw.trim().isNotEmpty) {
+          status = apiStatusRaw.trim().toLowerCase();
+          await ApiService.setApprovalStatus(status);
+        }
+      } catch (_) {}
+    }
+
+    print("========= CARRIER FLOW DEBUG =========");
+    print("User Type: ${updatedUser.userType}");
+    print("Document: ${updatedUser.document}");
+    print("Has Docs: $hasDocs");
+    print("Approval Status: $status");
+    print("======================================");
+
+    /// 🚨 CASE 1 → No document at all
+    if (!hasDocs) {
+      print("➡️ NAVIGATE → Upload Screen");
+      _navigateToUploadScreen();
+      return;
+    }
+
+    /// 🚨 CASE 2 → Pending
+    if (status == "pending") {
+      print("➡️ NAVIGATE → Pending Screen");
+      _navigateToPendingScreen();
+      return;
+    }
+
+    /// 🚨 CASE 3 → Approved
+    if (status == "approved") {
+      // Check from server if user has seen approval screen
+      final hasSeen = await apiService.hasUserSeenApprovalScreen();
+      
+      if (!hasSeen) {
+        print("➡️ NAVIGATE → Approved Screen (first time - from server)");
+        _navigateToApprovedScreen();
+      } else {
+        print("➡️ NAVIGATE → Carrier Dashboard (already seen approved - from server)");
+        _navigateToApprovedScreen(goToDashboardOnly: true);
+      }
+      return;
+    }
+
+    /// 🚨 CASE 4 → Rejected
+    if (status == "rejected") {
+      print("➡️ NAVIGATE → Rejected Screen");
+      _navigateToRejectedScreen();
+      return;
+    }
+
+    /// 🚨 FALLBACK → Docs exist but status is unknown → treat as pending
+    print("➡️ NAVIGATE → Pending Screen (fallback with docs)");
+    _navigateToPendingScreen();
+  } catch (e) {
+    setState(() => switchingRole = false);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+  }
+}
   void _navigateToUploadScreen() {
     Navigator.pushAndRemoveUntil(
       context,
@@ -253,12 +281,20 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
     );
   }
 
-  void _navigateToApprovedScreen() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const AccountApprovedScreen()),
-      (route) => false,
-    );
+  void _navigateToApprovedScreen({bool goToDashboardOnly = false}) {
+    if (goToDashboardOnly) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const CarrierDashboard()),
+        (route) => false,
+      );
+    } else {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const AccountApprovedScreen()),
+        (route) => false,
+      );
+    }
   }
 
   void _navigateToRejectedScreen() {

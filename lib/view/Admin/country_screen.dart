@@ -87,7 +87,7 @@ class _CountryScreenState extends State<CountryScreen> {
       if (response is List) {
         data = response;
         totalCount = data.length;
-        hasNext = false; 
+        hasNext = false;
         print('📋 [API] Direct list response with ${data.length} items');
       } else if (response is Map) {
         // Paginated response
@@ -589,7 +589,7 @@ class _CountryScreenState extends State<CountryScreen> {
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: ColorConstants.red.withOpacity(0.15),
+          color: ColorConstants.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: ColorConstants.bgred),
           boxShadow: [

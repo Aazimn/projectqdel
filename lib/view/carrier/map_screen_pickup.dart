@@ -689,13 +689,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
           );
         } else {
           debugPrint("⚠️ No pickup_carrier_id captured from response");
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("⚠️ No pickup_carrier_id captured"),
-              backgroundColor: Colors.orange,
-            ),
-          );
         }
 
         Navigator.push(

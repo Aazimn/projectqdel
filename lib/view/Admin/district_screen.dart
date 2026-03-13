@@ -173,7 +173,18 @@ class _DistrictScreenState extends State<DistrictScreen> {
     print("📦 DISTRICTS BODY: ${response.body}");
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body) as List<dynamic>;
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) {
+        return decoded;
+      }
+      if (decoded is Map<String, dynamic>) {
+        final results = decoded['results'];
+        if (results is List) return results;
+        final data = decoded['data'];
+        if (data is List) return data;
+        return const <dynamic>[];
+      }
+      return const <dynamic>[];
     } else {
       throw Exception("Failed to load districts: ${response.statusCode}");
     }
@@ -567,7 +578,7 @@ class _DistrictScreenState extends State<DistrictScreen> {
         margin: const EdgeInsets.only(bottom: 5),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: ColorConstants.red.withOpacity(0.15),
+          color: ColorConstants.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: ColorConstants.bgred),
           boxShadow: [

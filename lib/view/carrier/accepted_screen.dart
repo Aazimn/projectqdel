@@ -372,6 +372,9 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }
 
   void _showDeliveryOtpBottomSheet() {
+    // Cancel any existing timer when opening new bottom sheet
+    OtpTimer.cancelTimer();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -386,6 +389,32 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
           builder: (context, constraints) {
             return StatefulBuilder(
               builder: (context, setModalState) {
+                // Start timer when OTP is sent
+                void startResendTimer() {
+                  OtpTimer.startTimer(() {
+                    if (mounted) {
+                      setModalState(() {});
+                    }
+                  });
+                }
+
+                // Handle resend OTP
+                Future<void> handleResendOtp() async {
+                  if (OtpTimer.isTimerActive) return;
+
+                  setModalState(() {
+                    // Show loading or disable button
+                  });
+
+                  await _resendDeliveryOtp();
+
+                  if (mounted) {
+                    setModalState(() {
+                      startResendTimer();
+                    });
+                  }
+                }
+
                 return PopScope(
                   canPop: false,
                   child: Container(
@@ -420,6 +449,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                     IconButton(
                                       icon: const Icon(Icons.close),
                                       onPressed: () {
+                                        OtpTimer.cancelTimer();
                                         Navigator.pop(context);
                                         setState(() {
                                           isDeliveryOtpSent = false;
@@ -499,11 +529,16 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                 child: ElevatedButton(
                                   onPressed: isDeliveryOtpSent
                                       ? null
-                                      : () {
+                                      : () async {
                                           setModalState(() {
                                             isDeliveryOtpSent = true;
                                           });
-                                          _sendDeliveryOtp();
+                                          await _sendDeliveryOtp();
+                                          if (mounted) {
+                                            setModalState(() {
+                                              startResendTimer();
+                                            });
+                                          }
                                         },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green,
@@ -638,16 +673,15 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                             ),
                                           ),
                                           GestureDetector(
-                                            onTap: () {
-                                              setModalState(() {
-                                                isDeliveryOtpSent = true;
-                                              });
-                                              _resendDeliveryOtp();
-                                            },
-                                            child: const Text(
-                                              "Resend",
+                                            onTap: OtpTimer.isTimerActive
+                                                ? null
+                                                : handleResendOtp,
+                                            child: Text(
+                                              OtpTimer.timerText,
                                               style: TextStyle(
-                                                color: Colors.green,
+                                                color: OtpTimer.isTimerActive
+                                                    ? Colors.grey
+                                                    : Colors.green,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
@@ -743,6 +777,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         );
       },
     ).then((_) {
+      OtpTimer.cancelTimer();
       if (mounted) {
         setState(() {
           if (!isDeliveryVerifying) {
@@ -1031,6 +1066,9 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }
 
   void _showOtpBottomSheet() {
+    // Cancel any existing timer when opening new bottom sheet
+    OtpTimer.cancelTimer();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1045,6 +1083,32 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
           builder: (context, constraints) {
             return StatefulBuilder(
               builder: (context, setModalState) {
+                // Start timer when OTP is sent
+                void startResendTimer() {
+                  OtpTimer.startTimer(() {
+                    if (mounted) {
+                      setModalState(() {});
+                    }
+                  });
+                }
+
+                // Handle resend OTP
+                Future<void> handleResendOtp() async {
+                  if (OtpTimer.isTimerActive) return;
+
+                  setModalState(() {
+                    // Show loading or disable button
+                  });
+
+                  await _resendOtp();
+
+                  if (mounted) {
+                    setModalState(() {
+                      startResendTimer();
+                    });
+                  }
+                }
+
                 return PopScope(
                   canPop: false,
                   child: Container(
@@ -1079,6 +1143,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                     IconButton(
                                       icon: const Icon(Icons.close),
                                       onPressed: () {
+                                        OtpTimer.cancelTimer();
                                         Navigator.pop(context);
                                         setState(() {
                                           isOtpSent = false;
@@ -1156,11 +1221,16 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                 child: ElevatedButton(
                                   onPressed: isOtpSent
                                       ? null
-                                      : () {
+                                      : () async {
                                           setModalState(() {
                                             isOtpSent = true;
                                           });
-                                          _sendOtp();
+                                          await _sendOtp();
+                                          if (mounted) {
+                                            setModalState(() {
+                                              startResendTimer();
+                                            });
+                                          }
                                         },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: ColorConstants.red,
@@ -1296,16 +1366,15 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                                             ),
                                           ),
                                           GestureDetector(
-                                            onTap: () {
-                                              setModalState(() {
-                                                isOtpSent = true;
-                                              });
-                                              _resendOtp();
-                                            },
-                                            child: const Text(
-                                              "Resend",
+                                            onTap: OtpTimer.isTimerActive
+                                                ? null
+                                                : handleResendOtp,
+                                            child: Text(
+                                              OtpTimer.timerText,
                                               style: TextStyle(
-                                                color: ColorConstants.red,
+                                                color: OtpTimer.isTimerActive
+                                                    ? Colors.grey
+                                                    : ColorConstants.red,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
@@ -1399,6 +1468,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         );
       },
     ).then((_) {
+      OtpTimer.cancelTimer();
       if (mounted) {
         setState(() {
           if (!isVerifying) {
@@ -2072,5 +2142,47 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                           ))),
       ),
     );
+  }
+}
+
+class OtpTimer {
+  static const int resendSeconds = 60;
+
+  static Timer? _timer;
+  static int _remainingSeconds = 0;
+  static VoidCallback? _onTick;
+
+  static void startTimer(VoidCallback onTick) {
+    _onTick = onTick;
+    _remainingSeconds = resendSeconds;
+    _timer?.cancel();
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0) {
+        _remainingSeconds--;
+        _onTick?.call();
+      } else {
+        timer.cancel();
+        _onTick?.call();
+      }
+    });
+  }
+
+  static bool get isTimerActive => _remainingSeconds > 0;
+
+  static String get timerText {
+    if (_remainingSeconds == 0) return "Resend";
+    final minutes = (_remainingSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_remainingSeconds % 60).toString().padLeft(2, '0');
+    return "Resend in $minutes:$seconds";
+  }
+
+  static void cancelTimer() {
+    _timer?.cancel();
+    _remainingSeconds = 0;
+  }
+
+  static void resetTimer() {
+    _remainingSeconds = resendSeconds;
   }
 }

@@ -707,9 +707,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _lastName = TextEditingController();
   final _email = TextEditingController();
 
-  int? selectedCountryId;
-  int? selectedStateId;
-  int? selectedDistrictId;
+  // Change these to store the full objects
+  Map<String, dynamic>? selectedCountry;
+  Map<String, dynamic>? selectedState;
+  Map<String, dynamic>? selectedDistrict;
+
+  // You can keep these for backward compatibility if needed
+  int? get selectedCountryId => selectedCountry?['id'];
+  int? get selectedStateId => selectedState?['id'];
+  int? get selectedDistrictId => selectedDistrict?['id'];
   List allStates = [];
   List allDistricts = [];
 
@@ -1075,7 +1081,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: InkWell(
             onTap: () async {
-              // ignore: unused_local_variable
               final selected = await showModalBottomSheet<Map<String, dynamic>>(
                 context: context,
                 isScrollControlled: true,
@@ -1085,9 +1090,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   color: AddressColors.senderPrimary,
                   onSelected: (country) async {
                     setState(() {
-                      selectedCountryId = country['id'];
-                      selectedStateId = null;
-                      selectedDistrictId = null;
+                      selectedCountry =
+                          country; // Store the full country object
+                      selectedState = null; // Reset state
+                      selectedDistrict = null; // Reset district
                       states.clear();
                       districts.clear();
                     });
@@ -1109,17 +1115,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: selectedCountryId == null
+                  color: selectedCountry == null
                       ? Colors.red
                       : AddressColors.senderPrimary.withOpacity(0.3),
-                  width: selectedCountryId == null ? 2 : 1,
+                  width: selectedCountry == null ? 2 : 1,
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
                     Icons.public,
-                    color: selectedCountryId == null
+                    color: selectedCountry == null
                         ? Colors.red
                         : AddressColors.senderPrimary,
                   ),
@@ -1132,26 +1138,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           "Country *",
                           style: TextStyle(
                             fontSize: 12,
-                            color: selectedCountryId == null
+                            color: selectedCountry == null
                                 ? Colors.red
                                 : AddressColors.textSecondary,
-                            fontWeight: selectedCountryId == null
+                            fontWeight: selectedCountry == null
                                 ? FontWeight.bold
                                 : FontWeight.normal,
                           ),
                         ),
                         Text(
-                          selectedCountryId == null
+                          selectedCountry == null
                               ? "Select Country (Required)"
-                              : (countries.firstWhere(
-                                      (c) => c['id'] == selectedCountryId,
-                                      orElse: () => {'name': ''},
-                                    )['name'] ??
-                                    ''),
+                              : selectedCountry!['name'] ?? '', // Direct access
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: selectedCountryId == null
+                            color: selectedCountry == null
                                 ? Colors.red
                                 : AddressColors.textPrimary,
                           ),
@@ -1162,7 +1164,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   Icon(
                     Icons.arrow_forward_ios,
                     size: 16,
-                    color: selectedCountryId == null
+                    color: selectedCountry == null
                         ? Colors.red
                         : AddressColors.senderPrimary,
                   ),
@@ -1172,12 +1174,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
         ),
 
-        if (selectedCountryId != null)
+        if (selectedCountry != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: InkWell(
               onTap: () async {
-                // ignore: unused_local_variable
                 final selected =
                     await showModalBottomSheet<Map<String, dynamic>>(
                       context: context,
@@ -1189,8 +1190,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         color: AddressColors.senderPrimary,
                         onSelected: (state) async {
                           setState(() {
-                            selectedStateId = state['id'];
-                            selectedDistrictId = null;
+                            selectedState =
+                                state; // Store the full state object
+                            selectedDistrict = null; // Reset district
                             districts.clear();
                           });
 
@@ -1211,17 +1213,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: selectedStateId == null
+                    color: selectedState == null
                         ? Colors.red
                         : AddressColors.senderPrimary.withOpacity(0.3),
-                    width: selectedStateId == null ? 2 : 1,
+                    width: selectedState == null ? 2 : 1,
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.map,
-                      color: selectedStateId == null
+                      color: selectedState == null
                           ? Colors.red
                           : AddressColors.senderPrimary,
                     ),
@@ -1234,26 +1236,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             "State *",
                             style: TextStyle(
                               fontSize: 12,
-                              color: selectedStateId == null
+                              color: selectedState == null
                                   ? Colors.red
                                   : AddressColors.textSecondary,
-                              fontWeight: selectedStateId == null
+                              fontWeight: selectedState == null
                                   ? FontWeight.bold
                                   : FontWeight.normal,
                             ),
                           ),
                           Text(
-                            selectedStateId == null
+                            selectedState == null
                                 ? "Select State (Required)"
-                                : (states.firstWhere(
-                                        (s) => s['id'] == selectedStateId,
-                                        orElse: () => {'name': ''},
-                                      )['name'] ??
-                                      ''),
+                                : selectedState!['name'] ?? '', // Direct access
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
-                              color: selectedStateId == null
+                              color: selectedState == null
                                   ? Colors.red
                                   : AddressColors.textPrimary,
                             ),
@@ -1264,7 +1262,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     Icon(
                       Icons.arrow_forward_ios,
                       size: 16,
-                      color: selectedStateId == null
+                      color: selectedState == null
                           ? Colors.red
                           : AddressColors.senderPrimary,
                     ),
@@ -1274,12 +1272,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
           ),
 
-        if (selectedStateId != null)
+        if (selectedState != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: InkWell(
               onTap: () async {
-                // ignore: unused_local_variable
                 final selected =
                     await showModalBottomSheet<Map<String, dynamic>>(
                       context: context,
@@ -1291,7 +1288,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         color: ColorConstants.red,
                         onSelected: (district) {
                           setState(() {
-                            selectedDistrictId = district['id'];
+                            selectedDistrict =
+                                district; // Store the full district object
                           });
                         },
                       ),
@@ -1303,17 +1301,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: selectedDistrictId == null
+                    color: selectedDistrict == null
                         ? Colors.red
                         : AddressColors.senderPrimary.withOpacity(0.3),
-                    width: selectedDistrictId == null ? 2 : 1,
+                    width: selectedDistrict == null ? 2 : 1,
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.location_city,
-                      color: selectedDistrictId == null
+                      color: selectedDistrict == null
                           ? Colors.red
                           : AddressColors.senderPrimary,
                     ),
@@ -1326,26 +1324,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             "District *",
                             style: TextStyle(
                               fontSize: 12,
-                              color: selectedDistrictId == null
+                              color: selectedDistrict == null
                                   ? Colors.red
                                   : AddressColors.textSecondary,
-                              fontWeight: selectedDistrictId == null
+                              fontWeight: selectedDistrict == null
                                   ? FontWeight.bold
                                   : FontWeight.normal,
                             ),
                           ),
                           Text(
-                            selectedDistrictId == null
+                            selectedDistrict == null
                                 ? "Select District (Required)"
-                                : (districts.firstWhere(
-                                        (d) => d['id'] == selectedDistrictId,
-                                        orElse: () => {'name': ''},
-                                      )['name'] ??
-                                      ''),
+                                : selectedDistrict!['name'] ??
+                                      '', // Direct access
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
-                              color: selectedDistrictId == null
+                              color: selectedDistrict == null
                                   ? Colors.red
                                   : AddressColors.textPrimary,
                             ),
@@ -1356,7 +1351,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     Icon(
                       Icons.arrow_forward_ios,
                       size: 16,
-                      color: selectedDistrictId == null
+                      color: selectedDistrict == null
                           ? Colors.red
                           : AddressColors.senderPrimary,
                     ),
@@ -1447,19 +1442,33 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             const SizedBox(height: 20),
                             TextFormField(
                               controller: _firstName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: const TextStyle(color: Colors.black),
                               decoration: InputDecoration(
                                 filled: true,
                                 prefixIcon: const Icon(
                                   Icons.person,
-                                  color: Colors.white,
+                                  color: Colors.black,
                                 ),
                                 hintText: "First Name *",
-                                hintStyle: const TextStyle(color: Colors.white),
-                                fillColor: ColorConstants.red,
+                                hintStyle: const TextStyle(color: Colors.grey),
+                                fillColor: ColorConstants.white,
+
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide(
+                                    color: ColorConstants.red,
+                                    width: 2,
+                                  ),
+                                ),
+
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide(
+                                    color: ColorConstants.red,
+                                    width: 3,
+                                  ),
+                                ),
+
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -1468,19 +1477,33 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             const SizedBox(height: 10),
                             TextFormField(
                               controller: _lastName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: const TextStyle(color: Colors.black),
                               decoration: InputDecoration(
+                                filled: true,
                                 prefixIcon: const Icon(
                                   Icons.person,
-                                  color: Colors.white,
+                                  color: Colors.black,
                                 ),
-                                filled: true,
                                 hintText: "Last Name *",
-                                hintStyle: const TextStyle(color: Colors.white),
-                                fillColor: ColorConstants.red,
+                                hintStyle: const TextStyle(color: Colors.grey),
+                                fillColor: ColorConstants.white,
+
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide(
+                                    color: ColorConstants.red,
+                                    width: 2,
+                                  ),
+                                ),
+
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide(
+                                    color: ColorConstants.red,
+                                    width: 3,
+                                  ),
+                                ),
+
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -1489,19 +1512,33 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             const SizedBox(height: 10),
                             TextFormField(
                               controller: _email,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: const TextStyle(color: Colors.black),
                               decoration: InputDecoration(
                                 filled: true,
-                                hintText: "Email *",
-                                hintStyle: const TextStyle(color: Colors.white),
                                 prefixIcon: const Icon(
                                   Icons.email,
-                                  color: Colors.white,
+                                  color: Colors.black,
                                 ),
-                                fillColor: ColorConstants.red,
+                                hintText: "Email *",
+                                hintStyle: const TextStyle(color: Colors.grey),
+                                fillColor: ColorConstants.white,
+
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide(
+                                    color: ColorConstants.red,
+                                    width: 2,
+                                  ),
+                                ),
+
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide(
+                                    color: ColorConstants.red,
+                                    width: 3,
+                                  ),
+                                ),
+
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -1510,18 +1547,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             const SizedBox(height: 20),
                             Container(
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.black),
-                                color: ColorConstants.red,
+                                border: Border.all(
+                                  color: ColorConstants.red,
+                                  width: 2,
+                                ),
+                                color: ColorConstants.white,
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Column(
                                 children: [
                                   const SizedBox(height: 15),
                                   const Text(
-                                    "Select your User Type *",
+                                    "Select your User Type ",
                                     style: TextStyle(
                                       fontSize: 18,
-                                      color: Colors.white,
+                                      color: ColorConstants.black,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -1530,7 +1570,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                       Row(
                                         children: [
                                           Radio(
-                                            activeColor: Colors.white,
+                                            activeColor: ColorConstants.black,
                                             value: 'client',
                                             groupValue: _customertype,
                                             onChanged: (value) {
@@ -1542,8 +1582,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                           const Text(
                                             'Client',
                                             style: TextStyle(
-                                              fontSize: 20,
-                                              color: Colors.white,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: ColorConstants.black,
                                             ),
                                           ),
                                         ],
@@ -1551,7 +1592,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                       Row(
                                         children: [
                                           Radio(
-                                            activeColor: Colors.white,
+                                            activeColor: ColorConstants.black,
                                             value: 'carrier',
                                             groupValue: _customertype,
                                             onChanged: (value) {
@@ -1563,8 +1604,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                           const Text(
                                             'Carrier',
                                             style: TextStyle(
-                                              fontSize: 20,
-                                              color: Colors.white,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: ColorConstants.black,
                                             ),
                                           ),
                                         ],

@@ -1,9 +1,89 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
+import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Carrier/carrier_dashboard.dart';
 
-class AccountApprovedScreen extends StatelessWidget {
+class AccountApprovedScreen extends StatefulWidget {
   const AccountApprovedScreen({super.key});
+
+  @override
+  State<AccountApprovedScreen> createState() => _AccountApprovedScreenState();
+}
+
+class _AccountApprovedScreenState extends State<AccountApprovedScreen> {
+  final ApiService _apiService = ApiService();
+  bool _isLoading = false;
+
+  Future<void> _handleContinue() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Call the server-side API to mark approval screen as seen
+      // This just does a POST with no body
+      final success = await _apiService.markApprovalScreenSeen();
+
+      if (!mounted) return;
+
+      if (success) {
+        // Successfully marked on server, navigate to dashboard
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const CarrierDashboard()),
+          (_) => false,
+        );
+      } else {
+        // Even if API fails, we should still proceed
+        // Cache locally as fallback
+        await ApiService.setApprovalScreenSeen(true);
+
+        if (!mounted) return;
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const CarrierDashboard()),
+          (_) => false,
+        );
+
+        // Show a non-blocking message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Welcome aboard! Your preference has been saved locally.",
+            ),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      // Error occurred, but we should still let the user proceed
+      await ApiService.setApprovalScreenSeen(true);
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const CarrierDashboard()),
+        (_) => false,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Welcome! (Offline mode: ${e.toString().substring(0, min(50, e.toString().length))})",
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +105,7 @@ class AccountApprovedScreen extends StatelessWidget {
                       letterSpacing: 2,
                       fontSize: 13,
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
@@ -43,14 +123,10 @@ class AccountApprovedScreen extends StatelessWidget {
                     color: Colors.green.withOpacity(0.4),
                     blurRadius: 30,
                     spreadRadius: 2,
-                  )
+                  ),
                 ],
               ),
-              child: const Icon(
-                Icons.check,
-                color: Colors.white,
-                size: 70,
-              ),
+              child: const Icon(Icons.check, color: Colors.white, size: 70),
             ),
 
             const SizedBox(height: 30),
@@ -84,13 +160,7 @@ class AccountApprovedScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: InkWell(
                 borderRadius: BorderRadius.circular(40),
-                onTap: () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CarrierDashboard()),
-                    (_) => false,
-                  );
-                },
+                onTap: _isLoading ? null : _handleContinue,
                 child: Container(
                   width: double.infinity,
                   height: 60,
@@ -104,19 +174,32 @@ class AccountApprovedScreen extends StatelessWidget {
                     ),
                     border: Border.all(color: ColorConstants.black),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.home, color: ColorConstants.black),
-                      SizedBox(width: 10),
-                      Text(
-                        "Go to Home Screen",
-                        style: TextStyle(
-                          color: ColorConstants.black,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
+                  child: Center(
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 30,
+                            width: 30,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.green,
+                              ),
+                            ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.home, color: ColorConstants.black),
+                              SizedBox(width: 10),
+                              Text(
+                                "Go to Home Screen",
+                                style: TextStyle(
+                                  color: ColorConstants.black,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ),
               ),

@@ -89,7 +89,7 @@ class _StateScreenState extends State<StateScreen> {
         setState(() {
           _states = data;
           _totalItems = totalCount;
-          _totalPages = 1; 
+          _totalPages = 1;
           _hasMorePages = false;
           _isSearching = true;
           isLoading = false;
@@ -558,7 +558,7 @@ class _StateScreenState extends State<StateScreen> {
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: ColorConstants.red.withOpacity(0.15),
+          color: ColorConstants.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: ColorConstants.bgred),
           boxShadow: [

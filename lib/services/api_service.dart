@@ -13,7 +13,7 @@ class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
   final String baseurl =
-      "https://national-sunglasses-frontpage-sold.trycloudflare.com";
+      "https://ends-programmers-coating-hardcover.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -31,20 +31,25 @@ class ApiService {
     await prefs.setString('approval_status', status);
   }
 
+  // Track whether carrier approval screen has already been shown once
+  static bool hasSeenCarrierApprovedScreen = false;
+  static const String _carrierApprovedSeenKey = 'carrier_approved_seen';
+
+  static Future<void> setCarrierApprovedSeen(bool value) async {
+    hasSeenCarrierApprovedScreen = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_carrierApprovedSeenKey, value);
+  }
+
+  static Future<bool> getCarrierApprovedSeen() async {
+    if (hasSeenCarrierApprovedScreen) return true;
+    final prefs = await SharedPreferences.getInstance();
+    hasSeenCarrierApprovedScreen =
+        prefs.getBool(_carrierApprovedSeenKey) ?? false;
+    return hasSeenCarrierApprovedScreen;
+  }
+
   static bool sessionLoaded = false;
-
-  // static Future<void> loadSession() async {
-  //   if (sessionLoaded) return;
-
-  //   final prefs = await SharedPreferences.getInstance();
-  //   accessToken = prefs.getString('accessToken');
-  //   userType = prefs.getString('user_type');
-  //   approvalStatus = prefs.getString('approval_status');
-  //   phone = prefs.getString('phone');
-  //   isFirstTime = prefs.getBool('first_time');
-
-  //   sessionLoaded = true;
-  // }
 
   static String? accessToken;
 
@@ -89,6 +94,7 @@ class ApiService {
     phone = prefs.getString('phone');
     isFirstTime = prefs.getBool('first_time');
     hasUploadedDocs = prefs.getBool(_hasUploadedDocsKey); // Add this line
+       _hasSeenApprovalScreen = prefs.getBool('has_seen_approval');
 
     sessionLoaded = true;
   }
@@ -103,6 +109,7 @@ class ApiService {
     await prefs.remove('phone');
     await prefs.remove('first_time');
     await prefs.remove(_hasUploadedDocsKey); // Add this line
+    await prefs.remove('has_seen_approval');
 
     accessToken = null;
     userType = null;
@@ -110,6 +117,7 @@ class ApiService {
     phone = null;
     isFirstTime = null;
     hasUploadedDocs = null; // Add this line
+    _hasSeenApprovalScreen = null; 
   }
 
   // Add a method to check document status from API
@@ -355,6 +363,53 @@ class ApiService {
     return false;
   }
 
+  /// Carrier registration that includes document (backend requires it).
+  Future<bool> carrierRegistrationWithDocument({
+    required String phone,
+    required String firstname,
+    required String lastname,
+    required String email,
+    required int? countryId,
+    required int? stateId,
+    required int? districtId,
+    required File document,
+  }) async {
+    final url = Uri.parse("$baseurl/api/qdel/register/");
+    final request = http.MultipartRequest("POST", url);
+
+    request.headers.addAll({
+      "Authorization": "Bearer ${ApiService.accessToken}",
+    });
+
+    request.fields.addAll({
+      "phone": phone,
+      "first_name": firstname,
+      "last_name": lastname,
+      "email": email,
+      "user_type": "carrier",
+      if (countryId != null) "country": countryId.toString(),
+      if (stateId != null) "state": stateId.toString(),
+      if (districtId != null) "district": districtId.toString(),
+    });
+
+    request.files.add(
+      await http.MultipartFile.fromPath("document", document.path),
+    );
+
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
+
+    logger.i("CARRIER REGISTER STATUS :: ${response.statusCode}");
+    logger.i("CARRIER REGISTER BODY :: $responseBody");
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      await ApiService.setFirstTime(false);
+      await ApiService.setHasUploadedDocs(true);
+      return true;
+    }
+    return false;
+  }
+
   Future<UserModel?> getMyProfile() async {
     final url = Uri.parse("$baseurl/api/qdel/users/detail/update/self/");
 
@@ -401,6 +456,111 @@ class ApiService {
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
+  // New method to fetch users by status (GET request)
+
+  Future<Map<String, dynamic>> getUsersByStatus({
+    required String status,
+    String? searchQuery,
+    int page = 1,
+    int pageSize = 10, // Add this parameter
+  }) async {
+    try {
+      String urlString =
+          "$baseurl/api/qdel/admin/users/$status/";
+
+      final queryParams = <String, String>{};
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        queryParams['search'] = searchQuery;
+      }
+      queryParams['page'] = page.toString();
+      queryParams['page_size'] = pageSize.toString(); // Add page_size parameter
+
+      final uri = Uri.parse(urlString).replace(queryParameters: queryParams);
+
+      logger.i("GET Users URL :: $uri");
+
+      final response = await http.get(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $accessToken",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+        List<UserModel> users = [];
+        if (jsonResponse['data'] != null) {
+          users = (jsonResponse['data'] as List)
+              .map((json) => UserModel.fromJson(json))
+              .toList();
+        }
+
+        int totalCount = jsonResponse['count'] ?? users.length;
+        int totalPages = (totalCount / pageSize).ceil();
+
+        return {
+          'users': users,
+          'hasNext': (page * pageSize) < totalCount,
+          'hasPrevious': page > 1,
+          'totalPages': totalPages > 0 ? totalPages : 1,
+          'currentPage': page,
+          'count': totalCount,
+        };
+      } else {
+        logger.e("Failed to fetch users: ${response.statusCode}");
+        return {
+          'users': [],
+          'hasNext': false,
+          'hasPrevious': false,
+          'totalPages': 1,
+          'currentPage': page,
+          'count': 0,
+        };
+      }
+    } catch (e) {
+      logger.e("Error fetching users: $e");
+      return {
+        'users': [],
+        'hasNext': false,
+        'hasPrevious': false,
+        'totalPages': 1,
+        'currentPage': page,
+        'count': 0,
+      };
+    }
+  }
+
+  Future<bool> updateUserStatus({
+    required int userId,
+    required String status,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/users/approval-status/update/$userId/",
+      );
+
+      final response = await http.patch(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $accessToken",
+        },
+        body: jsonEncode({"approval_status": status}),
+      );
+
+      logger.i("PATCH URL :: $url");
+      logger.i("STATUS :: ${response.statusCode}");
+      logger.i("BODY :: ${response.body}");
+
+      return response.statusCode == 200;
+    } catch (e) {
+      logger.e("Error updating user status: $e");
+      return false;
+    }
+  }
+
   Future<bool> updateUserType(String userType) async {
     final url = Uri.parse("$baseurl/api/qdel/users/detail/update/self/");
 
@@ -414,91 +574,18 @@ class ApiService {
     );
 
     logger.i("USER TYPE UPDATE :: ${response.statusCode}");
+
     logger.i("BODY :: ${response.body}");
 
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
-Future<bool> registerCarrierWithDocument({
-  required String phone,
-  required String firstname,
-  required String lastname,
-  required String email,
-  required String userType,
-  required int? countryId,
-  required int? stateId,
-  required int? districtId,
-  required File document,
-}) async {
-  final url = Uri.parse("$baseurl/api/qdel/register/");
-
-  final request = http.MultipartRequest("POST", url);
-
-  request.headers.addAll({
-    "Authorization": "Bearer ${ApiService.accessToken}",
-  });
-
-  request.fields.addAll({
-    "phone": phone,
-    "first_name": firstname,
-    "last_name": lastname,
-    "email": email,
-    "user_type": userType,
-    "country": countryId?.toString() ?? "",
-    "state": stateId?.toString() ?? "",
-    "district": districtId?.toString() ?? "",
-  });
-
-  request.files.add(
-    await http.MultipartFile.fromPath("document", document.path),
-  );
-
-  final response = await request.send();
-  final responseBody = await response.stream.bytesToString();
-
-  logger.i("STATUS :: ${response.statusCode}");
-  logger.i("BODY :: $responseBody");
-
-  if (response.statusCode == 200 || response.statusCode == 201) {
-    await ApiService.setApprovalStatus("pending");
-    await ApiService.setHasUploadedDocs(true); // Add this line
-    await ApiService.markRegistrationComplete();
-
-    return true;
-  } else {
-    return false;
-  }
-}
   static Future<void> markRegistrationComplete() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('first_time', false);
     isFirstTime = false;
   }
 
-  Future<List<UserModel>> getJoinRequests() async {
-    final url = Uri.parse("$baseurl/api/qdel/admin/carriers/");
-    final response = await http.get(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${ApiService.accessToken}",
-      },
-    );
-
-    logger.i("JOIN REQUESTS :: ${response.body}");
-
-    if (response.statusCode == 200) {
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-
-      final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-        decoded['data'],
-      );
-
-      return list.map((e) => UserModel.fromJson(e)).toList();
-    } else {
-      throw Exception("Failed to load join requests");
-    }
-  }
 
   Future<bool> carrierApproval({
     required int userId,
@@ -829,37 +916,189 @@ Future<bool> registerCarrierWithDocument({
     }
   }
 
-  Future<bool> upgradeToCarrier({
+static bool? _hasSeenApprovalScreen;
+
+/// Call this when user views the approval screen for the first time
+Future<bool> markApprovalScreenSeen() async {
+  try {
+    final url = Uri.parse("$baseurl/api/qdel/user/click/update/");
+    
+    // POST request to set is_clicked = true
+    final response = await http.post(
+      url,
+      headers: {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      },
+    );
+
+    logger.i("MARK APPROVAL SEEN STATUS :: ${response.statusCode}");
+    logger.i("MARK APPROVAL SEEN BODY :: ${response.body}");
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      // Update local cache
+      await ApiService.setApprovalScreenSeen(true);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    logger.e("MARK APPROVAL SEEN ERROR => $e");
+    return false;
+  }
+}
+
+/// Check if user has already seen the approval screen
+Future<bool> hasUserSeenApprovalScreen() async {
+  try {
+    // First check local cache for immediate response
+    if (_hasSeenApprovalScreen != null) {
+      return _hasSeenApprovalScreen!;
+    }
+
+    // Fetch from server using GET endpoint
+    final url = Uri.parse("$baseurl/api/qdel/user/click/update/");
+    
+    final response = await http.get(
+      url,
+      headers: {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      },
+    );
+
+    logger.i("CHECK APPROVAL SEEN STATUS :: ${response.statusCode}");
+    logger.i("CHECK APPROVAL SEEN BODY :: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final hasSeen = data['is_clicked'] ?? false;
+      
+      // Update local cache
+      await ApiService.setApprovalScreenSeen(hasSeen);
+      return hasSeen;
+    }
+    
+    // If server request fails, fall back to local storage
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getBool('has_seen_approval');
+    if (cached != null) {
+      _hasSeenApprovalScreen = cached;
+      return cached;
+    }
+    
+    return false;
+  } catch (e) {
+    logger.e("CHECK APPROVAL SEEN ERROR => $e");
+    
+    // Fall back to local storage on error
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getBool('has_seen_approval');
+    if (cached != null) {
+      _hasSeenApprovalScreen = cached;
+      return cached;
+    }
+    return false;
+  }
+}
+
+static Future<void> setApprovalScreenSeen(bool value) async {
+  _hasSeenApprovalScreen = value;
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('has_seen_approval', value);
+}
+
+static Future<bool?> getApprovalScreenSeen() async {
+  if (_hasSeenApprovalScreen != null) return _hasSeenApprovalScreen;
+  
+  final prefs = await SharedPreferences.getInstance();
+  _hasSeenApprovalScreen = prefs.getBool('has_seen_approval');
+  return _hasSeenApprovalScreen;
+}
+
+
+  Future<bool> uploadCarrierDocument({
     required File document,
-    int? countryId,
-    int? stateId,
-    int? districtId,
+    required int? countryId,
+    required int? stateId,
+    required int? districtId,
   }) async {
-    final request = http.MultipartRequest(
-      "PUT",
-      Uri.parse("$baseurl/api/qdel/users/detail/update/self/"),
-    );
+    final logger = Logger();
 
-    request.headers['Authorization'] = 'Bearer $accessToken';
+    final url = Uri.parse("$baseurl/api/qdel/users/carrier/document/upload/");
 
-    request.fields.addAll({
-      "user_type": "carrier",
-      if (countryId != null) "country_id": countryId.toString(),
-      if (stateId != null) "state_id": stateId.toString(),
-      if (districtId != null) "district_id": districtId.toString(),
-    });
+    try {
+      logger.i("══════════════════════════════════════");
+      logger.i("🚀 START CARRIER DOCUMENT UPLOAD");
+      logger.i("══════════════════════════════════════");
 
-    request.files.add(
-      await http.MultipartFile.fromPath("document", document.path),
-    );
+      logger.i("🌐 API URL → $url");
 
-    final response = await request.send();
-    final body = await response.stream.bytesToString();
+      logger.i("📂 FILE DETAILS");
+      logger.i("📄 PATH → ${document.path}");
+      logger.i("📦 SIZE → ${await document.length()} bytes");
 
-    logger.i("STATUS :: ${response.statusCode}");
-    logger.i("BODY :: $body");
+      logger.i("📍 LOCATION DATA");
+      logger.i("🌍 COUNTRY → $countryId");
+      logger.i("🏙 STATE → $stateId");
+      logger.i("📌 DISTRICT → $districtId");
 
-    return response.statusCode == 200;
+      var request = http.MultipartRequest("POST", url);
+
+      /// HEADERS
+      request.headers.addAll({"Authorization": "Bearer $accessToken"});
+
+      logger.i("📨 REQUEST HEADERS → ${request.headers}");
+
+      /// FORM FIELDS
+      if (countryId != null) request.fields["country"] = countryId.toString();
+      if (stateId != null) request.fields["state"] = stateId.toString();
+      if (districtId != null) request.fields["district"] = districtId.toString();
+
+      logger.i("📨 REQUEST FIELDS → ${request.fields}");
+
+      /// ADD FILE
+      logger.i("📤 Preparing multipart file");
+
+      var multipartFile = await http.MultipartFile.fromPath(
+        "document",
+        document.path,
+      );
+
+      request.files.add(multipartFile);
+
+      logger.i("📎 FILE ATTACHED");
+      logger.i("📄 FIELD NAME → document");
+      logger.i("📄 FILE NAME → ${multipartFile.filename}");
+      logger.i("📦 FILE LENGTH → ${multipartFile.length}");
+
+      logger.i("📤 Sending multipart request...");
+
+      var streamedResponse = await request.send();
+
+      logger.i("📡 RESPONSE RECEIVED");
+
+      var responseBody = await streamedResponse.stream.bytesToString();
+
+      logger.i("📡 STATUS CODE → ${streamedResponse.statusCode}");
+      logger.i("📡 RESPONSE BODY → $responseBody");
+
+      logger.i("══════════════════════════════════════");
+
+      if (streamedResponse.statusCode == 200 ||
+          streamedResponse.statusCode == 201) {
+        logger.i("✅ DOCUMENT UPLOAD SUCCESS");
+        await ApiService.setHasUploadedDocs(true);
+        return true;
+      }
+
+      logger.e("❌ DOCUMENT UPLOAD FAILED");
+      return false;
+    } catch (e, stack) {
+      logger.e("❌ DOCUMENT UPLOAD EXCEPTION");
+      logger.e("ERROR → $e");
+      logger.e("STACK → $stack");
+      return false;
+    }
   }
 
   Future<bool> addProduct({
@@ -1583,42 +1822,10 @@ Future<bool> registerCarrierWithDocument({
     await prefs.remove("pickup_carrier_id");
   }
 
-  // Future<List<dynamic>?> getAcceptedOrders() async {
-  //   final uri = Uri.parse("$baseurl/api/qdel/sender/view/sent/orders/");
-  //   final headers = {
-  //     "Authorization": "Bearer ${ApiService.accessToken}",
-  //     "Content-Type": "application/json",
-  //   };
-
-  //   try {
-  //     final response = await http.get(uri, headers: headers);
-
-  //     if (response.statusCode == 200) {
-  //       final decoded = jsonDecode(response.body);
-  //       if (decoded is List) {
-  //         return decoded;
-  //       }
-
-  //       if (decoded is Map<String, dynamic>) {
-  //         return decoded["results"] ?? decoded["data"] ?? decoded["orders"];
-  //       }
-  //       return null;
-  //     } else {
-  //       logger.e("GET ACCEPTED ORDERS FAILED => ${response.body}");
-  //       return null;
-  //     }
-  //   } catch (e) {
-  //     logger.e("GET ACCEPTED ORDERS ERROR => $e");
-  //     return null;
-  //   }
-  // }
-
-  // In api_service.dart
   Future<dynamic> getAcceptedOrders({
     int? page,
     String? search,
-    String?
-    status, // This will now be either "pending", "active", or "completed"
+    String? status,
   }) async {
     String urlString = "$baseurl/api/qdel/sender/view/sent/orders/";
     List<String> queryParams = [];

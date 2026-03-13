@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
+import 'package:logger/logger.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/user_detail.dart';
+import 'dart:async';
 
 enum UserTab { approved, pending, rejected }
 
@@ -19,8 +21,18 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
   TextEditingController searchController = TextEditingController();
   String searchQuery = "";
   UserTab currentTab = UserTab.approved;
+
+  // Pagination variables
   List<UserModel> users = [];
+  int currentPage = 1;
+  int totalPages = 1;
+  int totalCount = 0;
+  bool hasNextPage = false;
+  bool hasPreviousPage = false;
+
   bool loading = true;
+  bool isLoadingMore = false;
+  Logger logger = Logger();
 
   @override
   void initState() {
@@ -28,138 +40,186 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     fetchUsers();
   }
 
-  Future<void> fetchUsers() async {
-    setState(() => loading = true);
-    users = await apiService.getJoinRequests();
-    setState(() => loading = false);
-  }
+  // Updated fetchUsers with pagination - FIXED
+  Future<void> fetchUsers({int page = 1, bool isLoadMore = false}) async {
+    // For page navigation (next/previous), we don't want to use isLoadMore
+    // We want to replace the list completely
 
-  List<UserModel> get filteredUsers {
-    List<UserModel> tabFiltered;
+    setState(() {
+      if (isLoadMore) {
+        isLoadingMore = true;
+      } else {
+        loading = true;
+        currentPage = page;
+      }
+    });
 
+    // Get status string from current tab
+    String status;
     switch (currentTab) {
       case UserTab.approved:
-        tabFiltered = users
-            .where((u) => u.approvalStatus == "approved")
-            .toList();
+        status = "approved";
         break;
       case UserTab.pending:
-        tabFiltered = users
-            .where((u) => u.approvalStatus == "pending")
-            .toList();
+        status = "pending";
         break;
       case UserTab.rejected:
-        tabFiltered = users
-            .where((u) => u.approvalStatus == "rejected")
-            .toList();
+        status = "rejected";
         break;
     }
 
-    if (searchQuery.isEmpty) return tabFiltered;
+    try {
+      // Fetch users with pagination
+      final result = await apiService.getUsersByStatus(
+        status: status,
+        searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
+        page: page,
+      );
 
-    return tabFiltered.where((user) {
-      final name = "${user.firstName} ${user.lastName}".toLowerCase();
-      final email = user.email.toLowerCase();
+      if (mounted) {
+        setState(() {
+          // For page navigation, ALWAYS replace the list
+          // Only use isLoadMore if you want infinite scroll (which we're not using)
+          users = result['users'] as List<UserModel>;
 
-      return name.contains(searchQuery) ||
-          email.contains(searchQuery) ||
-          user.id.toString().contains(searchQuery);
-    }).toList();
+          hasNextPage = result['hasNext'] as bool;
+          hasPreviousPage = result['hasPrevious'] as bool;
+          totalPages = result['totalPages'] as int;
+          currentPage = result['currentPage'] as int;
+          totalCount = result['count'] as int;
+
+          loading = false;
+          isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      logger.e("Error in fetchUsers: $e");
+      if (mounted) {
+        setState(() {
+          loading = false;
+          isLoadingMore = false;
+          users = [];
+        });
+
+        // Show error message to user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to load users: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  // Widget _circleButton(IconData icon, VoidCallback onTap) {
-  //   return GestureDetector(
-  //     onTap: onTap,
-  //     child: Container(
-  //       height: 38,
-  //       width: 38,
-  //       decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-  //       child: Icon(icon, color: Colors.red, size: 18),
-  //     ),
-  //   );
-  // }
+  // Update loadNextPage to not use isLoadMore
+  void loadNextPage() {
+    if (hasNextPage && !isLoadingMore) {
+      fetchUsers(page: currentPage + 1, isLoadMore: false); // Changed to false
+    }
+  }
 
-  // Widget _header(BuildContext context) {
-  //   return Stack(
-  //     clipBehavior: Clip.none,
-  //     children: [
-  //       Container(
-  //         height: 130,
-  //         decoration: const BoxDecoration(
-  //           gradient: LinearGradient(
-  //             colors: [Color(0xffE53935), Color(0xffF0625F)],
-  //           ),
-  //           borderRadius: BorderRadius.only(
-  //             bottomLeft: Radius.circular(40),
-  //             bottomRight: Radius.circular(40),
-  //           ),
-  //         ),
-  //       ),
+  // Update loadPreviousPage to not use isLoadMore
+  void loadPreviousPage() {
+    if (hasPreviousPage && !isLoadingMore) {
+      fetchUsers(page: currentPage - 1, isLoadMore: false); // Changed to false
+    }
+  }
 
-  //       Positioned(
-  //         top: 45,
-  //         left: 16,
-  //         child: _circleButton(
-  //           Icons.arrow_back_ios_new,
-  //           () => Navigator.pop(context),
-  //         ),
-  //       ),
-  //       Positioned(
-  //         top: 45,
-  //         right: 16,
-  //         child: _circleButton(Icons.more_horiz, () {}),
-  //       ),
-  //       const Positioned(
-  //         top: 60,
-  //         left: 0,
-  //         right: 0,
-  //         child: Center(
-  //           child: Text(
-  //             "USER DETAILS",
-  //             style: TextStyle(
-  //               color: Colors.white,
-  //               fontSize: 25,
-  //               fontWeight: FontWeight.bold,
-  //             ),
-  //           ),
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
+  // Go to specific page
+  void goToPage(int page) {
+    if (page >= 1 && page <= totalPages && page != currentPage) {
+      fetchUsers(page: page);
+    }
+  }
+
+  
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ColorConstants.bg,
       body: LiquidPullToRefresh(
-        onRefresh: fetchUsers,
+        onRefresh: () => fetchUsers(page: 1),
         color: ColorConstants.red,
         backgroundColor: Colors.white,
         height: 80,
         animSpeedFactor: 4.0,
         showChildOpacityTransition: true,
-
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(child: _searchBar()),
-
             SliverToBoxAdapter(child: _tabs()),
 
+            // Pagination info and controls at top
+            if (!loading && users.isNotEmpty)
+              SliverToBoxAdapter(child: _paginationInfo()),
+
+            // User list
             SliverPadding(
               padding: const EdgeInsets.all(16),
               sliver: loading
                   ? const SliverFillRemaining(
                       child: Center(child: CircularProgressIndicator()),
                     )
+                  : users.isEmpty
+                  ? SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.person_off,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              "No ${currentTab.toString().split('.').last} users found",
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 16,
+                              ),
+                            ),
+                            if (searchQuery.isNotEmpty)
+                              TextButton(
+                                onPressed: () {
+                                  searchController.clear();
+                                  setState(() => searchQuery = "");
+                                  fetchUsers(page: 1);
+                                },
+                                child: const Text("Clear Search"),
+                              ),
+                          ],
+                        ),
+                      ),
+                    )
                   : SliverList(
                       delegate: SliverChildBuilderDelegate((context, i) {
-                        final user = filteredUsers[i];
+                        final user = users[i];
                         return _unifiedUserCard(user);
-                      }, childCount: filteredUsers.length),
+                      }, childCount: users.length),
                     ),
             ),
+
+            // Loading more indicator
+            if (isLoadingMore)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+
+            // Pagination controls at bottom
+            if (!loading &&
+                users.isNotEmpty &&
+                (hasNextPage || hasPreviousPage))
+              SliverToBoxAdapter(child: _paginationControls()),
+
+            // Bottom padding
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
           ],
         ),
       ),
@@ -174,8 +234,10 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
         style: const TextStyle(color: ColorConstants.black),
         onChanged: (value) {
           setState(() {
-            searchQuery = value.toLowerCase();
+            searchQuery = value.toLowerCase().trim();
           });
+          // Debounce search to avoid too many API calls
+          _debounceSearch();
         },
         decoration: InputDecoration(
           suffixIcon: searchQuery.isNotEmpty
@@ -184,10 +246,11 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                   onPressed: () {
                     searchController.clear();
                     setState(() => searchQuery = "");
+                    fetchUsers(page: 1); // Reset to page 1
                   },
                 )
               : null,
-          hintText: "Search by name",
+          hintText: "Search by name, email, or ID",
           hintStyle: const TextStyle(color: Colors.white),
           prefixIcon: const Icon(Icons.search, color: Colors.white),
           filled: true,
@@ -199,6 +262,149 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
         ),
       ),
     );
+  }
+
+  // Pagination info widget
+  Widget _paginationInfo() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 3,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            "Showing ${users.length} of $totalCount users",
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              color: ColorConstants.red,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: ColorConstants.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              "Page $currentPage of $totalPages",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: ColorConstants.red,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Pagination controls widget
+  Widget _paginationControls() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            spreadRadius: 1,
+            blurRadius: 5,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Previous button
+          _paginationArrowButton(
+            icon: Icons.chevron_left,
+            onPressed: hasPreviousPage ? loadPreviousPage : null,
+            enabled: hasPreviousPage,
+          ),
+
+          const SizedBox(width: 16),
+
+          // Page indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: ColorConstants.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              "$currentPage of $totalPages",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: ColorConstants.red,
+                fontSize: 16,
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 16),
+
+          // Next button
+          _paginationArrowButton(
+            icon: Icons.chevron_right,
+            onPressed: hasNextPage ? loadNextPage : null,
+            enabled: hasNextPage,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _paginationArrowButton({
+    required IconData icon,
+    required VoidCallback? onPressed,
+    required bool enabled,
+  }) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: enabled ? ColorConstants.red : Colors.grey[300],
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: ColorConstants.red.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Icon(
+          icon,
+          color: enabled ? Colors.white : Colors.grey[600],
+          size: 24,
+        ),
+      ),
+    );
+  }
+
+  Timer? _debounceTimer;
+  void _debounceSearch() {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      fetchUsers(page: 1); // Reset to page 1 on new search
+    });
   }
 
   Widget _tabs() {
@@ -226,7 +432,10 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
 
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => currentTab = tab),
+        onTap: () {
+          setState(() => currentTab = tab);
+          fetchUsers(page: 1); // Reset to page 1 on tab change
+        },
         child: Container(
           margin: const EdgeInsets.all(4),
           decoration: BoxDecoration(
@@ -246,8 +455,9 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     );
   }
 
-  void _openStatusModal(UserModel user, bool initialApprove) {
-    bool approveSelected = initialApprove;
+  void _openStatusModal(UserModel user, String initialStatus) {
+    String selectedStatus = initialStatus;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -274,7 +484,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
                   const Text(
                     "Update User Status",
                     style: TextStyle(
@@ -283,24 +492,35 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                   const SizedBox(height: 20),
+
                   _statusOption(
                     title: "Approve User",
                     subtitle: "Grants access to platform",
-                    selected: approveSelected,
+                    selected: selectedStatus == "approved",
                     color: Colors.green,
-                    onTap: () => setModalState(() => approveSelected = true),
+                    onTap: () =>
+                        setModalState(() => selectedStatus = "approved"),
                   ),
-
                   const SizedBox(height: 12),
 
                   _statusOption(
                     title: "Reject User",
                     subtitle: "Deny application",
-                    selected: !approveSelected,
+                    selected: selectedStatus == "rejected",
                     color: Colors.red,
-                    onTap: () => setModalState(() => approveSelected = false),
+                    onTap: () =>
+                        setModalState(() => selectedStatus = "rejected"),
+                  ),
+                  const SizedBox(height: 12),
+
+                  _statusOption(
+                    title: "Set as Pending",
+                    subtitle: "Move back to pending review",
+                    selected: selectedStatus == "pending",
+                    color: Colors.orange,
+                    onTap: () =>
+                        setModalState(() => selectedStatus = "pending"),
                   ),
 
                   const SizedBox(height: 24),
@@ -315,40 +535,50 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                     onPressed: () async {
                       Navigator.pop(context);
 
-                      final success = await apiService.carrierApproval(
+                      final success = await apiService.updateUserStatus(
                         userId: user.id,
-                        approve: approveSelected,
+                        status: selectedStatus,
                       );
 
-                      if (!success) return;
-
-                      setState(() {
-                        final index = users.indexWhere((u) => u.id == user.id);
-                        if (index != -1) {
-                          users[index] = users[index].copyWith(
-                            approvalStatus: approveSelected
-                                ? "approved"
-                                : "rejected",
+                      if (!success) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Failed to update user status"),
+                              backgroundColor: Colors.red,
+                            ),
                           );
                         }
+                        return;
+                      }
 
-                        currentTab = approveSelected
-                            ? UserTab.approved
-                            : UserTab.rejected;
-                      });
+                      // Refresh the current page
+                      await fetchUsers(page: currentPage);
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            approveSelected
-                                ? "User approved successfully"
-                                : "User rejected successfully",
+                      if (mounted) {
+                        String message;
+                        Color color;
+                        switch (selectedStatus) {
+                          case "approved":
+                            message = "User approved successfully";
+                            color = Colors.green;
+                            break;
+                          case "rejected":
+                            message = "User rejected successfully";
+                            color = Colors.red;
+                            break;
+                          default:
+                            message = "User status updated successfully";
+                            color = Colors.orange;
+                        }
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(message),
+                            backgroundColor: color,
                           ),
-                          backgroundColor: approveSelected
-                              ? Colors.green
-                              : Colors.red,
-                        ),
-                      );
+                        );
+                      }
                     },
                     child: const Text(
                       "Confirm Changes",
@@ -358,7 +588,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                       ),
                     ),
                   ),
-
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text(
@@ -375,121 +604,135 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     );
   }
 
-  Widget _unifiedUserCard(UserModel user) {
-    final status = user.approvalStatus.toLowerCase();
+Widget _unifiedUserCard(UserModel user) {
+  final status = user.approvalStatus.toLowerCase();
 
-    return GestureDetector(
-      onTap: () async {
-        final updatedStatus = await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => UserDetailScreen(user: user)),
-        );
+  return GestureDetector(
+    onTap: () async {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => UserDetailScreen(user: user)),
+      );
 
-        if (updatedStatus != null) {
-          fetchUsers();
-        }
-      },
-
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: BoxBorder.all(color: ColorConstants.bgred),
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              child: Icon(Icons.person),
-              backgroundColor: Colors.red.withOpacity(.15),
-            ),
-            const SizedBox(width: 12),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "${user.firstName} ${user.lastName}".toUpperCase(),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    "ID: ${user.id}",
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 3.5,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: status == "approved"
-                          ? Colors.green.withOpacity(.2)
-                          : status == "rejected"
-                          ? Colors.red.withOpacity(.2)
-                          : Colors.orange.withOpacity(.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      status.toUpperCase(),
-                      style: TextStyle(
-                        color: status == "approved"
-                            ? Colors.green
-                            : status == "rejected"
-                            ? Colors.red
-                            : Colors.orange,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (status == "pending") ...[
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                onPressed: () => _openStatusModal(user, true),
-                child: const Text(
-                  "APPROVE",
-                  style: TextStyle(color: ColorConstants.white),
-                ),
-              ),
-              const SizedBox(width: 6),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                onPressed: () => _openStatusModal(user, false),
-                child: const Text(
-                  "REJECT",
-                  style: TextStyle(color: ColorConstants.white),
-                ),
-              ),
-            ] else if (status == "approved") ...[
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                onPressed: () => _openStatusModal(user, false),
-                child: const Text(
-                  "REJECT",
-                  style: TextStyle(color: ColorConstants.white),
-                ),
-              ),
-            ] else if (status == "rejected") ...[
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                onPressed: () => _openStatusModal(user, true),
-                child: const Text(
-                  "APPROVE",
-                  style: TextStyle(color: ColorConstants.white),
-                ),
-              ),
-            ],
-          ],
-        ),
+      if (result != null) {
+        fetchUsers(page: currentPage); // Refresh current page
+      }
+    },
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ColorConstants.bgred),
       ),
-    );
-  }
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: Colors.red.withOpacity(.15),
+            child: const Icon(Icons.person),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "${user.firstName} ${user.lastName}".toUpperCase(),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  "ID: ${user.id}",
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                Text(
+                  user.email,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: status == "approved"
+                        ? Colors.green.withOpacity(.2)
+                        : status == "rejected"
+                            ? Colors.red.withOpacity(.2)
+                            : Colors.orange.withOpacity(.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    status.toUpperCase(),
+                    style: TextStyle(
+                      color: status == "approved"
+                          ? Colors.green
+                          : status == "rejected"
+                              ? Colors.red
+                              : Colors.orange,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Conditional button based on current tab
+          if (currentTab == UserTab.approved)
+            // For approved list - Show Reject button
+            _actionButton(
+              label: "REJECT",
+              color: Colors.red,
+              onPressed: () => _openStatusModal(user, status),
+            )
+          else if (currentTab == UserTab.pending)
+            // For pending list - Show Approve button
+            _actionButton(
+              label: "APPROVE",
+              color: Colors.green,
+              onPressed: () => _openStatusModal(user, status),
+            )
+          else if (currentTab == UserTab.rejected)
+            // For rejected list - Show Approve button
+            _actionButton(
+              label: "APPROVE",
+              color: Colors.green,
+              onPressed: () => _openStatusModal(user, status),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+// Helper method for action buttons
+Widget _actionButton({
+  required String label,
+  required Color color,
+  required VoidCallback onPressed,
+}) {
+  return ElevatedButton(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: color,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+    ),
+    onPressed: onPressed,
+    child: Text(
+      label,
+      style: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
+}
 
   Widget _statusOption({
     required String title,
@@ -517,22 +760,31 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
               color: color,
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                Text(subtitle, style: TextStyle(color: Colors.grey.shade400)),
-              ],
+                  Text(subtitle, style: TextStyle(color: Colors.grey.shade400)),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    searchController.dispose();
+    super.dispose();
   }
 }

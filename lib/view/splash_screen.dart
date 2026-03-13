@@ -58,61 +58,102 @@ class _SplashScreenState extends State<SplashScreen> {
         go(const ClientDashboard());
         break;
 
-      case "carrier":
-        final profile = await apiService.getMyProfile();
+      // In the carrier case of your switch statement:
 
-        final hasDocs = profile?.hasUploadedDocs ?? false;
-        final status = profile?.approvalStatus.toLowerCase();
+case "carrier":
+  final profile = await apiService.getMyProfile();
 
-        final activeOrderId = await ApiService.getActiveOrder();
-        final cachedOrder = await ApiService.getActiveOrderDetails();
+  final profileHasDocs = profile?.hasUploadedDocs ?? false;
 
-        if (cachedOrder != null && cachedOrder.id == activeOrderId) {
-          go(AcceptedOrderScreen(orderId: activeOrderId!, order: cachedOrder));
-          return;
-        }
+  bool apiHasDocs = false;
+  try {
+    apiHasDocs = await apiService.checkDocumentStatus();
+  } catch (_) {}
 
-        /// 1️⃣ No documents uploaded
-        if (!hasDocs) {
-          go(
-            CarrierUploadScreen(
-              registrationData: CarrierRegistrationData(
-                phone: profile!.phone,
-                firstname: profile.firstName,
-                lastname: profile.lastName,
-                email: profile.email,
-                userType: "carrier",
-                countryId: profile.countryId,
-                stateId: profile.stateId,
-                districtId: profile.districtId,
-                isExistingUser: true,
-              ),
-            ),
-          );
-          return;
-        }
+  final storedHasDocs = await ApiService.getHasUploadedDocs() ?? false;
 
-        /// 2️⃣ Documents uploaded but waiting approval
-        if (status == "pending") {
-          go(StatusPending(phone: profile!.phone));
-          return;
-        }
+  final hasDocs = profileHasDocs || apiHasDocs || storedHasDocs;
 
-        /// 3️⃣ Approved
-        if (status == "approved") {
-          go(const AccountApprovedScreen());
-          return;
-        }
+  // Start with profile status, then cached status, then live API
+  String status = profile?.approvalStatus.trim().toLowerCase() ?? "";
 
-        /// 4️⃣ Rejected
-        if (status == "rejected") {
-          go(const RejectedScreen());
-          return;
-        }
+  if (status.isEmpty) {
+    final cachedStatus = ApiService.approvalStatus;
+    if (cachedStatus != null && cachedStatus.trim().isNotEmpty) {
+      status = cachedStatus.trim().toLowerCase();
+    }
+  }
 
-        /// fallback
-        go(const CarrierDashboard());
-        break;
+  if (hasDocs && status.isEmpty) {
+    try {
+      final apiStatusRaw = await apiService.checkApprovalStatus();
+      if (apiStatusRaw != null && apiStatusRaw.trim().isNotEmpty) {
+        status = apiStatusRaw.trim().toLowerCase();
+        await ApiService.setApprovalStatus(status);
+      }
+    } catch (_) {}
+  }
+
+  final activeOrderId = await ApiService.getActiveOrder();
+  final cachedOrder = await ApiService.getActiveOrderDetails();
+
+  if (cachedOrder != null && cachedOrder.id == activeOrderId) {
+    go(AcceptedOrderScreen(orderId: activeOrderId!, order: cachedOrder));
+    return;
+  }
+
+  /// 1️⃣ No documents uploaded
+  if (!hasDocs) {
+    go(
+      CarrierUploadScreen(
+        registrationData: CarrierRegistrationData(
+          phone: profile!.phone,
+          firstname: profile.firstName,
+          lastname: profile.lastName,
+          email: profile.email,
+          userType: "carrier",
+          countryId: profile.countryId,
+          stateId: profile.stateId,
+          districtId: profile.districtId,
+          isExistingUser: true,
+        ),
+      ),
+    );
+    return;
+  }
+
+  /// 2️⃣ Documents uploaded but waiting approval
+  if (status == "pending") {
+    go(StatusPending(phone: profile!.phone));
+    return;
+  }
+
+  /// 3️⃣ Approved
+  if (status == "approved") {
+    // Check from server if user has seen approval screen
+    final hasSeen = await apiService.hasUserSeenApprovalScreen();
+    
+    if (!hasSeen) {
+      go(const AccountApprovedScreen());
+    } else {
+      go(const CarrierDashboard());
+    }
+    return;
+  }
+
+  /// 4️⃣ Rejected
+  if (status == "rejected") {
+    go(const RejectedScreen());
+    return;
+  }
+
+  /// fallback → docs exist but status unknown → treat as pending
+  if (hasDocs) {
+    go(StatusPending(phone: profile!.phone));
+  } else {
+    go(const CarrierDashboard());
+  }
+  break;
     }
   }
 
