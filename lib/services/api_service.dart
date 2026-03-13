@@ -31,24 +31,6 @@ class ApiService {
     await prefs.setString('approval_status', status);
   }
 
-  // Track whether carrier approval screen has already been shown once
-  static bool hasSeenCarrierApprovedScreen = false;
-  static const String _carrierApprovedSeenKey = 'carrier_approved_seen';
-
-  static Future<void> setCarrierApprovedSeen(bool value) async {
-    hasSeenCarrierApprovedScreen = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_carrierApprovedSeenKey, value);
-  }
-
-  static Future<bool> getCarrierApprovedSeen() async {
-    if (hasSeenCarrierApprovedScreen) return true;
-    final prefs = await SharedPreferences.getInstance();
-    hasSeenCarrierApprovedScreen =
-        prefs.getBool(_carrierApprovedSeenKey) ?? false;
-    return hasSeenCarrierApprovedScreen;
-  }
-
   static bool sessionLoaded = false;
 
   static String? accessToken;
@@ -103,13 +85,46 @@ class ApiService {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
 
+    // Core session keys
     await prefs.remove('accessToken');
     await prefs.remove('user_type');
     await prefs.remove('approval_status');
     await prefs.remove('phone');
     await prefs.remove('first_time');
-    await prefs.remove(_hasUploadedDocsKey); // Add this line
+    await prefs.remove(_hasUploadedDocsKey);
     await prefs.remove('has_seen_approval');
+
+    // App cached IDs / selections
+    await prefs.remove('user_id');
+    await prefs.remove('country');
+    await prefs.remove('state');
+    await prefs.remove('district');
+
+    // Order / carrier caches
+    await prefs.remove('pickup_carrier_id');
+    await prefs.remove('active_order_id');
+    await prefs.remove('active_order_details');
+
+    // Remove per-order cached keys that can accumulate
+    final keys = prefs.getKeys();
+    final keysToRemove = <String>[];
+    for (final k in keys) {
+      final isPerOrderCarrierId =
+          k.startsWith('order_') && k.endsWith('_carrier_id');
+      final isOrderStatusFlag =
+          k.startsWith('arrived_') ||
+          k.startsWith('otp_sent_') ||
+          k.startsWith('verified_') ||
+          k.startsWith('delivery_arrived_') ||
+          k.startsWith('delivery_otp_sent_') ||
+          k.startsWith('delivery_verified_');
+      if (isPerOrderCarrierId || isOrderStatusFlag) {
+        keysToRemove.add(k);
+      }
+    }
+    for (final k in keysToRemove) {
+      await prefs.remove(k);
+    }
 
     accessToken = null;
     userType = null;
@@ -118,6 +133,7 @@ class ApiService {
     isFirstTime = null;
     hasUploadedDocs = null; // Add this line
     _hasSeenApprovalScreen = null; 
+    sessionLoaded = false;
   }
 
   // Add a method to check document status from API
@@ -2114,53 +2130,7 @@ static Future<bool?> getApprovalScreenSeen() async {
     }
   }
 
-  Future<void> debugCheckAvailablePickups() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseurl/api/qdel/carrier/active-pickups/'),
-        headers: {
-          "Authorization": "Bearer ${ApiService.accessToken}",
-          "Content-Type": "application/json",
-        },
-      );
-
-      logger.i("📋 ACTIVE PICKUPS STATUS: ${response.statusCode}");
-      logger.i("📋 ACTIVE PICKUPS RESPONSE: ${response.body}");
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        logger.i("✅ Active pickups data: $data");
-      } else {
-        logger.w("⚠️ Could not fetch active pickups");
-      }
-    } catch (e) {
-      logger.e("Debug check failed: $e");
-    }
-  }
-
-  Future<void> debugCheckMyAcceptedOrders() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseurl/api/qdel/carrier/my-accepted-orders/'),
-        headers: {
-          "Authorization": "Bearer ${ApiService.accessToken}",
-          "Content-Type": "application/json",
-        },
-      );
-
-      logger.i("📋 MY ACCEPTED ORDERS STATUS: ${response.statusCode}");
-      logger.i("📋 MY ACCEPTED ORDERS RESPONSE: ${response.body}");
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        logger.i("✅ My accepted orders: $data");
-      } else {
-        logger.w("⚠️ Could not fetch my accepted orders");
-      }
-    } catch (e) {
-      logger.e("Debug check failed: $e");
-    }
-  }
+  // (removed unused debug helpers)
 
   Future<Map<String, dynamic>?> sendPickupOtp({
     required int pickupCarrierId,
@@ -2726,11 +2696,6 @@ static Future<bool?> getApprovalScreenSeen() async {
     }
   }
 
-  static int? _savedPickupCarrierId;
-
-  Future<int?> getSavedPickupCarrierId() async {
-    return _savedPickupCarrierId;
-  }
 
   static Future<void> savePickupCarrierIdForOrder(
     int orderId,

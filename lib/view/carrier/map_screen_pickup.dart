@@ -42,8 +42,8 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
           });
 
           try {
-            // Get saved pickup_carrier_id
-            int? pickupCarrierId = await ApiService().getSavedPickupCarrierId();
+            // Get saved pickup_carrier_id (set after accepting an order)
+            int? pickupCarrierId = await ApiService.getPickupCarrierId();
 
             if (pickupCarrierId == null) {
               logger.w("⚠️ pickupCarrierId not available yet");
