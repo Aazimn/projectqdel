@@ -112,21 +112,19 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     }
   }
 
-  // Update loadNextPage to not use isLoadMore
   void loadNextPage() {
     if (hasNextPage && !isLoadingMore) {
-      fetchUsers(page: currentPage + 1, isLoadMore: false); // Changed to false
+      fetchUsers(page: currentPage + 1, isLoadMore: false); 
     }
   }
 
-  // Update loadPreviousPage to not use isLoadMore
+
   void loadPreviousPage() {
     if (hasPreviousPage && !isLoadingMore) {
-      fetchUsers(page: currentPage - 1, isLoadMore: false); // Changed to false
+      fetchUsers(page: currentPage - 1, isLoadMore: false); 
     }
   }
 
-  // Go to specific page
   void goToPage(int page) {
     if (page >= 1 && page <= totalPages && page != currentPage) {
       fetchUsers(page: page);

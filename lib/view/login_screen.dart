@@ -16,11 +16,12 @@ class _LoginScreenState extends State<LoginScreen> {
   String lang = "English";
   ApiService apiService = ApiService();
   bool isValidPhone = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
-    super.dispose();
     phonectrl.dispose();
+    super.dispose();
   }
 
   // Simple dummy country codes - no API needed
@@ -58,28 +59,89 @@ class _LoginScreenState extends State<LoginScreen> {
     fetchCountries(); // Optional: keep if needed elsewhere
   }
 
-  Future<bool> _login() async {
-    if (_formkey.currentState!.validate()) {
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        action: isError ? SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {},
+        ) : null,
+      ),
+    );
+  }
+
+  Future<void> _login() async {
+    // Check if mounted before proceeding
+    if (!mounted) return;
+
+    // Validate form
+    if (!_formkey.currentState!.validate()) {
+      return;
+    }
+
+    // Check if phone number is valid
+    if (phonectrl.text.trim().length != 10) {
+      _showSnackBar("Please enter a valid 10-digit phone number", isError: true);
+      return;
+    }
+
+    // Set loading state
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Call login API
       bool status = await apiService.login(phone: phonectrl.text.trim());
+
+      // Check if widget is still mounted
+      if (!mounted) return;
+
       if (status) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Success")));
+        // Show success message
+        _showSnackBar("OTP sent successfully!");
+        
+        // Navigate to OTP screen
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => OtpScreen(phone: phonectrl.text.trim()),
           ),
         );
-        return true;
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("failed")));
-        return false;
+        // Check for rate limiting or other errors
+        _showSnackBar(
+          "Failed to send OTP. Please try again later.",
+          isError: true,
+        );
+      }
+    } catch (e) {
+      // Handle any exceptions
+      if (!mounted) return;
+      
+      String errorMessage = "An error occurred. Please try again.";
+      
+      // Check for rate limiting (status code 429)
+      if (e.toString().contains("429") || e.toString().contains("rate limit")) {
+        errorMessage = "Too many attempts. Please wait before requesting OTP again.";
+      }
+      
+      _showSnackBar(errorMessage, isError: true);
+    } finally {
+      // Reset loading state if widget is still mounted
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
-    return false;
   }
 
   @override
@@ -191,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                if (isValidPhone)
+                if (isValidPhone && !_isLoading)
                   Center(
                     child: GestureDetector(
                       onTap: _login,
@@ -212,6 +274,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
+                    ),
+                  ),
+                if (_isLoading)
+                  const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
                     ),
                   ),
               ],
@@ -281,6 +349,15 @@ class _LoginScreenState extends State<LoginScreen> {
           hintStyle: TextStyle(color: Colors.grey),
         ),
         onChanged: (v) => setState(() => isValidPhone = v.length == 10),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please enter phone number';
+          }
+          if (value.length != 10) {
+            return 'Phone number must be 10 digits';
+          }
+          return null;
+        },
       ),
     );
   }

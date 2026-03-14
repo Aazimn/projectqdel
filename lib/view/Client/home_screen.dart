@@ -36,11 +36,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   }
 
   Future<void> _loadAll() async {
-    await Future.wait([
-      _loadProfile(),
-      _loadCounts(),
-      _loadActiveOrders(),
-    ]);
+    await Future.wait([_loadProfile(), _loadCounts(), _loadActiveOrders()]);
   }
 
   Future<void> _onRefresh() async => _loadAll();
@@ -69,10 +65,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         _api.getAcceptedOrders(page: 1, status: 'completed'),
       ]);
       setState(() {
-        pendingCount   = _extractCount(results[0]);
-        activeCount    = _extractCount(results[1]);
+        pendingCount = _extractCount(results[0]);
+        activeCount = _extractCount(results[1]);
         completedCount = _extractCount(results[2]);
-        countsLoading  = false;
+        countsLoading = false;
       });
     } catch (e) {
       print('❌ Count load error: $e');
@@ -124,10 +120,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ClientDashboard(
-          initialIndex: 2,      
-          ordersInitialTab: tab, 
-        ),
+        builder: (_) => ClientDashboard(initialIndex: 2, ordersInitialTab: tab),
       ),
     );
   }
@@ -300,8 +293,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             if (!activeOrdersLoading && activeCount > 0)
               TextButton(
                 onPressed: () => _navigateToOrdersTab(1),
-                child: const Text('View All',
-                    style: TextStyle(color: Colors.red)),
+                child: const Text(
+                  'View All',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
           ],
         ),
@@ -349,8 +344,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         children: [
           Icon(Icons.inbox, size: 50, color: Colors.grey.shade400),
           const SizedBox(height: 10),
-          Text('No active orders',
-              style: TextStyle(color: Colors.grey.shade600)),
+          Text(
+            'No active orders',
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
         ],
       ),
     );
@@ -393,7 +390,11 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, Colors.red.withOpacity(0.5)],
+        ),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: statusColor.withOpacity(0.4)),
         boxShadow: [
@@ -436,20 +437,26 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                     Text(
                       orderId,
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       productName,
                       style: TextStyle(
-                          color: Colors.grey.shade600, fontSize: 12),
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),

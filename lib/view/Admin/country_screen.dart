@@ -27,7 +27,7 @@ class _CountryScreenState extends State<CountryScreen> {
   bool _hasMorePages = true;
   // ignore: unused_field
   bool _isLoadingMore = false;
-  final int _itemsPerPage = 3;
+  final int _itemsPerPage = 10;
 
   bool _isLoadingPrevious = false;
   bool _isLoadingNext = false;

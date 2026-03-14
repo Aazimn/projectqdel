@@ -30,7 +30,7 @@ class _StateScreenState extends State<StateScreen> {
   int _totalPages = 1;
   int _totalItems = 0;
   bool _hasMorePages = true;
-  final int _itemsPerPage = 3;
+  final int _itemsPerPage = 10;
 
   bool _isLoadingPrevious = false;
   bool _isLoadingNext = false;

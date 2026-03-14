@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/view/Carrier/carrier_homescreen.dart';
 import 'package:projectqdel/view/Carrier/carrier_settings.dart';
 import 'package:projectqdel/view/Carrier/dashboard.dart';
@@ -14,12 +15,24 @@ class CarrierDashboard extends StatefulWidget {
 class _CarrierDashboardState extends State<CarrierDashboard> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = const [
-    CarrierHomeScreen(),
-    CarrierMapScreen(),
-    Dashboard(),
-    CarrierSettings(),
-  ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      CarrierHomeScreen(
+        onNavigateToIndex: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+      ),
+      const CarrierMapScreen(),
+      const Dashboard(),
+      const CarrierSettings(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,9 +41,10 @@ class _CarrierDashboardState extends State<CarrierDashboard> {
 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
+        backgroundColor: ColorConstants.red,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.red,
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: Colors.black,
+        unselectedItemColor: Colors.white,
         onTap: (index) {
           setState(() {
             _currentIndex = index;
@@ -38,7 +52,10 @@ class _CarrierDashboardState extends State<CarrierDashboard> {
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: 'Orders'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.offline_bolt_rounded),
+            label: 'Orders',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
             label: 'Dashboard',

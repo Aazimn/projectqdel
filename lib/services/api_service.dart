@@ -3,8 +3,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:logger/logger.dart';
+import 'package:projectqdel/model/carrier_orders.dart';
 import 'package:projectqdel/model/order_model.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,7 +15,7 @@ class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
   final String baseurl =
-      "https://ends-programmers-coating-hardcover.trycloudflare.com";
+      "https://accessing-ntsc-most-economies.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -76,7 +78,7 @@ class ApiService {
     phone = prefs.getString('phone');
     isFirstTime = prefs.getBool('first_time');
     hasUploadedDocs = prefs.getBool(_hasUploadedDocsKey); // Add this line
-       _hasSeenApprovalScreen = prefs.getBool('has_seen_approval');
+    _hasSeenApprovalScreen = prefs.getBool('has_seen_approval');
 
     sessionLoaded = true;
   }
@@ -132,7 +134,7 @@ class ApiService {
     phone = null;
     isFirstTime = null;
     hasUploadedDocs = null; // Add this line
-    _hasSeenApprovalScreen = null; 
+    _hasSeenApprovalScreen = null;
     sessionLoaded = false;
   }
 
@@ -481,8 +483,7 @@ class ApiService {
     int pageSize = 10, // Add this parameter
   }) async {
     try {
-      String urlString =
-          "$baseurl/api/qdel/admin/users/$status/";
+      String urlString = "$baseurl/api/qdel/admin/users/$status/";
 
       final queryParams = <String, String>{};
       if (searchQuery != null && searchQuery.isNotEmpty) {
@@ -601,7 +602,6 @@ class ApiService {
     await prefs.setBool('first_time', false);
     isFirstTime = false;
   }
-
 
   Future<bool> carrierApproval({
     required int userId,
@@ -932,105 +932,104 @@ class ApiService {
     }
   }
 
-static bool? _hasSeenApprovalScreen;
+  static bool? _hasSeenApprovalScreen;
 
-/// Call this when user views the approval screen for the first time
-Future<bool> markApprovalScreenSeen() async {
-  try {
-    final url = Uri.parse("$baseurl/api/qdel/user/click/update/");
-    
-    // POST request to set is_clicked = true
-    final response = await http.post(
-      url,
-      headers: {
-        "Authorization": "Bearer ${ApiService.accessToken}",
-        "Content-Type": "application/json",
-      },
-    );
+  /// Call this when user views the approval screen for the first time
+  Future<bool> markApprovalScreenSeen() async {
+    try {
+      final url = Uri.parse("$baseurl/api/qdel/user/click/update/");
 
-    logger.i("MARK APPROVAL SEEN STATUS :: ${response.statusCode}");
-    logger.i("MARK APPROVAL SEEN BODY :: ${response.body}");
+      // POST request to set is_clicked = true
+      final response = await http.post(
+        url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      // Update local cache
-      await ApiService.setApprovalScreenSeen(true);
-      return true;
+      logger.i("MARK APPROVAL SEEN STATUS :: ${response.statusCode}");
+      logger.i("MARK APPROVAL SEEN BODY :: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Update local cache
+        await ApiService.setApprovalScreenSeen(true);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      logger.e("MARK APPROVAL SEEN ERROR => $e");
+      return false;
     }
-    return false;
-  } catch (e) {
-    logger.e("MARK APPROVAL SEEN ERROR => $e");
-    return false;
   }
-}
 
-/// Check if user has already seen the approval screen
-Future<bool> hasUserSeenApprovalScreen() async {
-  try {
-    // First check local cache for immediate response
-    if (_hasSeenApprovalScreen != null) {
-      return _hasSeenApprovalScreen!;
-    }
+  /// Check if user has already seen the approval screen
+  Future<bool> hasUserSeenApprovalScreen() async {
+    try {
+      // First check local cache for immediate response
+      if (_hasSeenApprovalScreen != null) {
+        return _hasSeenApprovalScreen!;
+      }
 
-    // Fetch from server using GET endpoint
-    final url = Uri.parse("$baseurl/api/qdel/user/click/update/");
-    
-    final response = await http.get(
-      url,
-      headers: {
-        "Authorization": "Bearer ${ApiService.accessToken}",
-        "Content-Type": "application/json",
-      },
-    );
+      // Fetch from server using GET endpoint
+      final url = Uri.parse("$baseurl/api/qdel/user/click/update/");
 
-    logger.i("CHECK APPROVAL SEEN STATUS :: ${response.statusCode}");
-    logger.i("CHECK APPROVAL SEEN BODY :: ${response.body}");
+      final response = await http.get(
+        url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final hasSeen = data['is_clicked'] ?? false;
-      
-      // Update local cache
-      await ApiService.setApprovalScreenSeen(hasSeen);
-      return hasSeen;
+      logger.i("CHECK APPROVAL SEEN STATUS :: ${response.statusCode}");
+      logger.i("CHECK APPROVAL SEEN BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final hasSeen = data['is_clicked'] ?? false;
+
+        // Update local cache
+        await ApiService.setApprovalScreenSeen(hasSeen);
+        return hasSeen;
+      }
+
+      // If server request fails, fall back to local storage
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getBool('has_seen_approval');
+      if (cached != null) {
+        _hasSeenApprovalScreen = cached;
+        return cached;
+      }
+
+      return false;
+    } catch (e) {
+      logger.e("CHECK APPROVAL SEEN ERROR => $e");
+
+      // Fall back to local storage on error
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getBool('has_seen_approval');
+      if (cached != null) {
+        _hasSeenApprovalScreen = cached;
+        return cached;
+      }
+      return false;
     }
-    
-    // If server request fails, fall back to local storage
-    final prefs = await SharedPreferences.getInstance();
-    final cached = prefs.getBool('has_seen_approval');
-    if (cached != null) {
-      _hasSeenApprovalScreen = cached;
-      return cached;
-    }
-    
-    return false;
-  } catch (e) {
-    logger.e("CHECK APPROVAL SEEN ERROR => $e");
-    
-    // Fall back to local storage on error
-    final prefs = await SharedPreferences.getInstance();
-    final cached = prefs.getBool('has_seen_approval');
-    if (cached != null) {
-      _hasSeenApprovalScreen = cached;
-      return cached;
-    }
-    return false;
   }
-}
 
-static Future<void> setApprovalScreenSeen(bool value) async {
-  _hasSeenApprovalScreen = value;
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('has_seen_approval', value);
-}
+  static Future<void> setApprovalScreenSeen(bool value) async {
+    _hasSeenApprovalScreen = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('has_seen_approval', value);
+  }
 
-static Future<bool?> getApprovalScreenSeen() async {
-  if (_hasSeenApprovalScreen != null) return _hasSeenApprovalScreen;
-  
-  final prefs = await SharedPreferences.getInstance();
-  _hasSeenApprovalScreen = prefs.getBool('has_seen_approval');
-  return _hasSeenApprovalScreen;
-}
+  static Future<bool?> getApprovalScreenSeen() async {
+    if (_hasSeenApprovalScreen != null) return _hasSeenApprovalScreen;
 
+    final prefs = await SharedPreferences.getInstance();
+    _hasSeenApprovalScreen = prefs.getBool('has_seen_approval');
+    return _hasSeenApprovalScreen;
+  }
 
   Future<bool> uploadCarrierDocument({
     required File document,
@@ -1068,7 +1067,8 @@ static Future<bool?> getApprovalScreenSeen() async {
       /// FORM FIELDS
       if (countryId != null) request.fields["country"] = countryId.toString();
       if (stateId != null) request.fields["state"] = stateId.toString();
-      if (districtId != null) request.fields["district"] = districtId.toString();
+      if (districtId != null)
+        request.fields["district"] = districtId.toString();
 
       logger.i("📨 REQUEST FIELDS → ${request.fields}");
 
@@ -2696,7 +2696,6 @@ static Future<bool?> getApprovalScreenSeen() async {
     }
   }
 
-
   static Future<void> savePickupCarrierIdForOrder(
     int orderId,
     int pickupCarrierId,
@@ -2710,4 +2709,224 @@ static Future<bool?> getApprovalScreenSeen() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt("order_${orderId}_carrier_id");
   }
+
+  Future<Map<String, dynamic>> getCarrierCompletedOrders({
+    int? page,
+    String? search,
+    DateTime? startDate,
+    DateTime? endDate,
+    int pageSize = 10,
+  }) async {
+    try {
+      String urlString = "$baseurl/api/qdel/carrier/dashboard/";
+      final queryParams = <String>[];
+
+      if (page != null) {
+        queryParams.add("page=$page");
+      }
+      if (search != null && search.isNotEmpty) {
+        queryParams.add("search=$search");
+      }
+      // Add date filters
+      if (startDate != null) {
+        final formattedDate = DateFormat('yyyy-MM-dd').format(startDate);
+        queryParams.add("start_date=$formattedDate");
+      }
+      if (endDate != null) {
+        final formattedDate = DateFormat('yyyy-MM-dd').format(endDate);
+        queryParams.add("end_date=$formattedDate");
+      }
+      queryParams.add("page_size=$pageSize");
+
+      if (queryParams.isNotEmpty) {
+        urlString += "?" + queryParams.join("&");
+      }
+
+      final uri = Uri.parse(urlString);
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      logger.i("📡 FETCHING CARRIER COMPLETED ORDERS - URL: $urlString");
+
+      final response = await http.get(uri, headers: headers);
+
+      logger.i("📦 CARRIER COMPLETED ORDERS STATUS :: ${response.statusCode}");
+      logger.i("📦 CARRIER COMPLETED ORDERS BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+        List<CompletedOrder> orders = [];
+
+        // Parse results from the paginated response
+        if (jsonResponse.containsKey('results') &&
+            jsonResponse['results'] is List) {
+          orders = (jsonResponse['results'] as List)
+              .map((json) => CompletedOrder.fromJson(json))
+              .toList();
+        }
+
+        // Get pagination metadata
+        int totalCount = jsonResponse['count'] ?? 0;
+        String? nextUrl = jsonResponse['next'];
+        String? previousUrl = jsonResponse['previous'];
+
+        // Determine if there are more pages
+        bool hasNext = nextUrl != null && nextUrl.isNotEmpty;
+        bool hasPrevious = previousUrl != null && previousUrl.isNotEmpty;
+
+        // Calculate total pages
+        int totalPages = (totalCount / pageSize).ceil();
+
+        logger.i("✅ Successfully fetched ${orders.length} completed orders");
+        logger.i("📊 Page ${page ?? 1} of $totalPages (Total: $totalCount)");
+        logger.i("📊 Has Next: $hasNext, Has Previous: $hasPrevious");
+
+        return {
+          'orders': orders,
+          'hasNext': hasNext,
+          'hasPrevious': hasPrevious,
+          'totalPages': totalPages,
+          'currentPage': page ?? 1,
+          'count': totalCount,
+          'nextUrl': nextUrl,
+          'previousUrl': previousUrl,
+        };
+      } else if (response.statusCode == 401) {
+        logger.e("❌ Unauthorized - Token expired or invalid");
+        throw Exception("Unauthorized - Please login again");
+      } else {
+        logger.e("❌ Failed to fetch completed orders: ${response.statusCode}");
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            'orders': [],
+            'hasNext': false,
+            'hasPrevious': false,
+            'totalPages': 1,
+            'currentPage': page ?? 1,
+            'count': 0,
+            'error':
+                errorData['detail'] ??
+                errorData['message'] ??
+                'Failed to fetch completed orders',
+          };
+        } catch (_) {
+          return {
+            'orders': [],
+            'hasNext': false,
+            'hasPrevious': false,
+            'totalPages': 1,
+            'currentPage': page ?? 1,
+            'count': 0,
+            'error':
+                'Failed to fetch completed orders with status ${response.statusCode}',
+          };
+        }
+      }
+    } catch (e) {
+      logger.e("🔥 CARRIER COMPLETED ORDERS ERROR => $e");
+      return {
+        'orders': [],
+        'hasNext': false,
+        'hasPrevious': false,
+        'totalPages': 1,
+        'currentPage': page ?? 1,
+        'count': 0,
+        'error': 'Exception: $e',
+      };
+    }
+  }
+
+  // Add this method to your ApiService class
+  // In your ApiService class
+  Future<CompletedOrder?> getCarrierOrderDetail(int id) async {
+    try {
+      final url = Uri.parse("$baseurl/api/qdel/carrier/dashboard/detail/$id/");
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      logger.i("📡 FETCHING CARRIER ORDER DETAIL - URL: $url");
+
+      final response = await http.get(url, headers: headers);
+
+      logger.i("📦 CARRIER ORDER DETAIL STATUS :: ${response.statusCode}");
+      logger.i("📦 CARRIER ORDER DETAIL BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+        // Based on your response, the detail might be in 'results' array
+        if (jsonResponse.containsKey('results') &&
+            jsonResponse['results'] is List) {
+          final results = jsonResponse['results'] as List;
+          if (results.isNotEmpty) {
+            return CompletedOrder.fromJson(results.first);
+          }
+        } else {
+          // If it returns a single object directly
+          return CompletedOrder.fromJson(jsonResponse);
+        }
+      }
+      return null;
+    } catch (e) {
+      logger.e("🔥 CARRIER ORDER DETAIL ERROR => $e");
+      return null;
+    }
+  }
+
+  // Add this method to your ApiService class
+// In your ApiService class
+Future<Map<String, dynamic>> getCarrierDashboardCounts() async {
+  try {
+    final url = Uri.parse("$baseurl/api/qdel/carrier/dashboard/count/");
+    final headers = {
+      "Authorization": "Bearer ${ApiService.accessToken}",
+      "Content-Type": "application/json",
+    };
+    
+    logger.i("📡 FETCHING CARRIER DASHBOARD COUNTS - URL: $url");
+    logger.i("📡 HEADERS: $headers");
+    
+    final response = await http.get(url, headers: headers);
+    
+    logger.i("📦 CARRIER DASHBOARD COUNTS STATUS :: ${response.statusCode}");
+    logger.i("📦 CARRIER DASHBOARD COUNTS BODY :: ${response.body}");
+    
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(response.body);
+      logger.i("✅ Successfully parsed counts: $data");
+      
+      return {
+        'totalCompleted': data['total_completed_count'] ?? 0,
+        'todayCompleted': data['today_completed_count'] ?? 0,
+        'success': true,
+      };
+    } else {
+      logger.e("❌ Failed to fetch dashboard counts: ${response.statusCode}");
+      logger.e("❌ Response body: ${response.body}");
+      
+      return {
+        'totalCompleted': 0,
+        'todayCompleted': 0,
+        'success': false,
+        'error': 'Failed to load counts: ${response.statusCode}',
+      };
+    }
+  } catch (e) {
+    logger.e("🔥 CARRIER DASHBOARD COUNTS ERROR => $e");
+    return {
+      'totalCompleted': 0,
+      'todayCompleted': 0,
+      'success': false,
+      'error': 'Exception: $e',
+    };
+  }
+}
+
 }
