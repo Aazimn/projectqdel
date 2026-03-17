@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:projectqdel/view/Admin/admin_profile.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 
 class AdminSettingsScreen extends StatelessWidget {
@@ -29,7 +30,12 @@ class AdminSettingsScreen extends StatelessWidget {
             icon: Icons.person,
             title: "Profile",
             subtitle: "View & update admin profile",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AdminProfileScreen()),
+              );
+            },
           ),
           _settingsCard(
             icon: Icons.lock,
@@ -126,7 +132,7 @@ class AdminSettingsScreen extends StatelessWidget {
             border: Border.all(
               color: isDestructive
                   ? Colors.red.withOpacity(.4)
-                  : ColorConstants.bgred,
+                  : ColorConstants.grey,
             ),
             boxShadow: [
               BoxShadow(
@@ -158,13 +164,7 @@ class AdminSettingsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    Text(title, style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,

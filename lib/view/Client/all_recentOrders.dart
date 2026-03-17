@@ -395,7 +395,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     final bool showPagination = _currentTotalPages > 1;
-    
+
     return Scaffold(
       backgroundColor: ColorConstants.white,
       body: LiquidPullToRefresh(
@@ -409,7 +409,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           slivers: [
             // Top spacing
             const SliverToBoxAdapter(child: SizedBox(height: 50)),
-            
+
             // Main content with padding
             SliverPadding(
               padding: const EdgeInsets.all(16),
@@ -422,62 +422,72 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                 ]),
               ),
             ),
-            
+
             // Orders list with pagination at the bottom
             _isLoadingCurrent && _currentOrders.isEmpty
                 ? const SliverFillRemaining(
                     child: Center(
                       child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(ColorConstants.red),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          ColorConstants.red,
+                        ),
                       ),
                     ),
                   )
                 : _currentOrders.isEmpty && !_isLoadingCurrent
-                    ? SliverFillRemaining(
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.inbox, size: 80, color: Colors.grey.shade400),
-                              const SizedBox(height: 16),
-                              Text(
-                                _currentSearch.isNotEmpty
-                                    ? "No orders matching '$_currentSearch'"
-                                    : _emptyMessage,
-                                style: const TextStyle(fontSize: 18, color: Colors.grey),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                ? SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.inbox,
+                            size: 80,
+                            color: Colors.grey.shade400,
                           ),
-                        ),
-                      )
-                    : SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              // Show order cards
-                              if (index < _currentOrders.length) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 16),
-                                  child: _orderCardFromApi(_currentOrders[index]),
-                                );
-                              } 
-                              // Show pagination after the last order
-                              else if (index == _currentOrders.length && showPagination) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 8, bottom: 20),
-                                  child: _buildPaginationInList(),
-                                );
-                              }
-                              return null;
-                            },
-                            childCount: _currentOrders.length + (showPagination ? 1 : 0),
+                          const SizedBox(height: 16),
+                          Text(
+                            _currentSearch.isNotEmpty
+                                ? "No orders matching '$_currentSearch'"
+                                : _emptyMessage,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                        ),
+                        ],
                       ),
-            
-            // Bottom spacing
+                    ),
+                  )
+                : SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          if (index < _currentOrders.length) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _orderCardFromApi(_currentOrders[index]),
+                            );
+                          } else if (index == _currentOrders.length &&
+                              showPagination) {
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                top: 8,
+                                bottom: 20,
+                              ),
+                              child: _buildPaginationInList(),
+                            );
+                          }
+                          return null;
+                        },
+                        childCount:
+                            _currentOrders.length + (showPagination ? 1 : 0),
+                      ),
+                    ),
+                  ),
+
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
           ],
         ),
@@ -502,11 +512,55 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     );
   }
 
+  // Widget _tabItem(String title, int index) {
+  //   final bool isSelected = _selectedTab == index;
+  //   return Expanded(
+  //     child: GestureDetector(
+  //       onTap: () => setState(() => _selectedTab = index),
+  //       child: Container(
+  //         padding: const EdgeInsets.symmetric(vertical: 10),
+  //         decoration: BoxDecoration(
+  //           color: isSelected ? Colors.white : Colors.transparent,
+  //           borderRadius: BorderRadius.circular(12),
+  //         ),
+  //         child: Center(
+  //           child: Text(
+  //             title,
+  //             style: TextStyle(
+  //               fontWeight: FontWeight.w600,
+  //               fontSize: 13,
+  //               color: isSelected ? Colors.black : Colors.white,
+  //             ),
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+
   Widget _tabItem(String title, int index) {
     final bool isSelected = _selectedTab == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedTab = index),
+        onTap: () async {
+          // Only do something if switching to a different tab
+          if (_selectedTab != index) {
+            setState(() => _selectedTab = index);
+
+            // Refresh the newly selected tab's data
+            switch (index) {
+              case 0: // Searching
+                await _fetchSearching(page: 1, search: searchingSearch);
+                break;
+              case 1: // On-going
+                await _fetchOngoing(page: 1, search: ongoingSearch);
+                break;
+              case 2: // Completed
+                await _fetchCompleted(page: 1, search: completedSearch);
+                break;
+            }
+          }
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
@@ -559,7 +613,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   Widget _buildPaginationInList() {
     final bool hasNext = _currentPage < _currentTotalPages;
     final bool hasPrev = _currentPage > 1;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -575,7 +629,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       ),
       child: Column(
         children: [
-          // Page info
           Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -592,8 +645,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               ),
             ),
           ),
-          
-          // Navigation buttons
+
           Row(
             children: [
               Expanded(
@@ -618,16 +670,12 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               ),
             ],
           ),
-          
-          // Total count
+
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Text(
               'Total $_currentTotalCount orders',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ),
         ],
@@ -677,10 +725,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (isNext) ...[
-                  const SizedBox(width: 8),
-                  Icon(icon, size: 18),
-                ],
+                if (isNext) ...[const SizedBox(width: 8), Icon(icon, size: 18)],
               ],
             ),
     );
@@ -699,7 +744,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     switch (resolvedState) {
       case 'searching':
         statusText = 'SEARCHING';
-        statusColor = const Color.fromARGB(255, 3, 159, 42);
+        statusColor = Colors.orange;
         break;
       case 'pending':
         statusText = 'GOING TO PICKUP';
@@ -974,13 +1019,8 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.red.withOpacity(0.5), Colors.white],
-        ),
+        border: BoxBorder.all(color: ColorConstants.grey),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: ColorConstants.red, width: 2),
       ),
       child: child,
     );

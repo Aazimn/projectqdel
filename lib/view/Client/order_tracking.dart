@@ -7,20 +7,7 @@ import 'package:projectqdel/services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart' as launcher;
 import 'package:logger/logger.dart';
 
-/// OrderTrackingScreen — customer-facing live tracking view.
-///
-/// Root-cause fixes applied:
-/// 1. `pickup_carrier_id` is now extracted from multiple fallback locations
-///    in orderData, and if still missing, fetched fresh from the API.
-/// 2. The map shows a real-time moving marker (flutter_map + OpenStreetMap)
-///    that updates every 10 s without rebuilding the entire screen.
-/// 3. The MapController is used to smoothly move the camera to follow
-///    the carrier as their location changes.
-///
-/// pubspec.yaml dependencies required (add if not present):
-///   flutter_map: ^6.1.0
-///   latlong2: ^0.9.0        (likely already present from AcceptedOrderScreen)
-///   url_launcher: any       (already present)
+
 class OrderTrackingScreen extends StatefulWidget {
   final int pickupId;
   final Map<String, dynamic> orderData;
@@ -51,7 +38,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
   Timer? _locationTimer;
 
-  // ─── Status flow ────────────────────────────────────────────────────────────
 
   final List<Map<String, dynamic>> _statusFlow = [
     {'key': 'pending', 'label': 'Order\nPlaced', 'icon': Icons.receipt},
@@ -75,7 +61,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     },
   ];
 
-  // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -89,7 +74,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     super.dispose();
   }
 
-  // ─── Initialisation ─────────────────────────────────────────────────────────
 
   Future<void> _initializeData() async {
     setState(() {
@@ -97,10 +81,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       _currentStatus = _resolveOrderStatus(widget.orderData);
     });
 
-    // Step 1 — try to get pickup_carrier_id from the passed orderData
     _pickupCarrierId = _extractPickupCarrierId(widget.orderData);
 
-    // Step 2 — fallback: read from SharedPreferences (set by AcceptedOrderScreen)
     if (_pickupCarrierId == null) {
       _pickupCarrierId = await ApiService.getPickupCarrierIdForOrder(
         widget.pickupId,
@@ -109,8 +91,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         '⚠️ pickup_carrier_id not in orderData — loaded from prefs: $_pickupCarrierId',
       );
     }
-
-    // Step 3 — fallback: fetch order fresh from API and re-extract
     if (_pickupCarrierId == null) {
       _logger.w('⚠️ Still no pickup_carrier_id — fetching order from API');
       await _refreshOrderFromApi();
@@ -118,7 +98,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
     if (_pickupCarrierId != null) {
       _logger.i('✅ pickup_carrier_id = $_pickupCarrierId');
-      await _fetchCarrierLocation(); // initial fetch (shows loading indicator)
+      await _fetchCarrierLocation(); 
       _startLiveTracking();
     } else {
       _logger.e(
@@ -129,12 +109,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     if (mounted) setState(() => _isLoading = false);
   }
 
-  /// Tries to fetch the order from the API and extract pickup_carrier_id.
   Future<void> _refreshOrderFromApi() async {
     try {
       final order = await _apiService.fetchOrderById(widget.pickupId);
       if (order != null) {
-        // OrderModel → Map conversion; adjust field names to match your model
         final shipment = order.toJson()['shipment_status'];
         if (shipment != null && shipment['pickup_carrier_id'] != null) {
           _pickupCarrierId = shipment['pickup_carrier_id'];
@@ -145,20 +123,14 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     }
   }
 
-  // ─── pickup_carrier_id extraction ───────────────────────────────────────────
-
-  /// Checks all known locations where pickup_carrier_id might live.
   int? _extractPickupCarrierId(Map<String, dynamic> order) {
-    // Location 1: order.shipment_status.pickup_carrier_id
     final shipment = order['shipment_status'];
     if (shipment is Map && shipment['pickup_carrier_id'] != null) {
       return _toInt(shipment['pickup_carrier_id']);
     }
-    // Location 2: order.pickup_carrier_id (flat)
     if (order['pickup_carrier_id'] != null) {
       return _toInt(order['pickup_carrier_id']);
     }
-    // Location 3: order.carrier.id
     final carrier = order['carrier'];
     if (carrier is Map && carrier['id'] != null) {
       return _toInt(carrier['id']);
@@ -172,8 +144,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     if (value is String) return int.tryParse(value);
     return null;
   }
-
-  // ─── Live tracking ──────────────────────────────────────────────────────────
 
   void _startLiveTracking() {
     _locationTimer?.cancel();
@@ -207,8 +177,7 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
       return;
     }
 
-    /// 🔥 FIX: Correct nested data extraction
-    final data = Map<String, dynamic>.from(response!['data']['data']);
+    final data = Map<String, dynamic>.from(response['data']['data']);
 
     _logger.i("📦 Parsed location payload = $data");
 
@@ -255,8 +224,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
     if (v is String) return double.tryParse(v);
     return null;
   }
-
-  // ─── Status helpers ─────────────────────────────────────────────────────────
 
   String _resolveOrderStatus(Map<String, dynamic> order) {
     final shipment = order['shipment_status'];
@@ -341,7 +308,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
     }
   }
 
-  // ─── Map actions ─────────────────────────────────────────────────────────────
 
   void _openCarrierInGoogleMaps() {
     if (_carrierLatLng == null) {
@@ -382,8 +348,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
     );
   }
 
-  // ─── Build ───────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -413,7 +377,7 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
             _buildHeader(),
             _buildStatusStepper(statusColor, currentIndex),
             _buildStatusBanner(statusColor),
-            _buildLiveMapCard(statusColor), // ← NEW: embedded live map
+            _buildLiveMapCard(statusColor),
             _buildOrderDetailsCard(),
             const SizedBox(height: 100),
           ],
@@ -431,7 +395,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
     ),
   );
 
-  // ─── Header ──────────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
     final statusColor = _getStatusColor();
@@ -493,8 +456,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
       ),
     );
   }
-
-  // ─── Status stepper ──────────────────────────────────────────────────────────
 
   Widget _buildStatusStepper(Color statusColor, int currentIndex) {
     return Container(
@@ -563,7 +524,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
     );
   }
 
-  // ─── Status banner ───────────────────────────────────────────────────────────
 
   Widget _buildStatusBanner(Color statusColor) {
     return Container(
@@ -617,7 +577,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
     );
   }
 
-  // ─── Live map card (NEW) ─────────────────────────────────────────────────────
 
   Widget _buildLiveMapCard(Color statusColor) {
     return Container(
@@ -632,7 +591,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Row(
@@ -689,7 +647,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
 
           const SizedBox(height: 12),
 
-          // Map or placeholder
           SizedBox(
             height: 150,
             child: _carrierLatLng == null
@@ -697,7 +654,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
                 : _buildMap(),
           ),
 
-          // Last updated + open in maps button
           if (_carrierLatLng != null)
             Padding(
               padding: const EdgeInsets.all(12),
@@ -750,9 +706,7 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
     );
   }
 
-  /// The actual flutter_map widget with a carrier marker.
   Widget _buildMap() {
-    // Receiver address pin (destination)
     final destLat = _parseDouble(
       _orderDetails?['receiver_address']?['latitude'],
     );
@@ -778,16 +732,14 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
             onMapReady: () => setState(() => _mapReady = true),
           ),
           children: [
-            // Tile layer — OpenStreetMap (no API key needed)
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.projectqdel.app',
             ),
 
-            // Markers layer
             MarkerLayer(
               markers: [
-                // Carrier marker
+           
                 Marker(
                   point: _carrierLatLng!,
                   width: 50,
@@ -795,7 +747,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
                   child: _CarrierMarker(color: ColorConstants.red),
                 ),
 
-                // Destination marker (if available)
                 if (destLatLng != null)
                   Marker(
                     point: destLatLng,
@@ -814,40 +765,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
       ),
     );
   }
-
-  Widget _buildMapPlaceholder() {
-    return Container(
-      height: 180,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.location_off, size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 8),
-          Text(
-            'Live location not available yet',
-            style: TextStyle(color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: () => _fetchCarrierLocation(),
-            icon: const Icon(Icons.refresh),
-            label: const Text('Refresh'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Order details card ──────────────────────────────────────────────────────
 
   Widget _buildOrderDetailsCard() {
     return Container(
@@ -950,7 +867,6 @@ Future<void> _fetchCarrierLocation({bool silent = false}) async {
   }
 }
 
-// ─── Animated carrier marker widget ─────────────────────────────────────────
 
 class _CarrierMarker extends StatefulWidget {
   final Color color;

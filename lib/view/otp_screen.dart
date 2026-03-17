@@ -149,7 +149,6 @@ class _OtpScreenState extends State<OtpScreen> {
     );
   }
 
-  /// 🔴 Bottom OTP Sheet (same style as login)
   Widget _bottomOtpSheet() {
     return AnimatedPadding(
       duration: const Duration(milliseconds: 200),
@@ -306,10 +305,9 @@ class _OtpScreenState extends State<OtpScreen> {
               nextFocus.requestFocus();
             } else {
               focusNode.unfocus();
-              otp(); // auto verify
+              otp(); 
             }
           } else {
-            // 👈 BACKSPACE HANDLING
             if (prevFocus != null) {
               prevFocus.requestFocus();
             }

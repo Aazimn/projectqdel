@@ -24,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // Simple dummy country codes - no API needed
+
   final List<Map<String, String>> countryCodes = [
     {'name': 'India', 'code': '+91', 'flag': '🇮🇳'},
     {'name': 'USA', 'code': '+1', 'flag': '🇺🇸'},
@@ -40,11 +40,11 @@ class _LoginScreenState extends State<LoginScreen> {
     {'name': 'Myanmar', 'code': '+95', 'flag': '🇲🇲'},
   ];
 
-  String selectedCode = "+91"; // Default selection
+  String selectedCode = "+91"; 
 
-  // Remove fetchCountries or keep it but don't use it for dropdown
+
   Future<void> fetchCountries() async {
-    // Optional: You can still call this if needed for other purposes
+
     try {
       final data = await apiService.countriesList();
       debugPrint("Countries loaded: $data");
@@ -56,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    fetchCountries(); // Optional: keep if needed elsewhere
+    fetchCountries(); 
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -78,37 +78,29 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    // Check if mounted before proceeding
-    if (!mounted) return;
 
-    // Validate form
+    if (!mounted) return;
     if (!_formkey.currentState!.validate()) {
       return;
     }
 
-    // Check if phone number is valid
     if (phonectrl.text.trim().length != 10) {
       _showSnackBar("Please enter a valid 10-digit phone number", isError: true);
       return;
     }
 
-    // Set loading state
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Call login API
       bool status = await apiService.login(phone: phonectrl.text.trim());
 
-      // Check if widget is still mounted
       if (!mounted) return;
 
       if (status) {
-        // Show success message
         _showSnackBar("OTP sent successfully!");
-        
-        // Navigate to OTP screen
+
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -116,26 +108,22 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       } else {
-        // Check for rate limiting or other errors
         _showSnackBar(
           "Failed to send OTP. Please try again later.",
           isError: true,
         );
       }
     } catch (e) {
-      // Handle any exceptions
       if (!mounted) return;
       
       String errorMessage = "An error occurred. Please try again.";
-      
-      // Check for rate limiting (status code 429)
+
       if (e.toString().contains("429") || e.toString().contains("rate limit")) {
         errorMessage = "Too many attempts. Please wait before requesting OTP again.";
       }
       
       _showSnackBar(errorMessage, isError: true);
     } finally {
-      // Reset loading state if widget is still mounted
       if (mounted) {
         setState(() {
           _isLoading = false;

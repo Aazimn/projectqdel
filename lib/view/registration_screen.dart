@@ -25,7 +25,6 @@ class AddressColors {
   static const Color border = Color(0xFFE2E8F0);
 }
 
-// ============== BOTTOM SHEET SELECTOR WIDGETS ==============
 class CountrySelector extends StatefulWidget {
   final int? selectedId;
   final Color color;
@@ -707,12 +706,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _lastName = TextEditingController();
   final _email = TextEditingController();
 
-  // Change these to store the full objects
   Map<String, dynamic>? selectedCountry;
   Map<String, dynamic>? selectedState;
   Map<String, dynamic>? selectedDistrict;
 
-  // You can keep these for backward compatibility if needed
   int? get selectedCountryId => selectedCountry?['id'];
   int? get selectedStateId => selectedState?['id'];
   int? get selectedDistrictId => selectedDistrict?['id'];
@@ -1081,6 +1078,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: InkWell(
             onTap: () async {
+              // ignore: unused_local_variable
               final selected = await showModalBottomSheet<Map<String, dynamic>>(
                 context: context,
                 isScrollControlled: true,
@@ -1090,10 +1088,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   color: AddressColors.senderPrimary,
                   onSelected: (country) async {
                     setState(() {
-                      selectedCountry =
-                          country; // Store the full country object
-                      selectedState = null; // Reset state
-                      selectedDistrict = null; // Reset district
+                      selectedCountry = country;
+                      selectedState = null;
+                      selectedDistrict = null;
                       states.clear();
                       districts.clear();
                     });
@@ -1149,7 +1146,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         Text(
                           selectedCountry == null
                               ? "Select Country (Required)"
-                              : selectedCountry!['name'] ?? '', // Direct access
+                              : selectedCountry!['name'] ?? '',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
@@ -1179,6 +1176,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: InkWell(
               onTap: () async {
+                // ignore: unused_local_variable
                 final selected =
                     await showModalBottomSheet<Map<String, dynamic>>(
                       context: context,
@@ -1190,9 +1188,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         color: AddressColors.senderPrimary,
                         onSelected: (state) async {
                           setState(() {
-                            selectedState =
-                                state; // Store the full state object
-                            selectedDistrict = null; // Reset district
+                            selectedState = state;
+                            selectedDistrict = null;
                             districts.clear();
                           });
 
@@ -1247,7 +1244,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           Text(
                             selectedState == null
                                 ? "Select State (Required)"
-                                : selectedState!['name'] ?? '', // Direct access
+                                : selectedState!['name'] ?? '',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
@@ -1277,6 +1274,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: InkWell(
               onTap: () async {
+                // ignore: unused_local_variable
                 final selected =
                     await showModalBottomSheet<Map<String, dynamic>>(
                       context: context,
@@ -1288,8 +1286,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         color: ColorConstants.red,
                         onSelected: (district) {
                           setState(() {
-                            selectedDistrict =
-                                district; // Store the full district object
+                            selectedDistrict = district;
                           });
                         },
                       ),
@@ -1335,8 +1332,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           Text(
                             selectedDistrict == null
                                 ? "Select District (Required)"
-                                : selectedDistrict!['name'] ??
-                                      '', // Direct access
+                                : selectedDistrict!['name'] ?? '',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
@@ -1457,7 +1453,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                   borderRadius: BorderRadius.circular(20),
                                   borderSide: BorderSide(
                                     color: ColorConstants.red,
-                                    width: 2,
+                                    width: 1,
                                   ),
                                 ),
 
@@ -1465,7 +1461,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                   borderRadius: BorderRadius.circular(20),
                                   borderSide: BorderSide(
                                     color: ColorConstants.red,
-                                    width: 3,
+                                    width: 2,
                                   ),
                                 ),
 
@@ -1492,7 +1488,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                   borderRadius: BorderRadius.circular(20),
                                   borderSide: BorderSide(
                                     color: ColorConstants.red,
-                                    width: 2,
+                                    width: 1,
                                   ),
                                 ),
 
@@ -1500,7 +1496,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                   borderRadius: BorderRadius.circular(20),
                                   borderSide: BorderSide(
                                     color: ColorConstants.red,
-                                    width: 3,
+                                    width: 2,
                                   ),
                                 ),
 
@@ -1527,7 +1523,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                   borderRadius: BorderRadius.circular(20),
                                   borderSide: BorderSide(
                                     color: ColorConstants.red,
-                                    width: 2,
+                                    width: 1,
                                   ),
                                 ),
 
@@ -1535,7 +1531,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                   borderRadius: BorderRadius.circular(20),
                                   borderSide: BorderSide(
                                     color: ColorConstants.red,
-                                    width: 3,
+                                    width: 2,
                                   ),
                                 ),
 
@@ -1549,7 +1545,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               decoration: BoxDecoration(
                                 border: Border.all(
                                   color: ColorConstants.red,
-                                  width: 2,
+                                  width: 1,
                                 ),
                                 color: ColorConstants.white,
                                 borderRadius: BorderRadius.circular(20),
@@ -1583,7 +1579,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                             'Client',
                                             style: TextStyle(
                                               fontSize: 18,
-                                              fontWeight: FontWeight.bold,
+
                                               color: ColorConstants.black,
                                             ),
                                           ),
@@ -1605,7 +1601,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                             'Carrier',
                                             style: TextStyle(
                                               fontSize: 18,
-                                              fontWeight: FontWeight.bold,
+
                                               color: ColorConstants.black,
                                             ),
                                           ),

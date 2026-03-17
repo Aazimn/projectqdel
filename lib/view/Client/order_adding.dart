@@ -2237,7 +2237,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
 
                       if (pickupId == null) {
                         logger.e("❌ Pickup ID is null in response");
-                        logger.e("Response keys: ${pickupResponse?.keys}");
+                        logger.e("Response keys: ${pickupResponse.keys}");
                         _showErrorSnackBar("Invalid response from server");
                         setState(() => isCreatingShipment = false);
                         return;

@@ -828,7 +828,6 @@ class _DashboardState extends State<Dashboard> {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              // color: Colors.red[100],
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -840,7 +839,6 @@ class _DashboardState extends State<Dashboard> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Top row with order ID and status
                   Row(
                     children: [
                       Container(
@@ -917,7 +915,6 @@ class _DashboardState extends State<Dashboard> {
 
                   const SizedBox(height: 16),
 
-                  // Sender info
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -1041,7 +1038,6 @@ class _DashboardState extends State<Dashboard> {
                         ),
                       ),
 
-                      // Arrow
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: Icon(
@@ -1116,7 +1112,6 @@ class _DashboardState extends State<Dashboard> {
 
                   const SizedBox(height: 12),
 
-                  // Created at
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [

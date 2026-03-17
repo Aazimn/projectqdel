@@ -67,7 +67,6 @@ class _CarrierUploadScreenState extends State<CarrierUploadScreen> {
     logger.i("📄 Document ready for upload");
     logger.i("📂 Document path: ${document!.path}");
 
-    /// PRINT REGISTRATION DATA
     logger.i("📊 REGISTRATION DATA");
     logger.i("📱 Phone: ${widget.registrationData.phone}");
     logger.i("👤 First Name: ${widget.registrationData.firstname}");
@@ -84,8 +83,7 @@ class _CarrierUploadScreenState extends State<CarrierUploadScreen> {
     bool success = false;
 
     try {
-      // For new users registering as carrier, we must register first
-      // and backend requires document together with carrier registration.
+
       if (!widget.registrationData.isExistingUser) {
         logger.i("📝 Registering carrier (with document)...");
         success = await apiService.carrierRegistrationWithDocument(

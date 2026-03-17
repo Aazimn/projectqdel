@@ -589,16 +589,8 @@ class _CountryScreenState extends State<CountryScreen> {
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: ColorConstants.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: ColorConstants.bgred),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          border: Border.all(color: ColorConstants.grey),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -612,7 +604,26 @@ class _CountryScreenState extends State<CountryScreen> {
                   ),
                   child: const Icon(Icons.public, color: Colors.red, size: 22),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 5),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ColorConstants.red.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    "+${country['code'] ?? ''}",
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 5),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -629,21 +640,38 @@ class _CountryScreenState extends State<CountryScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
+                    color: ColorConstants.red.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    "+${country['code'] ?? ''}",
-                    style: const TextStyle(
-                      color: Colors.green,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.location_city, size: 16, color: Colors.red),
+                      const SizedBox(width: 4),
+                      Text(
+                        'States',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 10,
+                        color: Colors.grey.shade400,
+                      ),
+                    ],
                   ),
                 ),
               ],

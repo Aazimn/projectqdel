@@ -147,7 +147,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   Widget _receiverSection(Map<String, dynamic>? data) {
     debugPrint("👥 Receiver section data: $data");
     if (data == null) return const SizedBox.shrink();
-    // final receiver = data["receiver_details"] as Map<String, dynamic>?;
     final address = data["receiver_address"] as Map<String, dynamic>?;
     return _card(
       title: "Receiver Details",

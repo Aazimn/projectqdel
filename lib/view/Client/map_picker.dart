@@ -34,15 +34,13 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     super.initState();
     _mapController = MapController();
     
-    // Initialize with passed coordinates or default
     if (widget.initialLatitude != null && widget.initialLongitude != null) {
       selectedLocation = LatLng(widget.initialLatitude!, widget.initialLongitude!);
       selectedLocationName = widget.initialLocationName;
     } else {
-      selectedLocation = const LatLng(9.931233, 76.267303); // Default
+      selectedLocation = const LatLng(9.931233, 76.267303); 
     }
-    
-    // Get location name if we have coordinates but no name
+
     if (widget.initialLatitude != null && 
         widget.initialLongitude != null && 
         widget.initialLocationName == null) {
@@ -53,7 +51,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   @override
   void didUpdateWidget(MapPickerScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update if widget changes
+  
     if (widget.initialLatitude != oldWidget.initialLatitude ||
         widget.initialLongitude != oldWidget.initialLongitude) {
       if (widget.initialLatitude != null && widget.initialLongitude != null) {

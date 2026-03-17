@@ -58,7 +58,7 @@ class _SplashScreenState extends State<SplashScreen> {
         go(const ClientDashboard());
         break;
 
-      // In the carrier case of your switch statement:
+
 
 case "carrier":
   final profile = await apiService.getMyProfile();
@@ -74,7 +74,6 @@ case "carrier":
 
   final hasDocs = profileHasDocs || apiHasDocs || storedHasDocs;
 
-  // Start with profile status, then cached status, then live API
   String status = profile?.approvalStatus.trim().toLowerCase() ?? "";
 
   if (status.isEmpty) {
@@ -102,7 +101,7 @@ case "carrier":
     return;
   }
 
-  /// 1️⃣ No documents uploaded
+
   if (!hasDocs) {
     go(
       CarrierUploadScreen(
@@ -122,15 +121,14 @@ case "carrier":
     return;
   }
 
-  /// 2️⃣ Documents uploaded but waiting approval
+
   if (status == "pending") {
     go(StatusPending(phone: profile!.phone));
     return;
   }
 
-  /// 3️⃣ Approved
+
   if (status == "approved") {
-    // Check from server if user has seen approval screen
     final hasSeen = await apiService.hasUserSeenApprovalScreen();
     
     if (!hasSeen) {
@@ -141,13 +139,13 @@ case "carrier":
     return;
   }
 
-  /// 4️⃣ Rejected
+
   if (status == "rejected") {
     go(const RejectedScreen());
     return;
   }
 
-  /// fallback → docs exist but status unknown → treat as pending
+
   if (hasDocs) {
     go(StatusPending(phone: profile!.phone));
   } else {

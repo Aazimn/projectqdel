@@ -14,8 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl =
-      "https://accessing-ntsc-most-economies.trycloudflare.com";
+  final String baseurl = "https://rent-exp-simple-whose.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -474,13 +473,11 @@ class ApiService {
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
-  // New method to fetch users by status (GET request)
-
   Future<Map<String, dynamic>> getUsersByStatus({
     required String status,
     String? searchQuery,
     int page = 1,
-    int pageSize = 10, // Add this parameter
+    int pageSize = 10,
   }) async {
     try {
       String urlString = "$baseurl/api/qdel/admin/users/$status/";
@@ -490,7 +487,7 @@ class ApiService {
         queryParams['search'] = searchQuery;
       }
       queryParams['page'] = page.toString();
-      queryParams['page_size'] = pageSize.toString(); // Add page_size parameter
+      queryParams['page_size'] = pageSize.toString();
 
       final uri = Uri.parse(urlString).replace(queryParameters: queryParams);
 
@@ -963,15 +960,12 @@ class ApiService {
     }
   }
 
-  /// Check if user has already seen the approval screen
   Future<bool> hasUserSeenApprovalScreen() async {
     try {
-      // First check local cache for immediate response
       if (_hasSeenApprovalScreen != null) {
         return _hasSeenApprovalScreen!;
       }
 
-      // Fetch from server using GET endpoint
       final url = Uri.parse("$baseurl/api/qdel/user/click/update/");
 
       final response = await http.get(
@@ -989,12 +983,10 @@ class ApiService {
         final data = jsonDecode(response.body);
         final hasSeen = data['is_clicked'] ?? false;
 
-        // Update local cache
         await ApiService.setApprovalScreenSeen(hasSeen);
         return hasSeen;
       }
 
-      // If server request fails, fall back to local storage
       final prefs = await SharedPreferences.getInstance();
       final cached = prefs.getBool('has_seen_approval');
       if (cached != null) {
@@ -1006,7 +998,6 @@ class ApiService {
     } catch (e) {
       logger.e("CHECK APPROVAL SEEN ERROR => $e");
 
-      // Fall back to local storage on error
       final prefs = await SharedPreferences.getInstance();
       final cached = prefs.getBool('has_seen_approval');
       if (cached != null) {
@@ -1059,12 +1050,10 @@ class ApiService {
 
       var request = http.MultipartRequest("POST", url);
 
-      /// HEADERS
       request.headers.addAll({"Authorization": "Bearer $accessToken"});
 
       logger.i("📨 REQUEST HEADERS → ${request.headers}");
 
-      /// FORM FIELDS
       if (countryId != null) request.fields["country"] = countryId.toString();
       if (stateId != null) request.fields["state"] = stateId.toString();
       if (districtId != null)
@@ -1072,7 +1061,6 @@ class ApiService {
 
       logger.i("📨 REQUEST FIELDS → ${request.fields}");
 
-      /// ADD FILE
       logger.i("📤 Preparing multipart file");
 
       var multipartFile = await http.MultipartFile.fromPath(
@@ -1853,7 +1841,7 @@ class ApiService {
       queryParams.add("search=$search");
     }
     if (status != null && status.isNotEmpty) {
-      queryParams.add("status=$status"); // Now sending single values
+      queryParams.add("status=$status");
     }
 
     if (queryParams.isNotEmpty) {
@@ -2727,7 +2715,6 @@ class ApiService {
       if (search != null && search.isNotEmpty) {
         queryParams.add("search=$search");
       }
-      // Add date filters
       if (startDate != null) {
         final formattedDate = DateFormat('yyyy-MM-dd').format(startDate);
         queryParams.add("start_date=$formattedDate");
@@ -2760,7 +2747,6 @@ class ApiService {
 
         List<CompletedOrder> orders = [];
 
-        // Parse results from the paginated response
         if (jsonResponse.containsKey('results') &&
             jsonResponse['results'] is List) {
           orders = (jsonResponse['results'] as List)
@@ -2768,17 +2754,29 @@ class ApiService {
               .toList();
         }
 
-        // Get pagination metadata
         int totalCount = jsonResponse['count'] ?? 0;
+        if (totalCount is String) {
+          totalCount = totalCount;
+        }
+
         String? nextUrl = jsonResponse['next'];
         String? previousUrl = jsonResponse['previous'];
 
-        // Determine if there are more pages
         bool hasNext = nextUrl != null && nextUrl.isNotEmpty;
         bool hasPrevious = previousUrl != null && previousUrl.isNotEmpty;
 
-        // Calculate total pages
-        int totalPages = (totalCount / pageSize).ceil();
+        int totalPages;
+        if (hasNext) {
+          // If there's a next URL, there's at least 2 pages
+          totalPages = (totalCount / pageSize).ceil();
+          // Ensure it's at least 2 if hasNext is true
+          if (totalPages < 2 && hasNext) {
+            totalPages = 2;
+          }
+        } else {
+          totalPages = (totalCount / pageSize).ceil();
+          if (totalPages < 1) totalPages = 1;
+        }
 
         logger.i("✅ Successfully fetched ${orders.length} completed orders");
         logger.i("📊 Page ${page ?? 1} of $totalPages (Total: $totalCount)");
@@ -2841,8 +2839,6 @@ class ApiService {
     }
   }
 
-  // Add this method to your ApiService class
-  // In your ApiService class
   Future<CompletedOrder?> getCarrierOrderDetail(int id) async {
     try {
       final url = Uri.parse("$baseurl/api/qdel/carrier/dashboard/detail/$id/");
@@ -2861,7 +2857,6 @@ class ApiService {
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
 
-        // Based on your response, the detail might be in 'results' array
         if (jsonResponse.containsKey('results') &&
             jsonResponse['results'] is List) {
           final results = jsonResponse['results'] as List;
@@ -2869,7 +2864,6 @@ class ApiService {
             return CompletedOrder.fromJson(results.first);
           }
         } else {
-          // If it returns a single object directly
           return CompletedOrder.fromJson(jsonResponse);
         }
       }
@@ -2880,53 +2874,108 @@ class ApiService {
     }
   }
 
-  // Add this method to your ApiService class
-// In your ApiService class
-Future<Map<String, dynamic>> getCarrierDashboardCounts() async {
-  try {
-    final url = Uri.parse("$baseurl/api/qdel/carrier/dashboard/count/");
-    final headers = {
-      "Authorization": "Bearer ${ApiService.accessToken}",
-      "Content-Type": "application/json",
-    };
-    
-    logger.i("📡 FETCHING CARRIER DASHBOARD COUNTS - URL: $url");
-    logger.i("📡 HEADERS: $headers");
-    
-    final response = await http.get(url, headers: headers);
-    
-    logger.i("📦 CARRIER DASHBOARD COUNTS STATUS :: ${response.statusCode}");
-    logger.i("📦 CARRIER DASHBOARD COUNTS BODY :: ${response.body}");
-    
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = jsonDecode(response.body);
-      logger.i("✅ Successfully parsed counts: $data");
-      
-      return {
-        'totalCompleted': data['total_completed_count'] ?? 0,
-        'todayCompleted': data['today_completed_count'] ?? 0,
-        'success': true,
+  Future<Map<String, dynamic>> getCarrierDashboardCounts() async {
+    try {
+      final url = Uri.parse("$baseurl/api/qdel/carrier/dashboard/count/");
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
       };
-    } else {
-      logger.e("❌ Failed to fetch dashboard counts: ${response.statusCode}");
-      logger.e("❌ Response body: ${response.body}");
-      
+
+      logger.i("📡 FETCHING CARRIER DASHBOARD COUNTS - URL: $url");
+      logger.i("📡 HEADERS: $headers");
+
+      final response = await http.get(url, headers: headers);
+
+      logger.i("📦 CARRIER DASHBOARD COUNTS STATUS :: ${response.statusCode}");
+      logger.i("📦 CARRIER DASHBOARD COUNTS BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        logger.i("✅ Successfully parsed counts: $data");
+
+        return {
+          'totalCompleted': data['total_completed_count'] ?? 0,
+          'todayCompleted': data['today_completed_count'] ?? 0,
+          'success': true,
+        };
+      } else {
+        logger.e("❌ Failed to fetch dashboard counts: ${response.statusCode}");
+        logger.e("❌ Response body: ${response.body}");
+
+        return {
+          'totalCompleted': 0,
+          'todayCompleted': 0,
+          'success': false,
+          'error': 'Failed to load counts: ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      logger.e("🔥 CARRIER DASHBOARD COUNTS ERROR => $e");
       return {
         'totalCompleted': 0,
         'todayCompleted': 0,
         'success': false,
-        'error': 'Failed to load counts: ${response.statusCode}',
+        'error': 'Exception: $e',
       };
     }
-  } catch (e) {
-    logger.e("🔥 CARRIER DASHBOARD COUNTS ERROR => $e");
-    return {
-      'totalCompleted': 0,
-      'todayCompleted': 0,
-      'success': false,
-      'error': 'Exception: $e',
-    };
   }
-}
 
+  Future<Map<String, dynamic>> getAdminDashboardCounts({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      final formattedStartDate = DateFormat('yyyy-MM-dd').format(startDate);
+      final formattedEndDate = DateFormat('yyyy-MM-dd').format(endDate);
+
+      String urlString =
+          "$baseurl/api/qdel/admin/dashboard/count/?start_date=$formattedStartDate&end_date=$formattedEndDate";
+
+      final uri = Uri.parse(urlString);
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      logger.i("📡 FETCHING ADMIN DASHBOARD COUNTS - URL: $urlString");
+
+      final response = await http.get(uri, headers: headers);
+
+      logger.i("📦 ADMIN DASHBOARD COUNTS STATUS :: ${response.statusCode}");
+      logger.i("📦 ADMIN DASHBOARD COUNTS BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+        logger.i("✅ Successfully fetched admin dashboard counts");
+
+        return {
+          'ongoing_deliveries': jsonResponse['ongoing_deliveries'] ?? 0,
+          'completed_deliveries': jsonResponse['completed_deliveries'] ?? 0,
+          'total_users': jsonResponse['total_users'] ?? 0,
+          'verified_carriers': jsonResponse['verified_carriers'] ?? 0,
+          'total_ongoing_deliveries':
+              jsonResponse['total_ongoing_deliveries'] ?? 0,
+          'total_completed_deliveries':
+              jsonResponse['total_completed_deliveries'] ?? 0,
+          'total_users_all': jsonResponse['total_users_all'] ?? 0,
+          'total_verified_carriers':
+              jsonResponse['total_verified_carriers'] ?? 0,
+          'success': true,
+        };
+      } else if (response.statusCode == 401) {
+        logger.e("❌ Unauthorized - Token expired or invalid");
+        throw Exception("Unauthorized - Please login again");
+      } else {
+        logger.e(
+          "❌ Failed to fetch admin dashboard counts: ${response.statusCode}",
+        );
+        throw Exception("Failed to fetch dashboard data");
+      }
+    } catch (e) {
+      logger.e("🔥 ADMIN DASHBOARD COUNTS ERROR => $e");
+      throw Exception("Error: $e");
+    }
+  }
 }

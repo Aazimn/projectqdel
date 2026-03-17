@@ -1,7 +1,11 @@
+import 'dart:collection';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:projectqdel/model/carrier_orders.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class CarrierHomeScreen extends StatefulWidget {
   final Function(int)? onNavigateToIndex;
@@ -18,11 +22,16 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
   UserModel? user;
   bool profileLoading = true;
 
-  // Dashboard counts
   int _todayCompleted = 0;
   int _totalCompleted = 0;
   bool _isLoadingCounts = true;
   String? _countsError;
+
+  List<CompletedOrder> _completedOrders = [];
+  bool _isLoadingChart = true;
+  String? _chartError;
+
+  String _selectedRange = 'week';
 
   Future<void> _loadProfile() async {
     setState(() => profileLoading = true);
@@ -37,57 +46,11 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
     }
   }
 
-  final List<Map<String, dynamic>> _recentOrders = [
-    {
-      'id': 101,
-      'pickupId': 201,
-      'senderName': 'Rahul Sharma',
-      'senderPhone': '+91 98765 43210',
-      'status': 'delivered',
-      'pickedAt': DateTime.now().subtract(const Duration(hours: 5)),
-      'deliveredAt': DateTime.now().subtract(const Duration(hours: 2)),
-      'createdAt': DateTime.now().subtract(const Duration(days: 1)),
-      'destination': 'Ernakulam',
-    },
-    {
-      'id': 102,
-      'pickupId': 202,
-      'senderName': 'Priya Menon',
-      'senderPhone': '+91 87654 32109',
-      'status': 'delivered',
-      'pickedAt': DateTime.now().subtract(const Duration(hours: 8)),
-      'deliveredAt': DateTime.now().subtract(const Duration(hours: 4)),
-      'createdAt': DateTime.now().subtract(const Duration(days: 1)),
-      'destination': 'Kochi',
-    },
-    {
-      'id': 103,
-      'pickupId': 203,
-      'senderName': 'Arun Kumar',
-      'senderPhone': '+91 76543 21098',
-      'status': 'delivered',
-      'pickedAt': DateTime.now().subtract(const Duration(hours: 12)),
-      'deliveredAt': DateTime.now().subtract(const Duration(hours: 9)),
-      'createdAt': DateTime.now().subtract(const Duration(days: 2)),
-      'destination': 'Thrissur',
-    },
-    {
-      'id': 104,
-      'pickupId': 204,
-      'senderName': 'Deepa Nair',
-      'senderPhone': '+91 65432 10987',
-      'status': 'delivered',
-      'pickedAt': DateTime.now().subtract(const Duration(hours: 24)),
-      'deliveredAt': DateTime.now().subtract(const Duration(hours: 20)),
-      'createdAt': DateTime.now().subtract(const Duration(days: 2)),
-      'destination': 'Kottayam',
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
     _loadDashboardCounts();
+    _loadChartData();
     _loadProfile();
   }
 
@@ -106,12 +69,8 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
         if (result['success'] == true) {
           _todayCompleted = result['todayCompleted'];
           _totalCompleted = result['totalCompleted'];
-          print(
-            '✅ Loaded counts - Today: $_todayCompleted, Total: $_totalCompleted',
-          );
         } else {
           _countsError = result['error'] ?? 'Unknown error';
-          print('❌ Error loading counts: $_countsError');
           _todayCompleted = 0;
           _totalCompleted = 0;
         }
@@ -123,17 +82,383 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
         _todayCompleted = 0;
         _totalCompleted = 0;
       });
-      print('🔥 Exception loading counts: $e');
+    }
+  }
+
+  Future<void> _loadChartData() async {
+    setState(() {
+      _isLoadingChart = true;
+      _chartError = null;
+    });
+
+    try {
+      DateTime now = DateTime.now();
+      DateTime startDate;
+
+      switch (_selectedRange) {
+        case 'week':
+          startDate = now.subtract(const Duration(days: 7));
+          break;
+        case 'month':
+          startDate = DateTime(now.year, now.month - 1, now.day);
+          break;
+        case 'year':
+          startDate = DateTime(now.year - 1, now.month, now.day);
+          break;
+        default:
+          startDate = now.subtract(const Duration(days: 7));
+      }
+
+      List<CompletedOrder> allOrders = [];
+      String? nextUrl;
+      int pageCount = 0;
+
+      do {
+        pageCount++;
+        print('📄 Fetching page $pageCount...');
+
+        final result = await _apiService.getCarrierCompletedOrders(
+          page: pageCount,
+          startDate: startDate,
+          endDate: now,
+          pageSize: 100,
+        );
+
+        if (result.containsKey('orders')) {
+          List<CompletedOrder> pageOrders =
+              result['orders'] as List<CompletedOrder>;
+          allOrders.addAll(pageOrders);
+
+          print('✅ Page $pageCount has ${pageOrders.length} orders');
+
+          nextUrl = result['nextUrl'] as String?;
+
+          bool hasNext = result['hasNext'] as bool? ?? false;
+
+          print('📊 Next URL: $nextUrl, Has Next: $hasNext');
+
+          if (nextUrl == null || nextUrl.isEmpty || !hasNext) {
+            break;
+          }
+        } else {
+          print('❌ No "orders" key in response');
+          break;
+        }
+        if (pageCount > 20) {
+          print('⚠️ Breaking pagination loop - too many pages');
+          break;
+        }
+      // ignore: unnecessary_null_comparison
+      } while (nextUrl != null && nextUrl.isNotEmpty);
+
+      print('🎯 FINAL: Loaded ${allOrders.length} orders');
+
+      setState(() {
+        _completedOrders = allOrders;
+        _isLoadingChart = false;
+      });
+    } catch (e) {
+      print('🔥 Chart data error: $e');
+      setState(() {
+        _isLoadingChart = false;
+        _chartError = e.toString();
+        _completedOrders = [];
+      });
     }
   }
 
   Future<void> _refreshData() async {
     await _loadDashboardCounts();
+    await _loadChartData();
   }
 
-  String _formatShortTime(DateTime? date) {
-    if (date == null) return 'N/A';
-    return DateFormat('hh:mm a').format(date);
+  Map<DateTime, int> _getOrdersByDay() {
+    final Map<DateTime, int> ordersByDay = {};
+
+    for (var order in _completedOrders) {
+      if (order.deliveredAt != null) {
+        DateTime date = DateTime(
+          order.deliveredAt!.year,
+          order.deliveredAt!.month,
+          order.deliveredAt!.day,
+        );
+
+        ordersByDay[date] = (ordersByDay[date] ?? 0) + 1;
+      }
+    }
+
+    final sortedMap = SplayTreeMap<DateTime, int>.from(
+      ordersByDay,
+      (a, b) => a.compareTo(b),
+    );
+
+    return sortedMap;
+  }
+
+  List<FlSpot> _getChartSpots() {
+    final ordersByDay = _getOrdersByDay();
+
+    if (ordersByDay.isEmpty) {
+      return [];
+    }
+    final sortedDates = ordersByDay.keys.toList();
+    if (sortedDates.length > 1) {
+      final List<FlSpot> continuousSpots = [];
+      final firstDate = sortedDates.first;
+      final lastDate = sortedDates.last;
+
+      int dayIndex = 0;
+      DateTime currentDate = firstDate;
+
+      while (currentDate.isBefore(lastDate) ||
+          currentDate.isAtSameMomentAs(lastDate)) {
+        int count = ordersByDay[currentDate] ?? 0;
+        continuousSpots.add(FlSpot(dayIndex.toDouble(), count.toDouble()));
+
+        currentDate = currentDate.add(const Duration(days: 1));
+        dayIndex++;
+      }
+
+      return continuousSpots;
+    }
+
+    return sortedDates.asMap().entries.map((entry) {
+      int index = entry.key;
+      DateTime date = entry.value;
+      return FlSpot(index.toDouble(), ordersByDay[date]!.toDouble());
+    }).toList();
+  }
+
+  Widget _buildChartTitle() {
+    String title;
+    switch (_selectedRange) {
+      case 'week':
+        title = 'Last 7 Days';
+        break;
+      case 'month':
+        title = 'Last 30 Days';
+        break;
+      case 'year':
+        title = 'Last 12 Months';
+        break;
+      default:
+        title = 'Delivery History';
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            children: [
+              _buildRangeChip('Week', 'week'),
+              const SizedBox(width: 4),
+              _buildRangeChip('Month', 'month'),
+              const SizedBox(width: 4),
+              _buildRangeChip('Year', 'year'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRangeChip(String label, String value) {
+    bool isSelected = _selectedRange == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selectedRange = value);
+        _loadChartData();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.red : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? Colors.white : Colors.red,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLineChart() {
+    final spots = _getChartSpots();
+
+    if (_isLoadingChart) {
+      return const Center(
+        child: SizedBox(
+          height: 200,
+          child: Center(child: CircularProgressIndicator(color: Colors.red)),
+        ),
+      );
+    }
+
+    if (_chartError != null || spots.isEmpty) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.show_chart,
+                size: 40,
+                color: Colors.red.withOpacity(0.3),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _chartError ?? 'No delivery data available',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 200,
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: true,
+            horizontalInterval: 1,
+            verticalInterval: 1,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(color: Colors.red.withOpacity(0.1), strokeWidth: 1);
+            },
+            getDrawingVerticalLine: (value) {
+              return FlLine(color: Colors.red.withOpacity(0.1), strokeWidth: 1);
+            },
+          ),
+          titlesData: FlTitlesData(
+            show: true,
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 30,
+                interval: 1,
+                getTitlesWidget: (value, meta) {
+                  final ordersByDay = _getOrdersByDay();
+                  final sortedDates = ordersByDay.keys.toList()..sort();
+
+                  if (value.toInt() >= 0 &&
+                      value.toInt() < sortedDates.length) {
+                    final date = sortedDates[value.toInt()];
+
+                    String text;
+                    if (_selectedRange == 'year') {
+                      text = DateFormat('MMM').format(date);
+                    } else {
+                      text = DateFormat('dd').format(date);
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        text,
+                        style: TextStyle(
+                          color: Colors.red.withOpacity(0.7),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    );
+                  }
+                  return const Text('');
+                },
+              ),
+            ),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: 1,
+                reservedSize: 30,
+                getTitlesWidget: (value, meta) {
+                  if (value % 1 == 0) {
+                    return Text(
+                      value.toInt().toString(),
+                      style: TextStyle(
+                        color: Colors.red.withOpacity(0.7),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    );
+                  }
+                  return const Text('');
+                },
+              ),
+            ),
+          ),
+          borderData: FlBorderData(
+            show: true,
+            border: Border.all(color: Colors.red.withOpacity(0.2)),
+          ),
+          minX: 0,
+          maxX: spots.isEmpty ? 1 : (spots.length - 1).toDouble(),
+          minY: 0,
+          maxY: spots.isEmpty
+              ? 1
+              : spots.map((e) => e.y).reduce((a, b) => a > b ? a : b) + 1,
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: Colors.red,
+              barWidth: 3,
+              isStrokeCapRound: true,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  return FlDotCirclePainter(
+                    radius: 4,
+                    color: Colors.white,
+                    strokeWidth: 2,
+                    strokeColor: Colors.red,
+                  );
+                },
+              ),
+              belowBarData: BarAreaData(
+                show: true,
+                color: Colors.red.withOpacity(0.1),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -141,492 +466,401 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
     final name = user != null
         ? '${user!.firstName} ${user!.lastName}'.toUpperCase()
         : 'Carrier';
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       body: RefreshIndicator(
         onRefresh: _refreshData,
         color: Colors.red,
         child: SafeArea(
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(25),
-                    bottomRight: Radius.circular(25),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              "Hello",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(width: 5),
-                            Text(
-                              name,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(width: 5),
-                            Text(
-                              "👋",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 5),
-                        Text(
-                          "Welcome back, Carrier 🚚",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ],
-                    ),
-                    InkWell(
-                      onTap: () {
-                        if (widget.onNavigateToIndex != null) {
-                          widget.onNavigateToIndex!(3);
-                        }
-                      },
-                      child: CircleAvatar(
-                        radius: 22,
-                        backgroundColor: Colors.white,
-                        child: const Icon(Icons.person, color: Colors.red),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _infoCard(
-                      "Today's Deliveries",
-                      _isLoadingCounts ? null : _todayCompleted.toString(),
-                      Icons.local_shipping,
-                      isLoading: _isLoadingCounts,
-                      error: _countsError,
-                    ),
-                    const SizedBox(width: 12),
-                    _infoCard(
-                      "Total Completed",
-                      _isLoadingCounts ? null : _totalCompleted.toString(),
-                      Icons.check_circle,
-                      isLoading: _isLoadingCounts,
-                      error: _countsError,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
                     color: Colors.red,
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.red.withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(25),
+                      bottomRight: Radius.circular(25),
+                    ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            "Today's Earnings",
-                            style: TextStyle(color: Colors.white70),
+                          Row(
+                            children: [
+                              const Text(
+                                "Hello",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              const Text(
+                                "👋",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                          SizedBox(height: 5),
-                          Text(
-                            "₹1,250",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          const SizedBox(height: 5),
+                          const Text(
+                            "Welcome back, Carrier 🚚",
+                            style: TextStyle(color: Colors.white),
                           ),
                         ],
                       ),
-                      Icon(
-                        Icons.account_balance_wallet,
-                        color: Colors.white,
-                        size: 30,
+                      InkWell(
+                        onTap: () {
+                          if (widget.onNavigateToIndex != null) {
+                            widget.onNavigateToIndex!(3);
+                          }
+                        },
+                        child: const CircleAvatar(
+                          radius: 22,
+                          backgroundColor: Colors.white,
+                          child: Icon(Icons.person, color: Colors.red),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 25),
+                const SizedBox(height: 20),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      "Recent Deliveries",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () {
-                        if (widget.onNavigateToIndex != null) {
-                          widget.onNavigateToIndex!(2);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.red.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Row(
-                          children: [
-                            Text(
-                              'View All',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Icon(
-                              Icons.arrow_forward,
-                              size: 14,
-                              color: Colors.red,
-                            ),
-                          ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _infoCard(
+                          "Today's Deliveries",
+                          _isLoadingCounts ? null : _todayCompleted.toString(),
+                          Icons.local_shipping,
+                          isLoading: _isLoadingCounts,
+                          error: _countsError,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _infoCard(
+                          "Total Completed",
+                          _isLoadingCounts ? null : _totalCompleted.toString(),
+                          Icons.check_circle,
+                          isLoading: _isLoadingCounts,
+                          error: _countsError,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 10),
+                const SizedBox(height: 20),
 
-              Expanded(
-                child: _recentOrders.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.red.shade700, Colors.red.shade400],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.inbox,
-                              size: 48,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
                             Text(
-                              'No recent deliveries',
+                              "Today's Earnings",
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                            SizedBox(height: 5),
+                            Text(
+                              "₹1,250",
                               style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 16,
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
-                      )
-                    : ListView.builder(
-                        itemCount: _recentOrders.length,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemBuilder: (context, index) {
-                          final order = _recentOrders[index];
+                        Icon(
+                          Icons.account_balance_wallet,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
 
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.white,
-                                  Colors.red.withOpacity(0.02),
-                                ],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.1),
-                                  spreadRadius: 1,
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                const SizedBox(height: 25),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildChartTitle(),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              spreadRadius: 1,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                children: [
-                                  // Top row - Order ID and Status
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.inventory,
-                                          color: Colors.red,
-                                          size: 16,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          "Order #${order['id']}",
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.green.withOpacity(
-                                              0.3,
-                                            ),
-                                            width: 0.5,
-                                          ),
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.check_circle,
-                                              size: 10,
-                                              color: Colors.green,
-                                            ),
-                                            SizedBox(width: 2),
-                                            Text(
-                                              'Delivered',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.green,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 10),
-
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.person_outline,
-                                        size: 14,
-                                        color: Colors.blue,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              order['senderName'],
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.black87,
-                                              ),
-                                            ),
-                                            Text(
-                                              order['senderPhone'],
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey[600],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 8),
-
-                                  Row(
-                                    children: [
-
-                                      Expanded(
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.check_circle_outline,
-                                              size: 12,
-                                              color: Colors.orange,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  const Text(
-                                                    'Picked',
-                                                    style: TextStyle(
-                                                      fontSize: 9,
-                                                      color: Colors.grey,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    _formatShortTime(
-                                                      order['pickedAt'],
-                                                    ),
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-
-                                      Icon(
-                                        Icons.arrow_forward,
-                                        size: 12,
-                                        color: Colors.grey[400],
-                                      ),
-
-                                      Expanded(
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.check_circle,
-                                              size: 12,
-                                              color: Colors.green,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  const Text(
-                                                    'Delivered',
-                                                    style: TextStyle(
-                                                      fontSize: 9,
-                                                      color: Colors.grey,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    _formatShortTime(
-                                                      order['deliveredAt'],
-                                                    ),
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      Icon(
-                                        Icons.location_on,
-                                        size: 10,
-                                        color: Colors.grey[400],
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        order['destination'],
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                          ],
+                        ),
+                        child: _buildLineChart(),
                       ),
-              ),
-            ],
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                if (_completedOrders.isNotEmpty && !_isLoadingChart)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 1,
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildStatItem(
+                                  'Total Orders',
+                                  _completedOrders.length.toString(),
+                                  Icons.shopping_bag,
+                                ),
+                              ),
+                              Container(
+                                height: 30,
+                                width: 1,
+                                color: Colors.red.withOpacity(0.2),
+                              ),
+                              Expanded(
+                                child: _buildStatItem(
+                                  'Avg/Day',
+                                  _calculateAveragePerDay().toStringAsFixed(1),
+                                  Icons.trending_up,
+                                ),
+                              ),
+                              Container(
+                                height: 30,
+                                width: 1,
+                                color: Colors.red.withOpacity(0.2),
+                              ),
+
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    const Icon(
+                                      Icons.emoji_events,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _getPeakDayText(),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                    ),
+                                    const Text(
+                                      'Peak Day',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _getDateRangeText(),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.red.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  MapEntry<DateTime, int>? _getPeakDay() {
+    final ordersByDay = _getOrdersByDay();
+    if (ordersByDay.isEmpty) return null;
+
+    return ordersByDay.entries.reduce((a, b) => a.value > b.value ? a : b);
+  }
+
+  String _getPeakDayText() {
+    final peakDay = _getPeakDay();
+    if (peakDay == null) return 'No data';
+
+    final date = peakDay.key;
+    final count = peakDay.value;
+
+    if (_selectedRange == 'year') {
+      return '${DateFormat('MMM dd').format(date)} ($count)';
+    } else {
+      return '${DateFormat('EEE, dd MMM').format(date)} ($count)';
+    }
+  }
+
+  double _calculateAveragePerDay() {
+    if (_completedOrders.isEmpty) return 0;
+    DateTime now = DateTime.now();
+    DateTime startDate;
+
+    switch (_selectedRange) {
+      case 'week':
+        startDate = now.subtract(const Duration(days: 7));
+        break;
+      case 'month':
+        startDate = DateTime(now.year, now.month - 1, now.day);
+        break;
+      case 'year':
+        startDate = DateTime(now.year - 1, now.month, now.day);
+        break;
+      default:
+        startDate = now.subtract(const Duration(days: 7));
+    }
+
+    int totalDays = now.difference(startDate).inDays;
+    if (totalDays < 1) totalDays = 1;
+
+    return _completedOrders.length / totalDays;
+  }
+
+  // int _getPeakDayCount() {
+  //   final peakDay = _getPeakDay();
+  //   return peakDay?.value ?? 0;
+  // }
+
+  String _getDateRangeText() {
+    if (_completedOrders.isEmpty) return 'No data';
+
+    DateTime? earliest;
+    DateTime? latest;
+
+    for (var order in _completedOrders) {
+      if (order.deliveredAt != null) {
+        if (earliest == null || order.deliveredAt!.isBefore(earliest)) {
+          earliest = order.deliveredAt;
+        }
+        if (latest == null || order.deliveredAt!.isAfter(latest)) {
+          latest = order.deliveredAt;
+        }
+      }
+    }
+
+    if (earliest == null || latest == null) return 'No date range';
+
+    return '${DateFormat('dd MMM').format(earliest)} - ${DateFormat('dd MMM yyyy').format(latest)}';
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.red, size: 20),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 
@@ -637,45 +871,54 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
     bool isLoading = false,
     String? error,
   }) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.red.shade50, Colors.white],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Column(
-          children: [
-            Icon(icon, color: Colors.red, size: 24),
-            const SizedBox(height: 5),
-            if (isLoading)
-              const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.red,
-                  strokeWidth: 2,
-                ),
-              )
-            else if (error != null)
-              const Icon(Icons.error_outline, color: Colors.red, size: 20)
-            else
-              Text(
-                value ?? '0',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red,
-                ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.withOpacity(0.2), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: Colors.red, size: 24),
+          const SizedBox(height: 5),
+          if (isLoading)
+            const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                color: Colors.red,
+                strokeWidth: 2,
               ),
+            )
+          else if (error != null)
+            const Icon(Icons.error_outline, color: Colors.red, size: 20)
+          else
             Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11),
+              value ?? '0',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+              ),
             ),
-          ],
-        ),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+          ),
+        ],
       ),
     );
   }

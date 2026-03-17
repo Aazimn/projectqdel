@@ -120,19 +120,13 @@ class _CarrierSettingsState extends State<CarrierSettings> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
+          border: BoxBorder.all(color: Colors.grey),
           borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Colors.white, Colors.red.withOpacity(0.5)],
+            colors: [Colors.white, Colors.white],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -162,17 +156,10 @@ class _CarrierSettingsState extends State<CarrierSettings> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      "My Profile",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
+                    Text("My Profile", style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 4),
                     Text(
-                      user?.email ?? "View & edit personal details",
+                      "View & edit personal details",
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 12,
@@ -211,26 +198,28 @@ class _CarrierSettingsState extends State<CarrierSettings> {
             subtitle: "View your active orders",
             gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
             iconColor: Colors.blue,
-            onTap: () {},
+            onTap: () {
+              
+            },
           ),
-          const SizedBox(height: 10),
-          _buildGradientTile(
-            icon: Icons.history,
-            title: "Order History",
-            subtitle: "Track completed deliveries",
-            gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
-            iconColor: Colors.orange,
-            onTap: () {},
-          ),
-          const SizedBox(height: 10),
-          _buildGradientTile(
-            icon: Icons.favorite_border,
-            title: "Saved Addresses",
-            subtitle: "Manage frequently used addresses",
-            gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
-            iconColor: Colors.pink,
-            onTap: () {},
-          ),
+          // const SizedBox(height: 10),
+          // _buildGradientTile(
+          //   icon: Icons.history,
+          //   title: "Order History",
+          //   subtitle: "Track completed deliveries",
+          //   gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
+          //   iconColor: Colors.orange,
+          //   onTap: () {},
+          // ),
+          // const SizedBox(height: 10),
+          // _buildGradientTile(
+          //   icon: Icons.favorite_border,
+          //   title: "Saved Addresses",
+          //   subtitle: "Manage frequently used addresses",
+          //   gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
+          //   iconColor: Colors.pink,
+          //   onTap: () {},
+          // ),
         ],
       ),
     );
@@ -263,7 +252,7 @@ class _CarrierSettingsState extends State<CarrierSettings> {
             icon: Icons.security,
             title: "Privacy & Security",
             subtitle: "Account security, privacy settings",
-            gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
+            gradientColors: [Colors.white, Colors.white],
             iconColor: Colors.indigo,
             onTap: () {},
           ),
@@ -293,19 +282,8 @@ class _CarrierSettingsState extends State<CarrierSettings> {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
+          border: BoxBorder.all(color: Colors.grey),
           borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: gradientColors,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: gradientColors.last.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -314,6 +292,7 @@ class _CarrierSettingsState extends State<CarrierSettings> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
+                  border: BoxBorder.all(color: Colors.grey),
                   color: Colors.white.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
@@ -331,14 +310,7 @@ class _CarrierSettingsState extends State<CarrierSettings> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
+                    Text(title, style: const TextStyle(fontSize: 16)),
                     if (subtitle != null) ...[
                       const SizedBox(height: 2),
                       Text(

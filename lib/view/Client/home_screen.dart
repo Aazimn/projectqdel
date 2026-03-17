@@ -390,13 +390,8 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white, Colors.red.withOpacity(0.5)],
-        ),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: statusColor.withOpacity(0.4)),
+        border: Border.all(color: ColorConstants.grey),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.08),

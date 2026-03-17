@@ -580,7 +580,7 @@ class _DistrictScreenState extends State<DistrictScreen> {
         decoration: BoxDecoration(
           color: ColorConstants.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: ColorConstants.bgred),
+          border: Border.all(color: ColorConstants.grey),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.06),

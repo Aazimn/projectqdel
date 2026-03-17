@@ -402,7 +402,7 @@ class _ClientProfileState extends State<ClientProfile> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: BoxBorder.all(color: ColorConstants.red),
+        border: BoxBorder.all(color: ColorConstants.grey),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 12),
         ],

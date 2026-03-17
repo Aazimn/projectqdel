@@ -22,7 +22,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
   String searchQuery = "";
   UserTab currentTab = UserTab.approved;
 
-  // Pagination variables
   List<UserModel> users = [];
   int currentPage = 1;
   int totalPages = 1;
@@ -40,11 +39,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     fetchUsers();
   }
 
-  // Updated fetchUsers with pagination - FIXED
   Future<void> fetchUsers({int page = 1, bool isLoadMore = false}) async {
-    // For page navigation (next/previous), we don't want to use isLoadMore
-    // We want to replace the list completely
-
     setState(() {
       if (isLoadMore) {
         isLoadingMore = true;
@@ -54,7 +49,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
       }
     });
 
-    // Get status string from current tab
     String status;
     switch (currentTab) {
       case UserTab.approved:
@@ -69,7 +63,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     }
 
     try {
-      // Fetch users with pagination
       final result = await apiService.getUsersByStatus(
         status: status,
         searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
@@ -78,8 +71,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
 
       if (mounted) {
         setState(() {
-          // For page navigation, ALWAYS replace the list
-          // Only use isLoadMore if you want infinite scroll (which we're not using)
           users = result['users'] as List<UserModel>;
 
           hasNextPage = result['hasNext'] as bool;
@@ -101,7 +92,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
           users = [];
         });
 
-        // Show error message to user
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Failed to load users: ${e.toString()}"),
@@ -114,14 +104,13 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
 
   void loadNextPage() {
     if (hasNextPage && !isLoadingMore) {
-      fetchUsers(page: currentPage + 1, isLoadMore: false); 
+      fetchUsers(page: currentPage + 1, isLoadMore: false);
     }
   }
 
-
   void loadPreviousPage() {
     if (hasPreviousPage && !isLoadingMore) {
-      fetchUsers(page: currentPage - 1, isLoadMore: false); 
+      fetchUsers(page: currentPage - 1, isLoadMore: false);
     }
   }
 
@@ -130,8 +119,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
       fetchUsers(page: page);
     }
   }
-
-  
 
   @override
   Widget build(BuildContext context) {
@@ -150,11 +137,9 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
             SliverToBoxAdapter(child: _searchBar()),
             SliverToBoxAdapter(child: _tabs()),
 
-            // Pagination info and controls at top
             if (!loading && users.isNotEmpty)
               SliverToBoxAdapter(child: _paginationInfo()),
 
-            // User list
             SliverPadding(
               padding: const EdgeInsets.all(16),
               sliver: loading
@@ -201,7 +186,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                     ),
             ),
 
-            // Loading more indicator
             if (isLoadingMore)
               const SliverToBoxAdapter(
                 child: Padding(
@@ -210,13 +194,11 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                 ),
               ),
 
-            // Pagination controls at bottom
             if (!loading &&
                 users.isNotEmpty &&
                 (hasNextPage || hasPreviousPage))
               SliverToBoxAdapter(child: _paginationControls()),
 
-            // Bottom padding
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
           ],
         ),
@@ -234,7 +216,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
           setState(() {
             searchQuery = value.toLowerCase().trim();
           });
-          // Debounce search to avoid too many API calls
           _debounceSearch();
         },
         decoration: InputDecoration(
@@ -244,7 +225,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                   onPressed: () {
                     searchController.clear();
                     setState(() => searchQuery = "");
-                    fetchUsers(page: 1); // Reset to page 1
+                    fetchUsers(page: 1);
                   },
                 )
               : null,
@@ -262,7 +243,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     );
   }
 
-  // Pagination info widget
   Widget _paginationInfo() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -307,7 +287,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     );
   }
 
-  // Pagination controls widget
   Widget _paginationControls() {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -326,7 +305,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Previous button
           _paginationArrowButton(
             icon: Icons.chevron_left,
             onPressed: hasPreviousPage ? loadPreviousPage : null,
@@ -335,7 +313,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
 
           const SizedBox(width: 16),
 
-          // Page indicator
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -354,7 +331,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
 
           const SizedBox(width: 16),
 
-          // Next button
           _paginationArrowButton(
             icon: Icons.chevron_right,
             onPressed: hasNextPage ? loadNextPage : null,
@@ -401,7 +377,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
   void _debounceSearch() {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      fetchUsers(page: 1); // Reset to page 1 on new search
+      fetchUsers(page: 1);
     });
   }
 
@@ -432,7 +408,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
       child: GestureDetector(
         onTap: () {
           setState(() => currentTab = tab);
-          fetchUsers(page: 1); // Reset to page 1 on tab change
+          fetchUsers(page: 1);
         },
         child: Container(
           margin: const EdgeInsets.all(4),
@@ -550,7 +526,6 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                         return;
                       }
 
-                      // Refresh the current page
                       await fetchUsers(page: currentPage);
 
                       if (mounted) {
@@ -602,135 +577,124 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     );
   }
 
-Widget _unifiedUserCard(UserModel user) {
-  final status = user.approvalStatus.toLowerCase();
+  Widget _unifiedUserCard(UserModel user) {
+    final status = user.approvalStatus.toLowerCase();
 
-  return GestureDetector(
-    onTap: () async {
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => UserDetailScreen(user: user)),
-      );
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => UserDetailScreen(user: user)),
+        );
 
-      if (result != null) {
-        fetchUsers(page: currentPage); // Refresh current page
-      }
-    },
-    child: Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ColorConstants.bgred),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: Colors.red.withOpacity(.15),
-            child: const Icon(Icons.person),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "${user.firstName} ${user.lastName}".toUpperCase(),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  "ID: ${user.id}",
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                Text(
-                  user.email,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
+        if (result != null) {
+          fetchUsers(page: currentPage);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: ColorConstants.grey),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: Colors.red.withOpacity(.15),
+              child: const Icon(Icons.person),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "${user.firstName} ${user.lastName}".toUpperCase(),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  decoration: BoxDecoration(
-                    color: status == "approved"
-                        ? Colors.green.withOpacity(.2)
-                        : status == "rejected"
-                            ? Colors.red.withOpacity(.2)
-                            : Colors.orange.withOpacity(.2),
-                    borderRadius: BorderRadius.circular(20),
+                  Text(
+                    "ID: ${user.id}",
+                    style: const TextStyle(color: Colors.grey),
                   ),
-                  child: Text(
-                    status.toUpperCase(),
-                    style: TextStyle(
+                  Text(
+                    user.email,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
                       color: status == "approved"
-                          ? Colors.green
+                          ? Colors.green.withOpacity(.2)
                           : status == "rejected"
-                              ? Colors.red
-                              : Colors.orange,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
+                          ? Colors.red.withOpacity(.2)
+                          : Colors.orange.withOpacity(.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      status.toUpperCase(),
+                      style: TextStyle(
+                        color: status == "approved"
+                            ? Colors.green
+                            : status == "rejected"
+                            ? Colors.red
+                            : Colors.orange,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          
-          // Conditional button based on current tab
-          if (currentTab == UserTab.approved)
-            // For approved list - Show Reject button
-            _actionButton(
-              label: "REJECT",
-              color: Colors.red,
-              onPressed: () => _openStatusModal(user, status),
-            )
-          else if (currentTab == UserTab.pending)
-            // For pending list - Show Approve button
-            _actionButton(
-              label: "APPROVE",
-              color: Colors.green,
-              onPressed: () => _openStatusModal(user, status),
-            )
-          else if (currentTab == UserTab.rejected)
-            // For rejected list - Show Approve button
-            _actionButton(
-              label: "APPROVE",
-              color: Colors.green,
-              onPressed: () => _openStatusModal(user, status),
-            ),
-        ],
-      ),
-    ),
-  );
-}
 
-// Helper method for action buttons
-Widget _actionButton({
-  required String label,
-  required Color color,
-  required VoidCallback onPressed,
-}) {
-  return ElevatedButton(
-    style: ElevatedButton.styleFrom(
-      backgroundColor: color,
-      foregroundColor: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+            if (currentTab == UserTab.approved)
+              _actionButton(
+                label: "REJECT",
+                color: Colors.red,
+                onPressed: () => _openStatusModal(user, status),
+              )
+            else if (currentTab == UserTab.pending)
+              _actionButton(
+                label: "APPROVE",
+                color: Colors.green,
+                onPressed: () => _openStatusModal(user, status),
+              )
+            else if (currentTab == UserTab.rejected)
+              _actionButton(
+                label: "APPROVE",
+                color: Colors.green,
+                onPressed: () => _openStatusModal(user, status),
+              ),
+          ],
+        ),
       ),
-    ),
-    onPressed: onPressed,
-    child: Text(
-      label,
-      style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
+    );
+  }
+
+  Widget _actionButton({
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
-    ),
-  );
-}
+      onPressed: onPressed,
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
 
   Widget _statusOption({
     required String title,

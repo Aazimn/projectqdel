@@ -560,7 +560,7 @@ class _StateScreenState extends State<StateScreen> {
         decoration: BoxDecoration(
           color: ColorConstants.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: ColorConstants.bgred),
+          border: Border.all(color: ColorConstants.grey),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.06),
@@ -605,6 +605,41 @@ class _StateScreenState extends State<StateScreen> {
                           fontSize: 13,
                           color: ColorConstants.black.withOpacity(0.7),
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: ColorConstants.red.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.location_city, size: 16, color: Colors.red),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Districts',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 10,
+                        color: Colors.grey.shade400,
                       ),
                     ],
                   ),
