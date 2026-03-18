@@ -38,6 +38,10 @@ class _StateScreenState extends State<StateScreen> {
   bool _isSearching = false;
   String _currentSearchQuery = '';
 
+  // Grid configuration
+  final int _crossAxisCount = 2;
+  final double _cardAspectRatio = 1.1;
+
   @override
   void initState() {
     super.initState();
@@ -293,6 +297,7 @@ class _StateScreenState extends State<StateScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Country indicator
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -323,6 +328,8 @@ class _StateScreenState extends State<StateScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                // Search field
                 TextField(
                   controller: searchCtl,
                   onChanged: _searchStates,
@@ -375,15 +382,18 @@ class _StateScreenState extends State<StateScreen> {
                       ],
                     ),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                : GridView.builder(
+                    padding: const EdgeInsets.all(14),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: _crossAxisCount,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: _cardAspectRatio,
+                    ),
                     itemCount: _states.length,
                     itemBuilder: (context, index) {
                       final state = _states[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: stateCard(state),
-                      );
+                      return stateGridCard(state);
                     },
                   ),
           ),
@@ -542,167 +552,228 @@ class _StateScreenState extends State<StateScreen> {
     );
   }
 
-  Widget stateCard(Map state) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                DistrictScreen(stateId: state['id'], stateName: state['name']),
+  Widget stateGridCard(Map state) {
+    final stateName = state['name']?.toString() ?? 'Unknown';
+    final stateId = state['id'];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: ColorConstants.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: ColorConstants.grey),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        ],
+        border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1.5),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    DistrictScreen(stateId: stateId, stateName: stateName),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: ColorConstants.red.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.location_on,
-                    color: Colors.red,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        state['name'].toUpperCase(),
+                Row(
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: Alignment.topLeft,
+                          radius: 1.2,
+                          colors: [Colors.red, Colors.red.withOpacity(0.6)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.red.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.location_on,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        stateName.length > 12
+                            ? '${stateName.substring(0, 10)}...'
+                            : stateName,
                         style: const TextStyle(
-                          fontSize: 20,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: ColorConstants.bgred,
+                          color: Colors.black,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      Text(
-                        "Country: ${widget.countryName}",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: ColorConstants.black.withOpacity(0.7),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 8),
+
+                // Country name chip
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: ColorConstants.red.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.red.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    color: Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.location_city, size: 16, color: Colors.red),
+                      Icon(Icons.public, size: 10, color: Colors.black),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          widget.countryName.length > 10
+                              ? '${widget.countryName.substring(0, 8)}...'
+                              : widget.countryName,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                SizedBox(height: 2),
+
+                // Districts indicator
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.location_city, size: 10, color: Colors.black),
                       const SizedBox(width: 4),
                       Text(
                         'Districts',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 9,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade700,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 2),
                       Icon(
                         Icons.arrow_forward_ios,
-                        size: 10,
+                        size: 8,
                         color: Colors.grey.shade400,
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            const Divider(color: Colors.grey, height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => UpdateStateScreen(
-                            stateId: state['id'],
-                            stateName: state['name'],
-                            countryId: widget.countryId,
-                          ),
-                        ),
-                      );
+                const SizedBox(height: 8),
 
-                      if (result == true) {
-                        _onRefresh();
-                      }
-                    },
-                    icon: const Icon(Icons.edit, size: 18),
-                    label: const Text("Update"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: ColorConstants.green,
-                      side: const BorderSide(color: ColorConstants.green),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                // Action buttons row
+                Row(
+                  children: [
+                    // Edit button
+                    Expanded(
+                      child: _buildGridActionButton(
+                        icon: Icons.edit,
+                        color: Colors.green,
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => UpdateStateScreen(
+                                stateId: stateId,
+                                stateName: stateName,
+                                countryId: widget.countryId,
+                              ),
+                            ),
+                          );
+
+                          if (result == true) {
+                            _onRefresh();
+                          }
+                        },
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final confirm = await _confirmDelete(context);
-                      if (confirm == true) {
-                        await _deleteState(state["id"]);
-                      }
-                    },
-                    icon: const Icon(Icons.delete, size: 18),
-                    label: const Text("Delete"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: BorderSide(color: Colors.red.withOpacity(0.4)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                    const SizedBox(width: 6),
+
+                    // Delete button
+                    Expanded(
+                      child: _buildGridActionButton(
+                        icon: Icons.delete,
+                        color: Colors.red,
+                        onPressed: () async {
+                          final confirm = await _confirmDelete(context);
+                          if (confirm == true) {
+                            await _deleteState(stateId);
+                          }
+                        },
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onPressed,
+          splashColor: color.withOpacity(0.1),
+          highlightColor: color.withOpacity(0.05),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Icon(icon, size: 14, color: color),
+          ),
         ),
       ),
     );

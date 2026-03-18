@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:projectqdel/view/Client/complaint_bottomsheet.dart';
 import 'package:projectqdel/view/Client/order_detailed.dart';
 import 'package:projectqdel/view/Client/edit_order.dart';
 import 'package:projectqdel/view/Client/order_tracking.dart';
@@ -407,10 +408,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         showChildOpacityTransition: true,
         child: CustomScrollView(
           slivers: [
-            // Top spacing
             const SliverToBoxAdapter(child: SizedBox(height: 50)),
-
-            // Main content with padding
             SliverPadding(
               padding: const EdgeInsets.all(16),
               sliver: SliverList(
@@ -423,7 +421,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               ),
             ),
 
-            // Orders list with pagination at the bottom
             _isLoadingCurrent && _currentOrders.isEmpty
                 ? const SliverFillRemaining(
                     child: Center(
@@ -512,42 +509,13 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     );
   }
 
-  // Widget _tabItem(String title, int index) {
-  //   final bool isSelected = _selectedTab == index;
-  //   return Expanded(
-  //     child: GestureDetector(
-  //       onTap: () => setState(() => _selectedTab = index),
-  //       child: Container(
-  //         padding: const EdgeInsets.symmetric(vertical: 10),
-  //         decoration: BoxDecoration(
-  //           color: isSelected ? Colors.white : Colors.transparent,
-  //           borderRadius: BorderRadius.circular(12),
-  //         ),
-  //         child: Center(
-  //           child: Text(
-  //             title,
-  //             style: TextStyle(
-  //               fontWeight: FontWeight.w600,
-  //               fontSize: 13,
-  //               color: isSelected ? Colors.black : Colors.white,
-  //             ),
-  //           ),
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
-
   Widget _tabItem(String title, int index) {
     final bool isSelected = _selectedTab == index;
     return Expanded(
       child: GestureDetector(
         onTap: () async {
-          // Only do something if switching to a different tab
           if (_selectedTab != index) {
             setState(() => _selectedTab = index);
-
-            // Refresh the newly selected tab's data
             switch (index) {
               case 0: // Searching
                 await _fetchSearching(page: 1, search: searchingSearch);
@@ -797,8 +765,57 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             _getStatusDescription(resolvedState, order),
           ),
           const SizedBox(height: 16),
-          _buildActionButtons(order, pickupId, productId, senderAddressId),
+
+          Row(
+            children: [
+              _buildHelpButton(order),
+              if (_selectedTab != 0)
+                const SizedBox(width: 8), 
+
+              Expanded(
+                child: _buildActionButtons(
+                  order,
+                  pickupId,
+                  productId,
+                  senderAddressId,
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHelpButton(Map<String, dynamic> order) {
+    if (_selectedTab == 0) {
+      return const SizedBox.shrink(); 
+    }
+
+    return GestureDetector(
+      onTap: () => _showComplaintBottomSheet(context, order),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.help_outline, color: ColorConstants.red, size: 18),
+            const SizedBox(width: 4),
+            Text(
+              'Help',
+              style: TextStyle(
+                color: ColorConstants.red,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -850,6 +867,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                 ).then((_) => _onRefresh()),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.blue),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 child: const Text('Edit', style: TextStyle(color: Colors.blue)),
               ),
@@ -862,6 +880,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                   MaterialPageRoute(
                     builder: (_) => OrderDetailsScreen(pickupId: pickupId!),
                   ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 child: const Text('Details'),
               ),
@@ -878,6 +899,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                   MaterialPageRoute(
                     builder: (_) => OrderDetailsScreen(pickupId: pickupId!),
                   ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 child: const Text('Details'),
               ),
@@ -896,6 +920,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: ColorConstants.red,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 child: const Text(
                   'Track',
@@ -915,6 +940,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                   MaterialPageRoute(
                     builder: (_) => OrderDetailsScreen(pickupId: pickupId!),
                   ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 child: const Text('Details'),
               ),
@@ -1024,5 +1052,39 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       ),
       child: child,
     );
+  }
+
+  Future<void> _showComplaintBottomSheet(
+    BuildContext context,
+    Map<String, dynamic> order,
+  ) async {
+    final pickupNo = order['pickup_no']?.toString() ?? 'N/A';
+    final productName = order['product_details']?['name'] ?? 'Product';
+    final int? pickupId = order['id'];
+
+    logger.i(
+      '🔍 Order data for complaint: ${order.keys}',
+    ); 
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: ComplaintBottomSheet(
+          pickupId: pickupId,
+          orderId: pickupNo,
+          productName: productName,
+          orderData: order, 
+        ),
+      ),
+    );
+
+    if (result == true) {
+      logger.i('Complaint submitted successfully');
+    }
   }
 }

@@ -12,17 +12,17 @@ class SavedAddressesScreen extends StatefulWidget {
 
 class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
   final ApiService _apiService = ApiService();
-  
+
   List<dynamic> _senderAddresses = [];
   List<dynamic> _receiverAddresses = [];
-  
+
   bool _isLoadingSenders = true;
   bool _isLoadingReceivers = true;
   String? _sendersError;
   String? _receiversError;
-  
-  int _selectedTab = 0; // 0: Sender, 1: Receiver
-  
+
+  int _selectedTab = 0;
+
   final DateFormat _dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
 
   @override
@@ -32,10 +32,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
   }
 
   Future<void> _loadAddresses() async {
-    await Future.wait([
-      _loadSenderAddresses(),
-      _loadReceiverAddresses(),
-    ]);
+    await Future.wait([_loadSenderAddresses(), _loadReceiverAddresses()]);
   }
 
   Future<void> _loadSenderAddresses() async {
@@ -89,10 +86,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
       appBar: AppBar(
         title: const Text(
           'Saved Addresses',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: ColorConstants.red,
         elevation: 0,
@@ -284,10 +278,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            Colors.blue.withOpacity(0.05),
-          ],
+          colors: [Colors.white, Colors.red.withOpacity(0.05)],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.blue.withOpacity(0.2), width: 1.5),
@@ -301,7 +292,6 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
       ),
       child: Column(
         children: [
-          // Header with ID and type
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             decoration: BoxDecoration(
@@ -319,11 +309,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                     color: Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
-                    Icons.person,
-                    color: Colors.blue,
-                    size: 16,
-                  ),
+                  child: const Icon(Icons.person, color: Colors.blue, size: 16),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -336,7 +322,10 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -354,19 +343,17 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
             ),
           ),
 
-          // Main content
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                // Name and phone
                 Row(
                   children: [
                     Expanded(
                       child: _buildInfoChip(
                         icon: Icons.person_outline,
                         label: address['sender_name'] ?? 'N/A',
-                        color: Colors.blue,
+                        color: Colors.grey,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -374,40 +361,38 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       child: _buildInfoChip(
                         icon: Icons.phone_outlined,
                         label: address['phone_number'] ?? 'N/A',
-                        color: Colors.green,
+                        color: Colors.grey,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
 
-                // Address line
                 _buildAddressDetail(
                   icon: Icons.location_on_outlined,
                   label: 'Address',
                   value: address['address'] ?? 'N/A',
-                  color: Colors.orange,
+                  color: Colors.grey,
                 ),
                 const SizedBox(height: 8),
 
-                // Landmark
-                if (address['landmark'] != null && address['landmark'].isNotEmpty)
+                if (address['landmark'] != null &&
+                    address['landmark'].isNotEmpty)
                   _buildAddressDetail(
                     icon: Icons.landscape_outlined,
                     label: 'Landmark',
                     value: address['landmark'],
-                    color: Colors.purple,
+                    color: Colors.grey,
                   ),
                 const SizedBox(height: 8),
 
-                // Location details
                 Row(
                   children: [
                     Expanded(
                       child: _buildLocationChip(
                         icon: Icons.location_city,
                         value: address['district'] ?? 'N/A',
-                        color: Colors.teal,
+                        color: Colors.grey,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -415,21 +400,20 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       child: _buildLocationChip(
                         icon: Icons.map,
                         value: address['state'] ?? 'N/A',
-                        color: Colors.indigo,
+                        color: Colors.grey,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                // Country and ZIP
                 Row(
                   children: [
                     Expanded(
                       child: _buildLocationChip(
                         icon: Icons.public,
                         value: address['country'] ?? 'N/A',
-                        color: Colors.brown,
+                        color: Colors.grey,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -437,14 +421,13 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       child: _buildLocationChip(
                         icon: Icons.markunread_mailbox,
                         value: address['zip_code'] ?? 'N/A',
-                        color: Colors.pink,
+                        color: Colors.grey,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
 
-                // Coordinates
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -454,7 +437,11 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.location_on, size: 16, color: Colors.red.shade300),
+                      Icon(
+                        Icons.location_on,
+                        size: 16,
+                        color: Colors.red.shade300,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -471,11 +458,14 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Created at
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Icon(Icons.access_time, size: 12, color: Colors.grey.shade500),
+                    Icon(
+                      Icons.access_time,
+                      size: 12,
+                      color: Colors.grey.shade500,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       _formatDate(address['created_at']),
@@ -485,41 +475,6 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       ),
                     ),
                   ],
-                ),
-              ],
-            ),
-          ),
-
-          // Action buttons
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildActionButton(
-                    icon: Icons.edit_outlined,
-                    label: 'Edit',
-                    color: Colors.blue,
-                    onTap: () {
-                      // Navigate to edit screen
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildActionButton(
-                    icon: Icons.delete_outlined,
-                    label: 'Delete',
-                    color: Colors.red,
-                    onTap: () => _confirmDelete(address['id'], true),
-                  ),
                 ),
               ],
             ),
@@ -536,10 +491,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            Colors.green.withOpacity(0.05),
-          ],
+          colors: [Colors.white, Colors.red.withOpacity(0.05)],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.green.withOpacity(0.2), width: 1.5),
@@ -553,7 +505,6 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
       ),
       child: Column(
         children: [
-          // Header with ID and type
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             decoration: BoxDecoration(
@@ -588,7 +539,10 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.green.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -606,19 +560,17 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
             ),
           ),
 
-          // Main content
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                // Name and phone
                 Row(
                   children: [
                     Expanded(
                       child: _buildInfoChip(
                         icon: Icons.person_outline,
                         label: address['receiver_name'] ?? 'N/A',
-                        color: Colors.green,
+                        color: Colors.grey,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -626,7 +578,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       child: _buildInfoChip(
                         icon: Icons.phone_outlined,
                         label: address['receiver_phone'] ?? 'N/A',
-                        color: Colors.green.shade700,
+                        color: Colors.grey.shade700,
                       ),
                     ),
                   ],
@@ -638,28 +590,28 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                   icon: Icons.location_on_outlined,
                   label: 'Address',
                   value: address['address_text'] ?? 'N/A',
-                  color: Colors.orange,
+                  color: Colors.grey,
                 ),
                 const SizedBox(height: 8),
 
                 // Landmark
-                if (address['landmark'] != null && address['landmark'].isNotEmpty)
+                if (address['landmark'] != null &&
+                    address['landmark'].isNotEmpty)
                   _buildAddressDetail(
                     icon: Icons.landscape_outlined,
                     label: 'Landmark',
                     value: address['landmark'],
-                    color: Colors.purple,
+                    color: Colors.grey,
                   ),
                 const SizedBox(height: 8),
 
-                // Location details
                 Row(
                   children: [
                     Expanded(
                       child: _buildLocationChip(
                         icon: Icons.location_city,
                         value: address['district'] ?? 'N/A',
-                        color: Colors.teal,
+                        color: Colors.grey,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -667,21 +619,20 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       child: _buildLocationChip(
                         icon: Icons.map,
                         value: address['state'] ?? 'N/A',
-                        color: Colors.indigo,
+                        color: Colors.grey,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                // Country and ZIP
                 Row(
                   children: [
                     Expanded(
                       child: _buildLocationChip(
                         icon: Icons.public,
                         value: address['country'] ?? 'N/A',
-                        color: Colors.brown,
+                        color: Colors.grey,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -689,14 +640,13 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       child: _buildLocationChip(
                         icon: Icons.markunread_mailbox,
                         value: address['zip_code'] ?? 'N/A',
-                        color: Colors.pink,
+                        color: Colors.grey,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
 
-                // Coordinates
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -706,7 +656,11 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.location_on, size: 16, color: Colors.red.shade300),
+                      Icon(
+                        Icons.location_on,
+                        size: 16,
+                        color: Colors.red.shade300,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -723,13 +677,16 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Created by and created at
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.person, size: 12, color: Colors.grey.shade500),
+                        Icon(
+                          Icons.person,
+                          size: 12,
+                          color: Colors.grey.shade500,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           'Created by: ${address['created_by'] ?? 'N/A'}',
@@ -742,7 +699,11 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                     ),
                     Row(
                       children: [
-                        Icon(Icons.access_time, size: 12, color: Colors.grey.shade500),
+                        Icon(
+                          Icons.access_time,
+                          size: 12,
+                          color: Colors.grey.shade500,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           _formatDate(address['created_at']),
@@ -754,41 +715,6 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       ],
                     ),
                   ],
-                ),
-              ],
-            ),
-          ),
-
-          // Action buttons
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildActionButton(
-                    icon: Icons.edit_outlined,
-                    label: 'Edit',
-                    color: Colors.green,
-                    onTap: () {
-                      // Navigate to edit screen
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildActionButton(
-                    icon: Icons.delete_outlined,
-                    label: 'Delete',
-                    color: Colors.red,
-                    onTap: () => _confirmDelete(address['id'], false),
-                  ),
                 ),
               ],
             ),
@@ -852,18 +778,15 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: color.withOpacity(0.8),
-                  ),
+                  style: TextStyle(fontSize: 10, color: color.withOpacity(0.8)),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                    color: Colors.grey.shade800,
                   ),
                 ),
               ],
@@ -895,47 +818,13 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
               value,
               style: TextStyle(
                 fontSize: 11,
-                color: color,
+                color: Colors.grey.shade800,
                 fontWeight: FontWeight.w500,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -947,55 +836,6 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
       return _dateFormat.format(date);
     } catch (e) {
       return dateString;
-    }
-  }
-
-  Future<void> _confirmDelete(int addressId, bool isSender) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.delete_outline, color: Colors.red),
-            ),
-            const SizedBox(width: 12),
-            const Text('Delete Address'),
-          ],
-        ),
-        content: Text(
-          'Are you sure you want to delete this ${isSender ? 'sender' : 'receiver'} address?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      // TODO: Implement delete functionality
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Delete functionality not implemented yet'),
-          backgroundColor: Colors.orange,
-        ),
-      );
     }
   }
 }

@@ -38,6 +38,10 @@ class _DistrictScreenState extends State<DistrictScreen> {
   bool _isSearching = false;
   String _currentSearchQuery = '';
 
+  // Grid configuration
+  final int _crossAxisCount = 2;
+  final double _cardAspectRatio = 1.1;
+
   @override
   void initState() {
     super.initState();
@@ -316,6 +320,7 @@ class _DistrictScreenState extends State<DistrictScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // State indicator
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -346,6 +351,8 @@ class _DistrictScreenState extends State<DistrictScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
+
+                      // Search field
                       TextField(
                         controller: searchCtl,
                         onChanged: _searchDistricts,
@@ -377,15 +384,43 @@ class _DistrictScreenState extends State<DistrictScreen> {
                             ),
                           ),
                         )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                      : _districts.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.location_off,
+                                size: 64,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _currentSearchQuery.isNotEmpty
+                                    ? "No districts match '$_currentSearchQuery'"
+                                    : "No districts found in ${widget.stateName}",
+                                style: const TextStyle(
+                                  color: ColorConstants.black,
+                                  fontSize: 16,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        )
+                      : GridView.builder(
+                          padding: const EdgeInsets.all(14),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: _crossAxisCount,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: _cardAspectRatio,
+                              ),
                           itemCount: _districts.length,
                           itemBuilder: (context, index) {
                             final district = _districts[index];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: districtCard(district: district),
-                            );
+                            return districtGridCard(district);
                           },
                         ),
                 ),
@@ -571,139 +606,179 @@ class _DistrictScreenState extends State<DistrictScreen> {
     );
   }
 
-  Widget districtCard({required Map district}) {
-    return Padding(
-      padding: const EdgeInsets.all(10),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 5),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: ColorConstants.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: ColorConstants.grey),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: ColorConstants.red.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.location_city, color: Colors.red, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        district['name'].toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: ColorConstants.black,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "State: ${widget.stateName}",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: ColorConstants.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    widget.stateName,
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Divider(color: Colors.grey.shade200),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => UpdateDistrictScreen(
-                            districtId: district['id'],
-                            districtName: district['name'],
-                            stateId: widget.stateId,
-                          ),
-                        ),
-                      );
+  Widget districtGridCard(Map district) {
+    final districtName = district['name']?.toString() ?? 'Unknown';
+    final districtId = district['id'];
 
-                      if (result == true) {
-                        _onRefresh();
-                      }
-                    },
-                    icon: const Icon(Icons.edit, size: 18),
-                    label: const Text("Update"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: ColorConstants.green,
-                      side: BorderSide(color: ColorConstants.green),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1.5),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top section with icon and name
+              Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment.topLeft,
+                        radius: 1.2,
+                        colors: [Colors.red, Colors.red.withOpacity(0.6)],
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.location_city,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final confirm = await _confirmDelete(context);
-                      if (confirm == true) {
-                        await _deleteDistrict(district['id']);
-                      }
-                    },
-                    icon: const Icon(Icons.delete, size: 18),
-                    label: const Text("Delete"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: BorderSide(color: Colors.red.withOpacity(0.4)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      districtName.length > 12
+                          ? '${districtName.substring(0, 10)}...'
+                          : districtName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // State name chip
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
-            ),
-          ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.location_on, size: 10, color: Colors.black),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        widget.stateName.length > 10
+                            ? '${widget.stateName.substring(0, 8)}...'
+                            : widget.stateName,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+
+              // Action buttons row
+              Row(
+                children: [
+                  // Edit button
+                  Expanded(
+                    child: _buildGridActionButton(
+                      icon: Icons.edit,
+                      color: Colors.green,
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => UpdateDistrictScreen(
+                              districtId: districtId,
+                              districtName: districtName,
+                              stateId: widget.stateId,
+                            ),
+                          ),
+                        );
+
+                        if (result == true) {
+                          _onRefresh();
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+
+                  // Delete button
+                  Expanded(
+                    child: _buildGridActionButton(
+                      icon: Icons.delete,
+                      color: Colors.red,
+                      onPressed: () async {
+                        final confirm = await _confirmDelete(context);
+                        if (confirm == true) {
+                          await _deleteDistrict(districtId);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onPressed,
+          splashColor: color.withOpacity(0.1),
+          highlightColor: color.withOpacity(0.05),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Icon(icon, size: 14, color: color),
+          ),
         ),
       ),
     );

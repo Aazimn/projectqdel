@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/splash_screen.dart';
 import 'package:projectqdel/view/usertype_screen.dart';
 
 class ClientProfile extends StatefulWidget {
@@ -67,8 +66,6 @@ class _ClientProfileState extends State<ClientProfile> {
                   const SizedBox(height: 10),
                   _personalDetailsCard(),
                   const SizedBox(height: 20),
-                  _logoutCard(),
-                  const SizedBox(height: 30),
                 ],
               ),
             ),
@@ -308,55 +305,6 @@ class _ClientProfileState extends State<ClientProfile> {
           ),
         );
       },
-    );
-  }
-
-  Widget _logoutCard() {
-    return _card(
-      title: "Account",
-      leading: const Icon(Icons.logout, color: ColorConstants.red),
-      children: [
-        Text(
-          "Ending your session will require you to log in again.",
-          style: TextStyle(color: ColorConstants.darkgrey),
-        ),
-        _divider(),
-
-        _actionBtn("Log Out", ColorConstants.red, _confirmLogout),
-      ],
-    );
-  }
-
-  void _confirmLogout() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Logout"),
-        content: const Text("Are you sure you want to log out?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-
-              await ApiService.logout();
-
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const SplashScreen()),
-                (route) => false,
-              );
-            },
-            child: const Text(
-              "Logout",
-              style: TextStyle(color: ColorConstants.red),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

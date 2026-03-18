@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:projectqdel/view/Admin/change_phone.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 
 class AdminProfileScreen extends StatefulWidget {
@@ -408,6 +409,13 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                       onTap: _openEditProfileDialog,
                     ),
                     _buildActionTile(
+                      icon: Icons.phone_android_outlined,
+                      title: 'Change Phone Number',
+                      subtitle: 'Update your registered mobile number',
+                      iconColor: Colors.red,
+                      onTap: _openChangePhoneDialog,
+                    ),
+                    _buildActionTile(
                       icon: Icons.security_outlined,
                       title: 'Security',
                       subtitle: 'Password & authentication',
@@ -441,6 +449,18 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
         ),
       ),
     );
+  }
+
+  void _openChangePhoneDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const ChangePhoneSheet(),
+    ).then((_) {
+      // Refresh profile after phone change
+      _loadAdminProfile();
+    });
   }
 
   Widget _buildStatCard({

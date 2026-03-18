@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/admin_profile.dart';
+import 'package:projectqdel/view/Admin/dashboard_screen.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 
 class AdminSettingsScreen extends StatelessWidget {
@@ -24,7 +25,7 @@ class AdminSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          /// 👤 Account Section
+
           _sectionTitle("ACCOUNT"),
           _settingsCard(
             icon: Icons.person,
@@ -37,48 +38,60 @@ class AdminSettingsScreen extends StatelessWidget {
               );
             },
           ),
-          _settingsCard(
-            icon: Icons.lock,
-            title: "Change Password",
-            subtitle: "Update login credentials",
-            onTap: () {},
-          ),
 
+          // _settingsCard(
+          //   icon: Icons.lock,
+          //   title: "Change Password",
+          //   subtitle: "Update login credentials",
+          //   onTap: () {},
+          // ),
           const SizedBox(height: 20),
 
-          /// ⚙️ System Section
           _sectionTitle("SYSTEM"),
           _settingsCard(
             icon: Icons.public,
-            title: "Manage Countries",
-            subtitle: "Add, update or delete countries",
-            onTap: () {},
-          ),
-          _settingsCard(
-            icon: Icons.map,
-            title: "Manage States",
-            subtitle: "State level configuration",
-            onTap: () {},
-          ),
-          _settingsCard(
-            icon: Icons.location_city,
-            title: "Manage Districts",
-            subtitle: "District level configuration",
-            onTap: () {},
+            title: "Manage Countries, States, Districts",
+            subtitle: "Add, update or delete",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DashboardScreen(initialTab: 2),
+                ),
+              );
+            },
           ),
 
-          const SizedBox(height: 20),
+          // _settingsCard(
+          //   icon: Icons.map,
+          //   title: "Manage States",
+          //   subtitle: "State level configuration",
+          //   onTap: () {},
+          // ),
+          // _settingsCard(
+          //   icon: Icons.location_city,
+          //   title: "Manage Districts",
+          //   subtitle: "District level configuration",
+          //   onTap: () {
+          //   },
+          // ),
+          const SizedBox(height: 5),
 
-          /// 👥 Users Section
-          _sectionTitle("USERS"),
           _settingsCard(
             icon: Icons.group,
             title: "User Directory",
             subtitle: "Approve or reject users",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DashboardScreen(initialTab: 1),
+                ),
+              );
+            },
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 5),
 
           /// 🚪 Logout
           _settingsCard(
@@ -131,7 +144,8 @@ class AdminSettingsScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isDestructive
-                  ? Colors.red.withOpacity(.4)
+                  ? Colors
+                        .grey //.withOpacity(.4)
                   : ColorConstants.grey,
             ),
             boxShadow: [

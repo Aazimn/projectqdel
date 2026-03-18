@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:logger/logger.dart';
 import 'package:projectqdel/model/carrier_orders.dart';
+import 'package:projectqdel/model/complaint_model.dart';
 import 'package:projectqdel/model/order_model.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,7 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl = "https://rent-exp-simple-whose.trycloudflare.com";
+  final String baseurl = "https://louis-kingdom-entire-sound.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -2976,6 +2977,171 @@ class ApiService {
     } catch (e) {
       logger.e("🔥 ADMIN DASHBOARD COUNTS ERROR => $e");
       throw Exception("Error: $e");
+    }
+  }
+
+  Future<Map<String, dynamic>> sendOldPhoneOtp({
+    required String newPhone,
+  }) async {
+    try {
+      final url = Uri.parse("$baseurl/api/qdel/phone-change/send/old/otp/");
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+      final body = jsonEncode({"new_phone": newPhone});
+
+      logger.i("📡 SENDING OLD PHONE OTP - URL: $url");
+      logger.i("📡 BODY: $body");
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      logger.i("📦 OLD PHONE OTP STATUS :: ${response.statusCode}");
+      logger.i("📦 OLD PHONE OTP BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception("Failed to send OTP to old number");
+      }
+    } catch (e) {
+      logger.e("🔥 OLD PHONE OTP ERROR => $e");
+      throw Exception("Error: $e");
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyOldPhoneOtp({
+    required String newPhone,
+    required String otp,
+  }) async {
+    try {
+      final url = Uri.parse("$baseurl/api/qdel/phone-change/verify/old/otp/");
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+      final body = jsonEncode({"new_phone": newPhone, "otp_old": otp});
+
+      logger.i("📡 VERIFYING OLD PHONE OTP - URL: $url");
+      logger.i("📡 BODY: $body");
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      logger.i("📦 OLD PHONE VERIFY STATUS :: ${response.statusCode}");
+      logger.i("📦 OLD PHONE VERIFY BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception("Invalid OTP");
+      }
+    } catch (e) {
+      logger.e("🔥 OLD PHONE VERIFY ERROR => $e");
+      throw Exception("Error: $e");
+    }
+  }
+
+  Future<Map<String, dynamic>> sendNewPhoneOtp({
+    required String newPhone,
+  }) async {
+    try {
+      final url = Uri.parse("$baseurl/api/qdel/phone-change/send/new/otp/");
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+      final body = jsonEncode({"new_phone": newPhone});
+
+      logger.i("📡 SENDING NEW PHONE OTP - URL: $url");
+      logger.i("📡 BODY: $body");
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      logger.i("📦 NEW PHONE OTP STATUS :: ${response.statusCode}");
+      logger.i("📦 NEW PHONE OTP BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception("Failed to send OTP to new number");
+      }
+    } catch (e) {
+      logger.e("🔥 NEW PHONE OTP ERROR => $e");
+      throw Exception("Error: $e");
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyNewPhoneOtp({
+    required String newPhone,
+    required String otp,
+  }) async {
+    try {
+      final url = Uri.parse("$baseurl/api/qdel/phone-change/verify/new/otp/");
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+      final body = jsonEncode({"new_phone": newPhone, "otp_new": otp});
+
+      logger.i("📡 VERIFYING NEW PHONE OTP - URL: $url");
+      logger.i("📡 BODY: $body");
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      logger.i("📦 NEW PHONE VERIFY STATUS :: ${response.statusCode}");
+      logger.i("📦 NEW PHONE VERIFY BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception("Invalid OTP");
+      }
+    } catch (e) {
+      logger.e("🔥 NEW PHONE VERIFY ERROR => $e");
+      throw Exception("Error: $e");
+    }
+  }
+
+  Future<Map<String, dynamic>> submitComplaint(ComplaintModel complaint) async {
+    try {
+      final token = ApiService.accessToken;
+      final Uri url = Uri.parse('$baseurl/api/qdel/sender/customer-service/');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(complaint.toJson()),
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return responseData;
+      } else {
+        String errorMessage = 'Failed to submit complaint';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage =
+              errorData['message'] ??
+              errorData['error'] ??
+              errorData['detail'] ??
+              errorMessage;
+        } catch (e) {
+          errorMessage =
+              'Error ${response.statusCode}: ${response.reasonPhrase}';
+        }
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      } else if (e is http.ClientException) {
+        throw Exception('Network error: Please check your internet connection');
+      } else {
+        logger.e('❌ Unknown error type: ${e.runtimeType}');
+        throw Exception('Failed to submit complaint: ${e.toString()}');
+      }
     }
   }
 }

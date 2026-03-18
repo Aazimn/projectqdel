@@ -23,6 +23,7 @@ class AddressColors {
   static const Color textSecondary = Color(0xFF64748B);
   static const Color border = Color(0xFFE2E8F0);
 }
+
 class CountrySelector extends StatefulWidget {
   final int? selectedId;
   final Color color;
@@ -867,8 +868,8 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
 
       setState(() {
         countries = allCountries;
-        _countryPage = 1; 
-        _countryHasNext = false; 
+        _countryPage = 1;
+        _countryHasNext = false;
         logger.i("✅ FINAL: Loaded total ${countries.length} countries");
         logger.i(
           "🌍 All countries: ${countries.map((c) => c['name']).toList()}",
@@ -2216,7 +2217,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                       dynamic pickupId;
                       String? orderNumber;
 
-                     
                       // ignore: unnecessary_type_check
                       if (pickupResponse is Map) {
                         if (pickupResponse.containsKey("data") &&
@@ -3031,19 +3031,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                                 });
                                 Navigator.pop(context);
                               },
-                              onDelete: () async {
-                                final confirm = await _showDeleteDialog(
-                                  context,
-                                );
-                                if (confirm == true) {
-                                  await apiService.deleteSenderAddress(
-                                    addressId: addr["id"],
-                                  );
-                                  if (context.mounted) {
-                                    modalSetState(() {});
-                                  }
-                                }
-                              },
                             );
                           },
                         );
@@ -3141,19 +3128,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                                   isReceiverCompleted = true;
                                 });
                                 Navigator.pop(context);
-                              },
-                              onDelete: () async {
-                                final confirm = await _showDeleteDialog(
-                                  context,
-                                );
-                                if (confirm == true) {
-                                  await apiService.deleteReceiverAddress(
-                                    addressId: addr["id"],
-                                  );
-                                  if (context.mounted) {
-                                    modalSetState(() {});
-                                  }
-                                }
                               },
                             );
                           },
@@ -3338,7 +3312,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   }) {
     return Column(
       children: [
-  
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: InkWell(
@@ -3755,7 +3728,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     required Color color,
     required Color lightColor,
     required VoidCallback onTap,
-    required VoidCallback onDelete,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -3819,20 +3791,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.delete_outline,
-                          color: Colors.red[400],
-                        ),
-                        onPressed: onDelete,
-                        splashRadius: 24,
-                      ),
-                    ),
                     const SizedBox(width: 4),
                     Container(
                       padding: const EdgeInsets.all(8),
@@ -3901,33 +3859,6 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
             borderRadius: BorderRadius.circular(30),
           ),
         ),
-      ),
-    );
-  }
-
-  Future<bool?> _showDeleteDialog(BuildContext context) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Delete Address?"),
-        content: const Text("This action cannot be undone."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text("Delete"),
-          ),
-        ],
       ),
     );
   }

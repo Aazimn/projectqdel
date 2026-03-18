@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/Client/map_picker.dart';
 import 'package:projectqdel/view/Client/client_dashboard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
@@ -1553,109 +1552,6 @@ class _EditOrderState extends State<EditOrder> {
     );
   }
 
-
-  Future<void> _fetchReceiverStates({
-    required int countryId,
-    required int page,
-    String? search,
-  }) async {
-    setState(() => isReceiverStateLoading = true);
-    try {
-      logger.i(
-        "📡 Fetching receiver states countryId=$countryId page=$page search=$search",
-      );
-      final response = await apiService.getStatesByCountry(
-        countryId: countryId,
-        page: page,
-        search: search,
-      );
-
-      List<dynamic> data;
-      bool hasNext = false;
-
-      if (response is List) {
-        data = response;
-        hasNext = false;
-      } else if (response is Map) {
-        data =
-            (response['results'] as List?) ??
-            (response['data'] as List?) ??
-            <dynamic>[];
-        hasNext = response['next'] != null;
-      } else {
-        throw Exception('Unexpected states response type');
-      }
-
-      logger.i("✅ Receiver states loaded: ${data.length}, hasNext=$hasNext");
-
-      setState(() {
-        receiverStates = data;
-        _receiverStatePage = page;
-        _receiverStateSearchQuery = search ?? '';
-        _receiverStateHasNext = hasNext;
-      });
-    } catch (e) {
-      logger.e("❌ Receiver state load error: $e");
-      setState(() {
-        receiverStates = [];
-        _receiverStateHasNext = false;
-      });
-    } finally {
-      setState(() => isReceiverStateLoading = false);
-    }
-  }
-
-  Future<void> _fetchReceiverDistricts({
-    required int stateId,
-    required int page,
-    String? search,
-  }) async {
-    setState(() => isReceiverDistrictLoading = true);
-    try {
-      logger.i(
-        "📡 Fetching receiver districts stateId=$stateId page=$page search=$search",
-      );
-      final response = await apiService.getDistrictsByState(
-        stateId: stateId,
-        page: page,
-        search: search,
-      );
-
-      List<dynamic> data;
-      bool hasNext = false;
-
-      if (response is List) {
-        data = response;
-        hasNext = false;
-      } else if (response is Map) {
-        data =
-            (response['results'] as List?) ??
-            (response['data'] as List?) ??
-            <dynamic>[];
-        hasNext = response['next'] != null;
-      } else {
-        throw Exception('Unexpected districts response type');
-      }
-
-      logger.i("✅ Receiver districts loaded: ${data.length}, hasNext=$hasNext");
-
-      setState(() {
-        receiverDistricts = data;
-        _receiverDistrictPage = page;
-        _receiverDistrictSearchQuery = search ?? '';
-        _receiverDistrictHasNext = hasNext;
-      });
-    } catch (e) {
-      logger.e("❌ Receiver district load error: $e");
-      setState(() {
-        receiverDistricts = [];
-        _receiverDistrictHasNext = false;
-      });
-    } finally {
-      setState(() => isReceiverDistrictLoading = false);
-    }
-  }
-
   void _openEditProductSheet() {
     showModalBottomSheet(
       context: context,
@@ -1866,40 +1762,420 @@ class _EditOrderState extends State<EditOrder> {
     );
   }
 
-  Widget _buildMapSelectionCard(
-    String title,
-    double? selected,
-    VoidCallback onTap,
-    Color color, {
-    String? locationName,
+  Future<void> _openEditReceiverSheet() async {
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, modalSetState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.8,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
+                ),
+              ),
+              child: Column(
+                children: [
+                  _buildSheetHeader(
+                    "Select Receiver Address",
+                    AddressColors.receiverPrimary,
+                  ),
+                  Expanded(
+                    child: FutureBuilder<List<dynamic>>(
+                      future: apiService.getReceiverAddresses(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        if (snapshot.hasError || !snapshot.hasData) {
+                          return _buildEmptyState(
+                            "No saved addresses",
+                            Icons.location_off,
+                            AddressColors.receiverPrimary,
+                          );
+                        }
+
+                        final list = List<Map<String, dynamic>>.from(
+                          snapshot.data!.reversed,
+                        );
+
+                        if (list.isEmpty) {
+                          return _buildEmptyState(
+                            "No saved addresses",
+                            Icons.location_off,
+                            AddressColors.receiverPrimary,
+                          );
+                        }
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: list.length,
+                          itemBuilder: (_, index) {
+                            final addr = list[index];
+                            return _buildAttractiveAddressListItem(
+                              addr: addr,
+                              color: AddressColors.receiverPrimary,
+                              lightColor: AddressColors.receiverLight,
+                              onTap: () async {
+                                await _applyReceiverAddress(addr);
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Receiver address updated!"),
+                                    backgroundColor: Colors.green,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  _buildAddNewButton(
+                    "Add New Receiver Address",
+                    AddressColors.receiverPrimary,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _resetReceiverForm();
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        _openAttractiveReceiverBottomSheet();
+                      });
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _applySenderAddress(Map<String, dynamic> addr) async {
+    logger.i("🔵 Applying sender address: ${addr['id']}");
+
+    senderNameCtrl.text = addr["sender_name"] ?? "";
+    senderPhoneCtrl.text = addr["phone_number"] ?? "";
+    senderAddressCtrl.text = addr["address"] ?? "";
+    senderLandmarkCtrl.text = addr["landmark"] ?? "";
+    senderZipCtrl.text = addr["zip_code"] ?? "";
+
+    senderLatitude = double.tryParse(addr["latitude"]?.toString() ?? "");
+    senderLongitude = double.tryParse(addr["longitude"]?.toString() ?? "");
+
+    if (senderLatitude != null && senderLongitude != null) {
+      try {
+        String locationName = await _getLocationName(
+          senderLatitude!,
+          senderLongitude!,
+        );
+        setState(() {
+          senderLocationName = locationName;
+          senderAddressCtrl.text = locationName;
+        });
+      } catch (e) {
+        setState(() {
+          senderLocationName =
+              "Location at ${senderLatitude?.toStringAsFixed(4) ?? '?'}, ${senderLongitude?.toStringAsFixed(4) ?? '?'}";
+        });
+      }
+    }
+
+    senderCountryCtrl.text = addr["country"] ?? "";
+    senderStateCtrl.text = addr["state"] ?? "";
+    senderDistrictCtrl.text = addr["district"] ?? "";
+
+    setState(() {
+      selectedCountryId = null;
+      selectedStateId = null;
+      selectedDistrictId = null;
+    });
+
+    if (addr["country"] != null && addr["country"].isNotEmpty) {
+      try {
+        final countryMatch = countries.firstWhere(
+          (c) => c['name'] == addr["country"],
+          orElse: () => null,
+        );
+
+        if (countryMatch != null) {
+          setState(() {
+            selectedCountryId = countryMatch['id'];
+          });
+
+          if (selectedCountryId != null) {
+            await _loadStates(selectedCountryId!);
+
+            if (addr["state"] != null && addr["state"].isNotEmpty) {
+              final stateMatch = states.firstWhere(
+                (s) => s['name'] == addr["state"],
+                orElse: () => null,
+              );
+
+              if (stateMatch != null) {
+                setState(() {
+                  selectedStateId = stateMatch['id'];
+                });
+
+                if (selectedStateId != null) {
+                  await _loadDistricts(selectedStateId!);
+
+                  if (addr["district"] != null && addr["district"].isNotEmpty) {
+                    final districtMatch = districts.firstWhere(
+                      (d) => d['name'] == addr["district"],
+                      orElse: () => null,
+                    );
+
+                    if (districtMatch != null) {
+                      setState(() {
+                        selectedDistrictId = districtMatch['id'];
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        logger.e("Error in _applySenderAddress: $e");
+      }
+    }
+
+    await _updateSenderAddress();
+  }
+
+  Future<void> _applyReceiverAddress(Map<String, dynamic> addr) async {
+    logger.i("🔵 Applying receiver address: ${addr['id']}");
+
+    receiverNameCtrl.text = addr["receiver_name"] ?? "";
+    receiverPhoneCtrl.text = addr["receiver_phone"] ?? "";
+    receiverAddressCtrl.text = addr["address_text"] ?? "";
+    receiverLandmarkCtrl.text = addr["landmark"] ?? "";
+    receiverZipCtrl.text = addr["zip_code"] ?? "";
+
+    receiverLatitude = double.tryParse(addr["latitude"]?.toString() ?? "");
+    receiverLongitude = double.tryParse(addr["longitude"]?.toString() ?? "");
+
+    if (receiverLatitude != null && receiverLongitude != null) {
+      try {
+        String locationName = await _getLocationName(
+          receiverLatitude!,
+          receiverLongitude!,
+        );
+        setState(() {
+          receiverLocationName = locationName;
+          receiverAddressCtrl.text = locationName;
+        });
+      } catch (e) {
+        setState(() {
+          receiverLocationName =
+              "Location at ${receiverLatitude?.toStringAsFixed(4) ?? '?'}, ${receiverLongitude?.toStringAsFixed(4) ?? '?'}";
+        });
+      }
+    }
+
+    receiverCountryCtrl.text = addr["country"] ?? "";
+    receiverStateCtrl.text = addr["state"] ?? "";
+    receiverDistrictCtrl.text = addr["district"] ?? "";
+
+    // Find and set the IDs - with null safety
+    setState(() {
+      selectedReceiverCountryId = null;
+      selectedReceiverStateId = null;
+      selectedReceiverDistrictId = null;
+    });
+
+    // Find country
+    if (addr["country"] != null && addr["country"].isNotEmpty) {
+      try {
+        final countryMatch = countries.firstWhere(
+          (c) => c['name'] == addr["country"],
+          orElse: () => null,
+        );
+
+        if (countryMatch != null) {
+          setState(() {
+            selectedReceiverCountryId = countryMatch['id'];
+          });
+
+          if (selectedReceiverCountryId != null) {
+            await _loadReceiverStates(selectedReceiverCountryId!);
+
+            // Find state
+            if (addr["state"] != null && addr["state"].isNotEmpty) {
+              final stateMatch = receiverStates.firstWhere(
+                (s) => s['name'] == addr["state"],
+                orElse: () => null,
+              );
+
+              if (stateMatch != null) {
+                setState(() {
+                  selectedReceiverStateId = stateMatch['id'];
+                });
+
+                if (selectedReceiverStateId != null) {
+                  await _loadReceiverDistricts(selectedReceiverStateId!);
+                  if (addr["district"] != null && addr["district"].isNotEmpty) {
+                    final districtMatch = receiverDistricts.firstWhere(
+                      (d) => d['name'] == addr["district"],
+                      orElse: () => null,
+                    );
+
+                    if (districtMatch != null) {
+                      setState(() {
+                        selectedReceiverDistrictId = districtMatch['id'];
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        logger.e("Error in _applyReceiverAddress: $e");
+      }
+    }
+    await _updateReceiverAddress();
+  }
+
+  void _resetSenderForm() {
+    senderNameCtrl.clear();
+    senderPhoneCtrl.clear();
+    senderAddressCtrl.clear();
+    senderLandmarkCtrl.clear();
+    senderZipCtrl.clear();
+
+    senderLatitude = null;
+    senderLongitude = null;
+    senderLocationName = null;
+
+    selectedCountryId = savedCountryId;
+    selectedStateId = savedStateId;
+    selectedDistrictId = savedDistrictId;
+
+    states.clear();
+    districts.clear();
+
+    if (savedCountryId != null && countries.isNotEmpty) {
+      try {
+        final country = countries.firstWhere(
+          (c) => c['id'] == savedCountryId,
+          orElse: () => {},
+        );
+        if (country is Map && country.isNotEmpty) {
+          senderCountryCtrl.text = country['name'] ?? '';
+        } else {
+          senderCountryCtrl.clear();
+        }
+      } catch (e) {
+        senderCountryCtrl.clear();
+      }
+    } else {
+      senderCountryCtrl.clear();
+    }
+    senderStateCtrl.clear();
+    senderDistrictCtrl.clear();
+  }
+
+  void _resetReceiverForm() {
+    receiverNameCtrl.clear();
+    receiverPhoneCtrl.clear();
+    receiverAddressCtrl.clear();
+    receiverLandmarkCtrl.clear();
+    receiverZipCtrl.clear();
+
+    receiverLatitude = null;
+    receiverLongitude = null;
+    receiverLocationName = null;
+
+    selectedReceiverCountryId = savedCountryId;
+    selectedReceiverStateId = savedStateId;
+    selectedReceiverDistrictId = savedDistrictId;
+
+    receiverStates.clear();
+    receiverDistricts.clear();
+
+    receiverCountryCtrl.text = senderCountryCtrl.text;
+    receiverStateCtrl.clear();
+    receiverDistrictCtrl.clear();
+  }
+
+  Widget _buildSheetHeader(String title, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttractiveAddressListItem({
+    required Map<String, dynamic> addr,
+    required Color color,
+    required Color lightColor,
+    required VoidCallback onTap,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Material(
         elevation: 2,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: color.withOpacity(0.3)),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.black.withOpacity(0.2)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.black.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    selected == null ? Icons.map_outlined : Icons.check,
-                    color: color,
-                  ),
+                  child: Icon(Icons.location_on, color: color),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -1907,35 +2183,52 @@ class _EditOrderState extends State<EditOrder> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        title,
+                        addr["sender_name"] ?? addr["receiver_name"] ?? "",
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.bold,
                           color: color,
                         ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
-                        selected == null
-                            ? "Tap to select on map"
-                            : (locationName?.isNotEmpty == true
-                                  ? locationName!
-                                  : "Location selected ✓"),
-                        style: TextStyle(
-                          color: selected == null
-                              ? AddressColors.textSecondary
-                              : color,
+                        "${addr["address"] ?? addr["address_text"] ?? ""}",
+                        style: const TextStyle(
                           fontSize: 14,
-                          fontWeight: locationName?.isNotEmpty == true
-                              ? FontWeight.w500
-                              : FontWeight.normal,
+                          color: AddressColors.textSecondary,
                         ),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "${addr["district"]}, ${addr["state"]}",
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AddressColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios, color: color, size: 16),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.arrow_forward_ios,
+                        color: color,
+                        size: 16,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -1944,467 +2237,131 @@ class _EditOrderState extends State<EditOrder> {
     );
   }
 
-  Widget _buildLocationSelectorButtons(
-    StateSetter setModalState, {
-    required bool isSender,
+  Widget _buildAddNewButton(
+    String title,
+    Color color, {
+    required VoidCallback onTap,
   }) {
-    final currentCountryId = isSender
-        ? selectedCountryId
-        : selectedReceiverCountryId;
-    final currentStateId = isSender ? selectedStateId : selectedReceiverStateId;
-    final currentDistrictId = isSender
-        ? selectedDistrictId
-        : selectedReceiverDistrictId;
-
-    final countryCtrl = isSender ? senderCountryCtrl : receiverCountryCtrl;
-    final stateCtrl = isSender ? senderStateCtrl : receiverStateCtrl;
-    final districtCtrl = isSender ? senderDistrictCtrl : receiverDistrictCtrl;
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: InkWell(
-            onTap: () async {
-              // ignore: unused_local_variable
-              final selected = await showModalBottomSheet<Map<String, dynamic>>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => CountrySelector(
-                  selectedId: currentCountryId,
-                  color: isSender
-                      ? AddressColors.senderPrimary
-                      : AddressColors.receiverPrimary,
-                  onSelected: (country) async {
-                    if (isSender) {
-                      setState(() {
-                        selectedCountryId = country['id'];
-                        senderCountryCtrl.text = country['name'];
-                        selectedStateId = null;
-                        selectedDistrictId = null;
-                      });
-                      states.clear();
-                      districts.clear();
-
-                      if (selectedCountryId != null) {
-                        await _fetchSenderStates(
-                          countryId: selectedCountryId!,
-                          page: 1,
-                          search: null,
-                        );
-                      }
-                    } else {
-                      setState(() {
-                        selectedReceiverCountryId = country['id'];
-                        receiverCountryCtrl.text = country['name'];
-                        selectedReceiverStateId = null;
-                        selectedReceiverDistrictId = null;
-                      });
-                      receiverStates.clear();
-                      receiverDistricts.clear();
-
-                      if (selectedReceiverCountryId != null) {
-                        await _fetchReceiverStates(
-                          countryId: selectedReceiverCountryId!,
-                          page: 1,
-                          search: null,
-                        );
-                      }
-                    }
-                    setModalState(() {});
-                  },
-                ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color:
-                      (isSender
-                              ? AddressColors.senderPrimary
-                              : AddressColors.receiverPrimary)
-                          .withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.public,
-                    color: isSender
-                        ? AddressColors.senderPrimary
-                        : AddressColors.receiverPrimary,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Country",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AddressColors.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          countryCtrl.text.isEmpty
-                              ? "Select Country"
-                              : countryCtrl.text,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: countryCtrl.text.isEmpty
-                                ? AddressColors.textSecondary
-                                : AddressColors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: isSender
-                        ? AddressColors.senderPrimary
-                        : AddressColors.receiverPrimary,
-                  ),
-                ],
-              ),
-            ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: Text(title, style: const TextStyle(color: Colors.white)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
           ),
         ),
-
-        if (currentCountryId != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: InkWell(
-              onTap: () async {
-                // ignore: unused_local_variable
-                final selected =
-                    await showModalBottomSheet<Map<String, dynamic>>(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => StateSelector(
-                        selectedId: currentStateId,
-                        countryId: currentCountryId,
-                        color: isSender
-                            ? AddressColors.senderPrimary
-                            : AddressColors.receiverPrimary,
-                        onSelected: (state) async {
-                          if (isSender) {
-                            setState(() {
-                              selectedStateId = state['id'];
-                              senderStateCtrl.text = state['name'];
-                              selectedDistrictId = null;
-                            });
-                            districts.clear();
-
-                            if (selectedStateId != null) {
-                              await _fetchSenderDistricts(
-                                stateId: selectedStateId!,
-                                page: 1,
-                                search: null,
-                              );
-                            }
-                          } else {
-                            setState(() {
-                              selectedReceiverStateId = state['id'];
-                              receiverStateCtrl.text = state['name'];
-                              selectedReceiverDistrictId = null;
-                            });
-                            receiverDistricts.clear();
-
-                            if (selectedReceiverStateId != null) {
-                              await _fetchReceiverDistricts(
-                                stateId: selectedReceiverStateId!,
-                                page: 1,
-                                search: null,
-                              );
-                            }
-                          }
-                          setModalState(() {});
-                        },
-                      ),
-                    );
-              },
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color:
-                        (isSender
-                                ? AddressColors.senderPrimary
-                                : AddressColors.receiverPrimary)
-                            .withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.map,
-                      color: isSender
-                          ? AddressColors.senderPrimary
-                          : AddressColors.receiverPrimary,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "State",
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AddressColors.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            stateCtrl.text.isEmpty
-                                ? "Select State"
-                                : stateCtrl.text,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: stateCtrl.text.isEmpty
-                                  ? AddressColors.textSecondary
-                                  : AddressColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: isSender
-                          ? AddressColors.senderPrimary
-                          : AddressColors.receiverPrimary,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        if (currentStateId != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: InkWell(
-              onTap: () async {
-                // ignore: unused_local_variable
-                final selected =
-                    await showModalBottomSheet<Map<String, dynamic>>(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => DistrictSelector(
-                        selectedId: currentDistrictId,
-                        stateId: currentStateId,
-                        color: isSender
-                            ? AddressColors.senderPrimary
-                            : AddressColors.receiverPrimary,
-                        onSelected: (district) {
-                          if (isSender) {
-                            setState(() {
-                              selectedDistrictId = district['id'];
-                              senderDistrictCtrl.text = district['name'];
-                            });
-                          } else {
-                            setState(() {
-                              selectedReceiverDistrictId = district['id'];
-                              receiverDistrictCtrl.text = district['name'];
-                            });
-                          }
-                          setModalState(() {});
-                        },
-                      ),
-                    );
-              },
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color:
-                        (isSender
-                                ? AddressColors.senderPrimary
-                                : AddressColors.receiverPrimary)
-                            .withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.location_city,
-                      color: isSender
-                          ? AddressColors.senderPrimary
-                          : AddressColors.receiverPrimary,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "District",
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AddressColors.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            districtCtrl.text.isEmpty
-                                ? "Select District"
-                                : districtCtrl.text,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: districtCtrl.text.isEmpty
-                                  ? AddressColors.textSecondary
-                                  : AddressColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: isSender
-                          ? AddressColors.senderPrimary
-                          : AddressColors.receiverPrimary,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 
-  Future<void> _openEditReceiverSheet() async {
-    await _setReceiverDropdownDefaults();
-
-    receiverLatitude = double.tryParse(
-      receiverAddress?['latitude']?.toString() ?? '',
+  Widget _buildEmptyState(String message, IconData icon, Color color) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 80, color: color.withOpacity(0.3)),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: TextStyle(fontSize: 18, color: AddressColors.textSecondary),
+          ),
+        ],
+      ),
     );
-    receiverLongitude = double.tryParse(
-      receiverAddress?['longitude']?.toString() ?? '',
-    );
-    receiverLocationName = receiverAddress?['address_text'] ?? "Saved location";
+  }
 
+  Future<void> _openAttractiveSenderBottomSheet() async {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                  left: 16,
-                  right: 16,
-                  top: 25,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      height: 50,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: ColorConstants.red,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Center(
-                        child: const Text(
-                          "Edit Receiver Address",
-                          style: TextStyle(
-                            color: ColorConstants.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
+          ),
+          child: Column(
+            children: [
+              _buildSheetHeader(
+                "Add Sender Address",
+                AddressColors.senderPrimary,
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 20,
                     ),
-                    const SizedBox(height: 16),
-                    _textField("Receiver Name", receiverNameCtrl),
-                    _textField("Phone", receiverPhoneCtrl, isNumber: true),
-                    _textField("Address", receiverAddressCtrl),
-                    _textField("Landmark", receiverLandmarkCtrl),
-                    _textField("Zip Code", receiverZipCtrl, isNumber: true),
-                    _buildMapSelectionCard(
-                      "Receiver Location",
-                      receiverLatitude,
-                      () async {
-                        debugPrint('🗺️ Opening map picker');
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => MapPickerScreen(
-                              initialLatitude: receiverLatitude,
-                              initialLongitude: receiverLongitude,
-                              initialLocationName: receiverLocationName,
-                            ),
-                          ),
-                        );
-
-                        if (result != null) {
-                          setModalState(() {
-                            receiverLatitude = result['latitude'];
-                            receiverLongitude = result['longitude'];
-                            receiverLocationName = result['locationName'];
-                          });
-
-                          setState(() {
-                            receiverLocationName = result['locationName'];
-                            if (receiverAddress != null) {
-                              receiverAddress!['address_text'] =
-                                  result['locationName'];
-                            }
-                          });
-
-                          receiverAddressCtrl.text = result['locationName'];
-                        }
-                      },
-                      Colors.red,
-                      locationName: receiverLocationName,
+                    child: Column(children: [
+                 
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    _buildLocationSelectorButtons(
-                      setModalState,
-                      isSender: false,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _updateReceiverAddress,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        minimumSize: const Size(double.infinity, 48),
-                      ),
-                      child: const Text(
-                        "Update Address",
-                        style: TextStyle(color: ColorConstants.white),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                  ),
                 ),
               ),
-            );
-          },
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openAttractiveReceiverBottomSheet() async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
+          ),
+          child: Column(
+            children: [
+              _buildSheetHeader(
+                "Add Receiver Address",
+                AddressColors.receiverPrimary,
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                    ),
+                    child: Column(children: [
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -2552,125 +2509,99 @@ class _EditOrderState extends State<EditOrder> {
   }
 
   Future<void> _openEditSenderSheet() async {
-    await _setSenderDropdownDefaults();
-
-    senderLatitude = double.tryParse(
-      senderAddress?['latitude']?.toString() ?? '',
-    );
-    senderLongitude = double.tryParse(
-      senderAddress?['longitude']?.toString() ?? '',
-    );
-
-    if (senderLocationName == null || senderLocationName?.isEmpty == true) {
-      senderLocationName = senderAddress?['address'] ?? "Saved location";
-    }
-
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) {
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
-            return SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                  left: 16,
-                  right: 16,
-                  top: 25,
+          builder: (context, modalSetState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.8,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: ColorConstants.red,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      width: double.infinity,
-                      height: 50,
+              ),
+              child: Column(
+                children: [
+                  _buildSheetHeader(
+                    "Select Sender Address",
+                    AddressColors.senderPrimary,
+                  ),
+                  Expanded(
+                    child: FutureBuilder<List<dynamic>>(
+                      future: apiService.getSenderAddresses(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
 
-                      child: Center(
-                        child: const Text(
-                          "Edit Sender Address",
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: ColorConstants.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                        if (snapshot.hasError || !snapshot.hasData) {
+                          return _buildEmptyState(
+                            "No saved addresses",
+                            Icons.location_off,
+                            AddressColors.senderPrimary,
+                          );
+                        }
 
-                    _textField("Sender Name", senderNameCtrl),
-                    _textField("Phone Number", senderPhoneCtrl, isNumber: true),
-                    _textField("Address", senderAddressCtrl),
-                    _textField("Landmark", senderLandmarkCtrl),
-                    _textField("Zip Code", senderZipCtrl, isNumber: true),
-
-                    _buildMapSelectionCard(
-                      "Sender Location",
-                      senderLatitude,
-                      () async {
-                        debugPrint('🗺️ Opening map picker for sender');
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => MapPickerScreen(
-                              initialLatitude: senderLatitude,
-                              initialLongitude: senderLongitude,
-                              initialLocationName: senderLocationName,
-                            ),
-                          ),
+                        final list = List<Map<String, dynamic>>.from(
+                          snapshot.data!.reversed,
                         );
 
-                        if (result != null) {
-                          setModalState(() {
-                            senderLatitude = result['latitude'];
-                            senderLongitude = result['longitude'];
-                            senderLocationName = result['locationName'];
-                          });
-
-                          setState(() {
-                            senderLocationName = result['locationName'];
-                            if (senderAddress != null) {
-                              senderAddress!['address'] =
-                                  result['locationName'];
-                            }
-                          });
-
-                          senderAddressCtrl.text = result['locationName'];
+                        if (list.isEmpty) {
+                          return _buildEmptyState(
+                            "No saved addresses",
+                            Icons.location_off,
+                            AddressColors.senderPrimary,
+                          );
                         }
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: list.length,
+                          itemBuilder: (_, index) {
+                            final addr = list[index];
+                            return _buildAttractiveAddressListItem(
+                              addr: addr,
+                              color: AddressColors.senderPrimary,
+                              lightColor: AddressColors.senderLight,
+                              onTap: () async {
+                                await _applySenderAddress(addr);
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Sender address updated!"),
+                                    backgroundColor: Colors.green,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
                       },
-                      Colors.red,
-                      locationName: senderLocationName,
                     ),
-
-                    const SizedBox(height: 16),
-                    _buildLocationSelectorButtons(
-                      setModalState,
-                      isSender: true,
-                    ),
-
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _updateSenderAddress,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        minimumSize: const Size(double.infinity, 48),
-                      ),
-                      child: const Text(
-                        "Update Address",
-                        style: TextStyle(color: ColorConstants.white),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
+                  ),
+                  _buildAddNewButton(
+                    "Add New Sender Address",
+                    AddressColors.senderPrimary,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _resetSenderForm();
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        _openAttractiveSenderBottomSheet();
+                      });
+                    },
+                  ),
+                ],
               ),
             );
           },
@@ -2943,166 +2874,6 @@ class _EditOrderState extends State<EditOrder> {
         },
       ),
     );
-  }
-
-  Future<void> _setSenderDropdownDefaults() async {
-    if (senderAddress == null) return;
-
-    debugPrint("🎯 Setting sender defaults with address: $senderAddress");
-
-    final countryName = senderAddress?['country'];
-    final stateName = senderAddress?['state'];
-    final districtName = senderAddress?['district'];
-
-    debugPrint("🔍 Looking for country: $countryName");
-
-    final country = countries.firstWhere(
-      (c) => c['name'] == countryName,
-      orElse: () {
-        debugPrint("❌ Country not found: $countryName");
-        return null;
-      },
-    );
-
-    if (country != null) {
-      setState(() {
-        selectedCountryId = country['id'];
-        senderCountryCtrl.text = country['name'];
-      });
-
-      debugPrint(
-        "✅ Found country: ${country['name']} with ID: ${country['id']}",
-      );
-
-      await _loadStates(selectedCountryId!);
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      debugPrint("🔍 Looking for state: $stateName in ${states.length} states");
-      debugPrint("Available states: ${states.map((s) => s['name']).toList()}");
-
-      final state = states.firstWhere(
-        (s) => s['name'] == stateName,
-        orElse: () {
-          debugPrint("❌ State not found: $stateName");
-          return null;
-        },
-      );
-
-      if (state != null) {
-        setState(() {
-          selectedStateId = state['id'];
-          senderStateCtrl.text = state['name'];
-        });
-
-        debugPrint("✅ Found state: ${state['name']} with ID: ${state['id']}");
-        await _loadDistricts(selectedStateId!);
-
-        await Future.delayed(const Duration(milliseconds: 100));
-
-        debugPrint(
-          "🔍 Looking for district: $districtName in ${districts.length} districts",
-        );
-        debugPrint(
-          "Available districts: ${districts.map((d) => d['name']).toList()}",
-        );
-
-        final district = districts.firstWhere(
-          (d) => d['name'] == districtName,
-          orElse: () {
-            debugPrint("❌ District not found: $districtName");
-            return null;
-          },
-        );
-
-        if (district != null) {
-          setState(() {
-            selectedDistrictId = district['id'];
-            senderDistrictCtrl.text = district['name'];
-          });
-          debugPrint(
-            "✅ Found district: ${district['name']} with ID: ${district['id']}",
-          );
-        }
-      }
-    }
-
-    setState(() {});
-  }
-
-  Future<void> _setReceiverDropdownDefaults() async {
-    if (receiverAddress == null) return;
-
-    final countryName = receiverAddress?['country'];
-    final stateName = receiverAddress?['state'];
-    final districtName = receiverAddress?['district'];
-
-    logger.i(
-      "Setting receiver defaults - Country: $countryName, State: $stateName, District: $districtName",
-    );
-
-    final country = countries.firstWhere(
-      (c) => c['name'] == countryName,
-      orElse: () {
-        logger.w("Country not found: $countryName");
-        return null;
-      },
-    );
-
-    if (country != null) {
-      setState(() {
-        selectedReceiverCountryId = country['id'];
-        receiverCountryCtrl.text = country['name'];
-      });
-
-      logger.i("Found country: ${country['name']} with ID: ${country['id']}");
-      await _loadReceiverStates(selectedReceiverCountryId!);
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      logger.i(
-        "Looking for state: $stateName in ${receiverStates.length} states",
-      );
-      final state = receiverStates.firstWhere(
-        (s) => s['name'] == stateName,
-        orElse: () {
-          logger.w("State not found: $stateName");
-          return null;
-        },
-      );
-
-      if (state != null) {
-        setState(() {
-          selectedReceiverStateId = state['id'];
-          receiverStateCtrl.text = state['name'];
-        });
-
-        logger.i("Found state: ${state['name']} with ID: ${state['id']}");
-        await _loadReceiverDistricts(selectedReceiverStateId!);
-        await Future.delayed(const Duration(milliseconds: 100));
-
-        logger.i(
-          "Looking for district: $districtName in ${receiverDistricts.length} districts",
-        );
-        final district = receiverDistricts.firstWhere(
-          (d) => d['name'] == districtName,
-          orElse: () {
-            logger.w("District not found: $districtName");
-            return null;
-          },
-        );
-
-        if (district != null) {
-          setState(() {
-            selectedReceiverDistrictId = district['id'];
-            receiverDistrictCtrl.text = district['name'];
-          });
-          logger.i(
-            "Found district: ${district['name']} with ID: ${district['id']}",
-          );
-        }
-      }
-    }
-
-    setState(() {});
   }
 }
 

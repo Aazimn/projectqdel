@@ -9,7 +9,6 @@ class OrderPayload {
   final String weight;
   final File? image;
 
-  // Sender
   final String senderAddress;
   final String senderPhone;
   final String senderLandmark;
@@ -18,7 +17,6 @@ class OrderPayload {
   final int senderCountryId;
   final String senderZip;
 
-  // Receiver
   final String receiverAddress;
   final String receiverPhone;
   final String receiverLandmark;

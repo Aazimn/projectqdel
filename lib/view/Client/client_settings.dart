@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:projectqdel/view/Client/client_dashboard.dart';
 import 'package:projectqdel/view/Client/client_profile.dart';
+import 'package:projectqdel/view/Client/help_support.dart';
+import 'package:projectqdel/view/Client/notification_screen.dart';
+import 'package:projectqdel/view/Client/privacy_security.dart';
 import 'package:projectqdel/view/Client/saved_address.dart';
+import 'package:projectqdel/view/splash_screen.dart';
 
 class ClientSettings extends StatefulWidget {
   const ClientSettings({super.key});
@@ -201,17 +206,14 @@ class _ClientSettingsState extends State<ClientSettings> {
             subtitle: "View your active orders",
             gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
             iconColor: Colors.blue,
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ClientDashboard()),
+              );
+            },
           ),
           const SizedBox(height: 10),
-          _buildGradientTile(
-            icon: Icons.history,
-            title: "Order History",
-            subtitle: "Track completed deliveries",
-            gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
-            iconColor: Colors.orange,
-            onTap: () {},
-          ),
           const SizedBox(height: 10),
           _buildGradientTile(
             icon: Icons.favorite_border,
@@ -242,7 +244,14 @@ class _ClientSettingsState extends State<ClientSettings> {
             subtitle: "Push notifications, alerts",
             gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
             iconColor: Colors.purple,
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationSettingsScreen(),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 10),
           _buildGradientTile(
@@ -260,7 +269,14 @@ class _ClientSettingsState extends State<ClientSettings> {
             subtitle: "Account security, privacy settings",
             gradientColors: [Colors.white, Colors.white],
             iconColor: Colors.indigo,
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PrivacySecurityScreen(),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 10),
           _buildGradientTile(
@@ -269,7 +285,56 @@ class _ClientSettingsState extends State<ClientSettings> {
             subtitle: "FAQs, contact support",
             gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
             iconColor: Colors.teal,
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => HelpSupportScreen()),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          _buildGradientTile(
+            icon: Icons.logout_outlined,
+            title: "Log Out",
+            subtitle: "Ending your session will require you to log in again",
+            gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
+            iconColor: Colors.teal,
+            onTap: () {
+              _confirmLogout();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to log out?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+
+              await ApiService.logout();
+
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const SplashScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text(
+              "Logout",
+              style: TextStyle(color: ColorConstants.red),
+            ),
           ),
         ],
       ),

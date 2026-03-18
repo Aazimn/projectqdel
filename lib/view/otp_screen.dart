@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/registration_screen.dart';
@@ -22,6 +24,10 @@ class _OtpScreenState extends State<OtpScreen> {
 
   final ApiService apiService = ApiService();
   bool _isVerifying = false;
+  bool _isResending = false;
+  int _resendSeconds = 60;
+  Timer? _resendTimer;
+  bool _canResend = false;
 
   final f1 = FocusNode();
   final f2 = FocusNode();
@@ -29,6 +35,78 @@ class _OtpScreenState extends State<OtpScreen> {
   final f4 = FocusNode();
   final f5 = FocusNode();
   final f6 = FocusNode();
+  FocusNode? _currentFocusedField;
+
+  @override
+  void initState() {
+    super.initState();
+    _startResendTimer();
+    f1.addListener(_onFocusChange);
+    f2.addListener(_onFocusChange);
+    f3.addListener(_onFocusChange);
+    f4.addListener(_onFocusChange);
+    f5.addListener(_onFocusChange);
+    f6.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    setState(() {
+      if (f1.hasFocus) {
+        _currentFocusedField = f1;
+      } else if (f2.hasFocus) {
+        _currentFocusedField = f2;
+      } else if (f3.hasFocus) {
+        _currentFocusedField = f3;
+      } else if (f4.hasFocus) {
+        _currentFocusedField = f4;
+      } else if (f5.hasFocus) {
+        _currentFocusedField = f5;
+      } else if (f6.hasFocus) {
+        _currentFocusedField = f6;
+      } else {
+        _currentFocusedField = null;
+      }
+    });
+  }
+
+  void _handleKeyPress(RawKeyEvent event) {
+    if (event is RawKeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.backspace) {
+      if (_currentFocusedField != null) {
+        if (_currentFocusedField == f2 && c2.text.isEmpty) {
+          f1.requestFocus();
+        } else if (_currentFocusedField == f3 && c3.text.isEmpty) {
+          f2.requestFocus();
+        } else if (_currentFocusedField == f4 && c4.text.isEmpty) {
+          f3.requestFocus();
+        } else if (_currentFocusedField == f5 && c5.text.isEmpty) {
+          f4.requestFocus();
+        } else if (_currentFocusedField == f6 && c6.text.isEmpty) {
+          f5.requestFocus();
+        }
+      }
+    }
+  }
+
+  void _startResendTimer() {
+    setState(() {
+      _canResend = false;
+      _resendSeconds = 60;
+    });
+
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_resendSeconds <= 1) {
+        timer.cancel();
+        setState(() {
+          _canResend = true;
+        });
+      } else {
+        setState(() {
+          _resendSeconds--;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -39,6 +117,13 @@ class _OtpScreenState extends State<OtpScreen> {
     c5.dispose();
     c6.dispose();
 
+    f1.removeListener(_onFocusChange);
+    f2.removeListener(_onFocusChange);
+    f3.removeListener(_onFocusChange);
+    f4.removeListener(_onFocusChange);
+    f5.removeListener(_onFocusChange);
+    f6.removeListener(_onFocusChange);
+
     f1.dispose();
     f2.dispose();
     f3.dispose();
@@ -46,16 +131,46 @@ class _OtpScreenState extends State<OtpScreen> {
     f5.dispose();
     f6.dispose();
 
+    _resendTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _resendOtp() async {
+    if (_isResending || !_canResend) return;
+
+    setState(() => _isResending = true);
+
+    try {
+      final success = await apiService.login(phone: widget.phone);
+
+      if (success) {
+        _startResendTimer();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('OTP resent successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        throw Exception("Failed to resend OTP");
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isResending = false);
+    }
   }
 
   Future<void> otp() async {
     if (_isVerifying) return;
-
     final fullOtp = c1.text + c2.text + c3.text + c4.text + c5.text + c6.text;
-
     if (fullOtp.length != 6) return;
-
     setState(() => _isVerifying = true);
 
     try {
@@ -97,52 +212,72 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
+  void _onOtpChanged(
+    String value,
+    int index, {
+    required FocusNode currentFocus,
+    required FocusNode? nextFocus,
+    required FocusNode? prevFocus,
+  }) {
+    if (value.isNotEmpty) {
+      if (nextFocus != null) {
+        nextFocus.requestFocus();
+      } else {
+        currentFocus.unfocus();
+        otp();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      body: Container(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage("assets/image_assets/qdel_bgg.png"),
-            fit: BoxFit.cover,
+      body: RawKeyboardListener(
+        focusNode: FocusNode(),
+        onKey: _handleKeyPress,
+        child: Container(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage("assets/image_assets/qdel_bgg.png"),
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              /// Boy Image (same as login)
-              Positioned(
-                top: 290,
-                left: 20,
-                child: SizedBox(
-                  height: 300,
-                  width: 300,
-                  child: Image.asset(
-                    "assets/image_assets/qdel_boyy.png",
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-
-              Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 20),
-                    child: Text(
-                      "QDEL",
-                      style: TextStyle(
-                        color: ColorConstants.red,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                      ),
+          child: SafeArea(
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 290,
+                  left: 20,
+                  child: SizedBox(
+                    height: 300,
+                    width: 300,
+                    child: Image.asset(
+                      "assets/image_assets/qdel_boyy.png",
+                      fit: BoxFit.contain,
                     ),
                   ),
-                  _bottomOtpSheet(),
-                ],
-              ),
-            ],
+                ),
+
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 20),
+                      child: Text(
+                        "QDEL",
+                        style: TextStyle(
+                          color: ColorConstants.red,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    _bottomOtpSheet(),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -210,7 +345,6 @@ class _OtpScreenState extends State<OtpScreen> {
                 ),
 
                 const SizedBox(height: 24),
-
                 Row(
                   spacing: 10,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -260,7 +394,44 @@ class _OtpScreenState extends State<OtpScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (!_canResend)
+                      Text(
+                        'Resend OTP in $_resendSeconds seconds',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      )
+                    else if (_isResending)
+                      const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    else
+                      GestureDetector(
+                        onTap: _resendOtp,
+                        child: const Text(
+                          'Resend OTP',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
 
                 if (_isVerifying)
                   const Center(
@@ -300,18 +471,13 @@ class _OtpScreenState extends State<OtpScreen> {
           counterText: "",
         ),
         onChanged: (value) {
-          if (value.isNotEmpty) {
-            if (nextFocus != null) {
-              nextFocus.requestFocus();
-            } else {
-              focusNode.unfocus();
-              otp(); 
-            }
-          } else {
-            if (prevFocus != null) {
-              prevFocus.requestFocus();
-            }
-          }
+          _onOtpChanged(
+            value,
+            index,
+            currentFocus: focusNode,
+            nextFocus: nextFocus,
+            prevFocus: prevFocus,
+          );
         },
       ),
     );
