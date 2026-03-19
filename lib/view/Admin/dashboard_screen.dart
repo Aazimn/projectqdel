@@ -27,7 +27,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize _currentIndex in initState
     _currentIndex = widget.initialTab;
   }
 

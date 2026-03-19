@@ -25,7 +25,6 @@ class _DashboardState extends State<Dashboard> {
   bool _hasPreviousPage = false;
   bool _isLoadingMore = false;
 
-  // Search and Date Controllers
   final TextEditingController _searchController = TextEditingController();
   DateTime? _startDate;
   DateTime? _endDate;
@@ -37,7 +36,6 @@ class _DashboardState extends State<Dashboard> {
   @override
   void initState() {
     super.initState();
-    // Set default dates (last 30 days)
     _startDate = DateTime.now().subtract(const Duration(days: 30));
     _endDate = DateTime.now();
     _loadCompletedOrders();
@@ -234,7 +232,6 @@ class _DashboardState extends State<Dashboard> {
     return DateFormat('hh:mm a').format(date);
   }
 
-  // Modern Pagination Controls
   Widget _buildModernPaginationControls() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
@@ -253,7 +250,6 @@ class _DashboardState extends State<Dashboard> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Previous Button
           Material(
             color: Colors.transparent,
             child: InkWell(
@@ -299,8 +295,6 @@ class _DashboardState extends State<Dashboard> {
           ),
 
           const SizedBox(width: 16),
-
-          // Page Indicator
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             decoration: BoxDecoration(
@@ -342,7 +336,6 @@ class _DashboardState extends State<Dashboard> {
 
           const SizedBox(width: 16),
 
-          // Next Button
           Material(
             color: Colors.transparent,
             child: InkWell(
@@ -398,7 +391,6 @@ class _DashboardState extends State<Dashboard> {
         child: SafeArea(
           child: Column(
             children: [
-              // Header - Fixed at top
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.only(
@@ -462,8 +454,6 @@ class _DashboardState extends State<Dashboard> {
                     ),
 
                     const SizedBox(height: 15),
-
-                    // Date Filter Row
                     Row(
                       children: [
                         Expanded(
@@ -593,7 +583,6 @@ class _DashboardState extends State<Dashboard> {
                 ),
               ),
 
-              // Stats and title
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -646,7 +635,6 @@ class _DashboardState extends State<Dashboard> {
                 ),
               ),
 
-              // Scrollable content - includes orders AND pagination
               Expanded(
                 child: _isLoading
                     ? const Center(
@@ -772,17 +760,14 @@ class _DashboardState extends State<Dashboard> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         children: [
-          // All order cards
           ..._completedOrders.map((order) => _buildOrderCard(order)).toList(),
 
-          // Pagination at the bottom of the list
           if (_completedOrders.isNotEmpty && !_isLoadingMore)
             Padding(
               padding: const EdgeInsets.only(top: 8, bottom: 16),
               child: _buildModernPaginationControls(),
             ),
 
-          // Loading indicator at bottom when loading more
           if (_isLoadingMore)
             const Padding(
               padding: EdgeInsets.all(20),

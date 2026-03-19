@@ -1785,12 +1785,6 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
 
-        // if (responseData['data'] != null && responseData['data']['id'] != null) {
-        //   lastAcceptedPickupCarrierId = responseData['data']['id'];
-        //   logger.i("✅ Captured pickup_carrier_id: $lastAcceptedPickupCarrierId");
-
-        //   await savePickupCarrierId(lastAcceptedPickupCarrierId!);
-        // }
         if (responseData['data'] != null &&
             responseData['data']['id'] != null) {
           lastAcceptedPickupCarrierId = responseData['data']['id'];
@@ -2119,7 +2113,6 @@ class ApiService {
     }
   }
 
-  // (removed unused debug helpers)
 
   Future<Map<String, dynamic>?> sendPickupOtp({
     required int pickupCarrierId,
@@ -2768,9 +2761,7 @@ class ApiService {
 
         int totalPages;
         if (hasNext) {
-          // If there's a next URL, there's at least 2 pages
           totalPages = (totalCount / pageSize).ceil();
-          // Ensure it's at least 2 if hasNext is true
           if (totalPages < 2 && hasNext) {
             totalPages = 2;
           }

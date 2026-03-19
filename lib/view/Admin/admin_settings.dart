@@ -38,13 +38,6 @@ class AdminSettingsScreen extends StatelessWidget {
               );
             },
           ),
-
-          // _settingsCard(
-          //   icon: Icons.lock,
-          //   title: "Change Password",
-          //   subtitle: "Update login credentials",
-          //   onTap: () {},
-          // ),
           const SizedBox(height: 20),
 
           _sectionTitle("SYSTEM"),
@@ -61,20 +54,6 @@ class AdminSettingsScreen extends StatelessWidget {
               );
             },
           ),
-
-          // _settingsCard(
-          //   icon: Icons.map,
-          //   title: "Manage States",
-          //   subtitle: "State level configuration",
-          //   onTap: () {},
-          // ),
-          // _settingsCard(
-          //   icon: Icons.location_city,
-          //   title: "Manage Districts",
-          //   subtitle: "District level configuration",
-          //   onTap: () {
-          //   },
-          // ),
           const SizedBox(height: 5),
 
           _settingsCard(
@@ -93,7 +72,6 @@ class AdminSettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 5),
 
-          /// 🚪 Logout
           _settingsCard(
             icon: Icons.logout,
             title: "Logout",
@@ -107,8 +85,6 @@ class AdminSettingsScreen extends StatelessWidget {
       ),
     );
   }
-
-  // -------------------- Widgets --------------------
 
   Widget _sectionTitle(String title) {
     return Padding(

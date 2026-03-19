@@ -243,7 +243,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                   delegate: SliverChildListDelegate([
                     _buildStatCard(
                       icon: Icons.people,
-                      label: 'Users\n(Period)',
+                      label: 'New Users\n(Period)',
                       value: _isLoadingStats
                           ? '...'
                           : _formatNumber(_dashboardData['total_users']),
@@ -251,7 +251,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                     ),
                     _buildStatCard(
                       icon: Icons.local_shipping,
-                      label: 'Carriers\n(Period)',
+                      label: 'New Carriers\n(Period)',
                       value: _isLoadingStats
                           ? '...'
                           : _formatNumber(_dashboardData['verified_carriers']),
@@ -259,7 +259,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                     ),
                     _buildStatCard(
                       icon: Icons.shopping_bag,
-                      label: 'Orders\n(Period)',
+                      label: 'New Completed Orders\n(Period)',
                       value: _isLoadingStats
                           ? '...'
                           : _formatNumber(
@@ -271,7 +271,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                 ),
               ),
 
-              // Overall Stats Section
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverToBoxAdapter(
@@ -351,7 +350,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                 ),
               ),
 
-              // Personal Information Section
               SliverPadding(
                 padding: const EdgeInsets.only(top: 16, right: 16, left: 16),
                 sliver: SliverList(
@@ -391,7 +389,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                 ),
               ),
 
-              // Account Actions Section
               SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: SliverList(
@@ -421,7 +418,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                       subtitle: 'Password & authentication',
                       iconColor: Colors.red,
                       onTap: () {
-                        // Navigate to security screen
                       },
                     ),
                     _buildActionTile(
@@ -430,7 +426,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                       subtitle: 'Manage notification preferences',
                       iconColor: Colors.red,
                       onTap: () {
-                        // Navigate to notifications screen
                       },
                     ),
                     _buildActionTile(
@@ -458,7 +453,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => const ChangePhoneSheet(),
     ).then((_) {
-      // Refresh profile after phone change
       _loadAdminProfile();
     });
   }
@@ -639,20 +633,10 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          // gradient: LinearGradient(
-          //   begin: Alignment.topLeft,
-          //   end: Alignment.bottomRight,
-          //   colors: [Colors.white, iconColor.withOpacity(0.05)],
-          // ),
+          
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.grey, width: 1),
-          // boxShadow: [
-          //   BoxShadow(
-          //     color: iconColor.withOpacity(0.1),
-          //     blurRadius: 8,
-          //     offset: const Offset(0, 2),
-          //   ),
-          // ],
+          
         ),
         child: Row(
           children: [
@@ -780,7 +764,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header
                     Row(
                       children: [
                         Container(
@@ -808,7 +791,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Form Fields
                     _buildTextField(
                       label: 'First Name',
                       controller: _firstNameCtrl,
@@ -830,7 +812,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Action Buttons
                     Row(
                       children: [
                         Expanded(
@@ -888,6 +869,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
       },
     );
   }
+
 
   Future<void> _updateProfile() async {
     setState(() => _isUpdating = true);

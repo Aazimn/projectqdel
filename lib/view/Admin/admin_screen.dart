@@ -19,13 +19,11 @@ class AdminHomeScreen extends StatefulWidget {
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   final ApiService _apiService = ApiService();
 
-  // Dashboard data
   Map<String, dynamic> _dashboardData = {};
   bool _isLoading = true;
   String? _error;
   UserModel? _admin;
 
-  // Date range
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
 
@@ -133,7 +131,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            // Modern Header Sliver
             SliverAppBar(
               expandedHeight: 160,
               pinned: true,
@@ -143,7 +140,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 stretchModes: const [StretchMode.zoomBackground],
                 background: Stack(
                   children: [
-                    // Gradient Background
                     Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -158,7 +154,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       ),
                     ),
 
-                    // Header Content
                     Positioned(
                       bottom: 20,
                       left: 20,
@@ -209,7 +204,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Quick Stats Row
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -271,7 +265,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               ],
             ),
 
-            // Date Range Picker Sliver
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
@@ -279,7 +272,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               ),
             ),
 
-            // Main Content Sliver
             if (_isLoading)
               const SliverFillRemaining(
                 child: Center(
@@ -334,7 +326,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    // Stats Grid
                     GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -385,7 +376,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Total Stats Cards
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
@@ -457,7 +447,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Navigation Grid
                     GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),

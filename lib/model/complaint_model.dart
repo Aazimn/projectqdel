@@ -1,17 +1,16 @@
-// lib/models/complaint_model.dart
 class ComplaintModel {
   final int? pickupDetails;
   final String subject;
   final String description;
   final String? orderId;
-  final String? complaintType; // Keep it optional
+  final String? complaintType; 
 
   ComplaintModel({
     this.pickupDetails,
     required this.subject,
     required this.description,
     this.orderId,
-    this.complaintType, // Now optional
+    this.complaintType, 
   });
 
   Map<String, dynamic> toJson() {
@@ -20,7 +19,7 @@ class ComplaintModel {
     data['subject'] = subject;
     data['description'] = description;
     if (orderId != null) data['order_id'] = orderId;
-    if (complaintType != null) data['complaint_type'] = complaintType; // Only add if not null
+    if (complaintType != null) data['complaint_type'] = complaintType; 
     return data;
   }
 

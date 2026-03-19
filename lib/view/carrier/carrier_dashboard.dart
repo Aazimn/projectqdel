@@ -6,20 +6,22 @@ import 'package:projectqdel/view/Carrier/dashboard.dart';
 import 'package:projectqdel/view/Carrier/map_screen_pickup.dart';
 
 class CarrierDashboard extends StatefulWidget {
-  const CarrierDashboard({super.key});
+  final int initialIndex;
+  const CarrierDashboard({super.key,this.initialIndex = 0});
 
   @override
   State<CarrierDashboard> createState() => _CarrierDashboardState();
 }
 
 class _CarrierDashboardState extends State<CarrierDashboard> {
-  int _currentIndex = 0;
+  late int _currentIndex ;
 
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
     _pages = [
       CarrierHomeScreen(
         onNavigateToIndex: (index) {

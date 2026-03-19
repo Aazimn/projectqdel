@@ -29,8 +29,8 @@ class OrderModel {
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
-      id: json['id'] as int, // Add type casting
-      pickupNo: json['pickup_no'] as String?, // Changed variable name
+      id: json['id'] as int,
+      pickupNo: json['pickup_no'] as String?, 
       
       productDetails: json['product_details'] != null
           ? ProductDetails.fromJson(json['product_details'])

@@ -38,11 +38,9 @@ class _StatusPendingState extends State<StatusPending> {
     });
 
     try {
-      // Call API to change user type to client
       final success = await api.updateUserType("client");
 
       if (success && mounted) {
-        // Update local session
         await ApiService.setUserType("client");
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -52,8 +50,6 @@ class _StatusPendingState extends State<StatusPending> {
             duration: Duration(seconds: 2),
           ),
         );
-
-        // You can navigate to client home or refresh
         debugPrint("Changed to client type");
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

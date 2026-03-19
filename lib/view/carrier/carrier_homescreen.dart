@@ -128,15 +128,10 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
           List<CompletedOrder> pageOrders =
               result['orders'] as List<CompletedOrder>;
           allOrders.addAll(pageOrders);
-
           print('✅ Page $pageCount has ${pageOrders.length} orders');
-
           nextUrl = result['nextUrl'] as String?;
-
           bool hasNext = result['hasNext'] as bool? ?? false;
-
           print('📊 Next URL: $nextUrl, Has Next: $hasNext');
-
           if (nextUrl == null || nextUrl.isEmpty || !hasNext) {
             break;
           }
@@ -214,7 +209,6 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
           currentDate.isAtSameMomentAs(lastDate)) {
         int count = ordersByDay[currentDate] ?? 0;
         continuousSpots.add(FlSpot(dayIndex.toDouble(), count.toDouble()));
-
         currentDate = currentDate.add(const Duration(days: 1));
         dayIndex++;
       }
@@ -753,6 +747,7 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
+                            
                           ),
                         ],
                       ),
@@ -813,11 +808,6 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
 
     return _completedOrders.length / totalDays;
   }
-
-  // int _getPeakDayCount() {
-  //   final peakDay = _getPeakDay();
-  //   return peakDay?.value ?? 0;
-  // }
 
   String _getDateRangeText() {
     if (_completedOrders.isEmpty) return 'No data';

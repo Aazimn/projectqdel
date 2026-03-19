@@ -25,11 +25,9 @@ class _RejectedScreenState extends State<RejectedScreen> {
     });
 
     try {
-      // Call API to change user type to client
       final success = await apiService.updateUserType("client");
 
       if (success && mounted) {
-        // Update local session
         await ApiService.setUserType("client");
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -40,14 +38,7 @@ class _RejectedScreenState extends State<RejectedScreen> {
           ),
         );
 
-        // You can navigate to client home or appropriate screen
         debugPrint("Changed to client type");
-
-        // Optionally navigate to client home screen
-        // Navigator.pushReplacement(
-        //   context,
-        //   MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
-        // );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -199,7 +190,6 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
               const SizedBox(height: 30),
 
-              /// Title
               const Text(
                 "Account\nRejected",
                 textAlign: TextAlign.center,
@@ -227,7 +217,6 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
               const SizedBox(height: 20),
 
-              // Continue as Client Button Section
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 30),
                 padding: const EdgeInsets.all(16),
@@ -266,7 +255,6 @@ class _RejectedScreenState extends State<RejectedScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Continue as Client Button
                     GestureDetector(
                       onTap: isChangingToClient
                           ? null
@@ -347,7 +335,6 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
                     const SizedBox(height: 8),
 
-                    // Helper text
                     const Center(
                       child: Text(
                         "Skip carrier verification and use Qdel as a client",
@@ -363,7 +350,6 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
               const Spacer(),
 
-              // Retry Registration Button
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: InkWell(

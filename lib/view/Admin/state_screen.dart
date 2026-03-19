@@ -634,7 +634,6 @@ class _StateScreenState extends State<StateScreen> {
                 ),
                 const SizedBox(height: 8),
 
-                // Country name chip
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -668,7 +667,6 @@ class _StateScreenState extends State<StateScreen> {
                 const Spacer(),
                 SizedBox(height: 2),
 
-                // Districts indicator
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -702,10 +700,8 @@ class _StateScreenState extends State<StateScreen> {
                 ),
                 const SizedBox(height: 8),
 
-                // Action buttons row
                 Row(
                   children: [
-                    // Edit button
                     Expanded(
                       child: _buildGridActionButton(
                         icon: Icons.edit,
@@ -730,7 +726,6 @@ class _StateScreenState extends State<StateScreen> {
                     ),
                     const SizedBox(width: 6),
 
-                    // Delete button
                     Expanded(
                       child: _buildGridActionButton(
                         icon: Icons.delete,

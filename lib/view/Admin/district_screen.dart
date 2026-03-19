@@ -630,7 +630,6 @@ class _DistrictScreenState extends State<DistrictScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top section with icon and name
               Row(
                 children: [
                   Container(
@@ -678,7 +677,6 @@ class _DistrictScreenState extends State<DistrictScreen> {
               ),
               const SizedBox(height: 20),
 
-              // State name chip
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -708,10 +706,8 @@ class _DistrictScreenState extends State<DistrictScreen> {
               ),
               const Spacer(),
 
-              // Action buttons row
               Row(
-                children: [
-                  // Edit button
+                children: [                
                   Expanded(
                     child: _buildGridActionButton(
                       icon: Icons.edit,
@@ -735,8 +731,6 @@ class _DistrictScreenState extends State<DistrictScreen> {
                     ),
                   ),
                   const SizedBox(width: 6),
-
-                  // Delete button
                   Expanded(
                     child: _buildGridActionButton(
                       icon: Icons.delete,

@@ -19,7 +19,7 @@ class SenderDetails {
       phone: json['phone'],
     );
   }
-   // ADD THIS
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

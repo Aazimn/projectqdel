@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
+import 'package:projectqdel/view/Carrier/carrier_dashboard.dart';
 import 'package:projectqdel/view/Client/client_profile.dart';
+import 'package:projectqdel/view/splash_screen.dart';
 
 class CarrierSettings extends StatefulWidget {
   const CarrierSettings({super.key});
@@ -193,33 +195,20 @@ class _CarrierSettingsState extends State<CarrierSettings> {
       child: Column(
         children: [
           _buildGradientTile(
-            icon: Icons.local_shipping,
-            title: "My Orders",
-            subtitle: "View your active orders",
+            icon: Icons.history,
+            title: "Order History",
+            subtitle: "Track completed deliveries",
             gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
-            iconColor: Colors.blue,
+            iconColor: Colors.orange,
             onTap: () {
-              
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CarrierDashboard(initialIndex: 2),
+                ),
+              );
             },
           ),
-          // const SizedBox(height: 10),
-          // _buildGradientTile(
-          //   icon: Icons.history,
-          //   title: "Order History",
-          //   subtitle: "Track completed deliveries",
-          //   gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
-          //   iconColor: Colors.orange,
-          //   onTap: () {},
-          // ),
-          // const SizedBox(height: 10),
-          // _buildGradientTile(
-          //   icon: Icons.favorite_border,
-          //   title: "Saved Addresses",
-          //   subtitle: "Manage frequently used addresses",
-          //   gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
-          //   iconColor: Colors.pink,
-          //   onTap: () {},
-          // ),
         ],
       ),
     );
@@ -264,6 +253,50 @@ class _CarrierSettingsState extends State<CarrierSettings> {
             gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
             iconColor: Colors.teal,
             onTap: () {},
+          ),
+          const SizedBox(height: 10),
+          _buildGradientTile(
+            icon: Icons.logout_outlined,
+            title: "Log Out",
+            subtitle: "Ending your session will require you to log in again",
+            gradientColors: [Colors.white, Colors.red.withOpacity(0.5)],
+            iconColor: Colors.teal,
+            onTap: () {
+              _confirmLogout();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to log out?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+
+              await ApiService.logout();
+
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const SplashScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text(
+              "Logout",
+              style: TextStyle(color: ColorConstants.red),
+            ),
           ),
         ],
       ),

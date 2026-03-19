@@ -10,7 +10,6 @@ class CompletedOrder {
   final String? carrierTrackingNo;
   final String? pickupNumber;
   
-  // Sender Address Fields
   final String? senderAddress;
   final String? senderLandmark;
   final String? senderDistrict;
@@ -18,7 +17,6 @@ class CompletedOrder {
   final String? senderCountry;
   final String? senderZipCode;
   
-  // Receiver Details
   final String? receiverName;
   final String? receiverPhone;
   final String? receiverAddress;
@@ -28,7 +26,6 @@ class CompletedOrder {
   final String? receiverCountry;
   final String? receiverZipCode;
   
-  // Location
   final String? latitude;
   final String? longitude;
   final DateTime? droppedAt;
@@ -45,14 +42,14 @@ class CompletedOrder {
     required this.createdAt,
     this.carrierTrackingNo,
     this.pickupNumber,
-    // Sender Address
     this.senderAddress,
+
     this.senderLandmark,
     this.senderDistrict,
     this.senderState,
     this.senderCountry,
     this.senderZipCode,
-    // Receiver Details
+   
     this.receiverName,
     this.receiverPhone,
     this.receiverAddress,
@@ -61,7 +58,7 @@ class CompletedOrder {
     this.receiverState,
     this.receiverCountry,
     this.receiverZipCode,
-    // Location
+
     this.latitude,
     this.longitude,
     this.droppedAt,
@@ -69,7 +66,6 @@ class CompletedOrder {
   });
 
   factory CompletedOrder.fromJson(Map<String, dynamic> json) {
-    // Handle both nested data structure and direct response
     final data = json['data'] != null ? json['data'] as Map<String, dynamic> : json;
     
     return CompletedOrder(
@@ -87,16 +83,14 @@ class CompletedOrder {
       createdAt: DateTime.parse(data['created_at'] as String),
       carrierTrackingNo: data['carrier_tracking_no'] as String?,
       pickupNumber: data['pickup_number'] as String?,
-      
-      // Sender Address
+ 
       senderAddress: data['sender_address'] as String?,
       senderLandmark: data['sender_landmark'] as String?,
       senderDistrict: data['sender_district'] as String?,
       senderState: data['sender_state'] as String?,
       senderCountry: data['sender_country'] as String?,
       senderZipCode: data['sender_zip_code'] as String?,
-      
-      // Receiver Details
+
       receiverName: data['receiver_name'] as String?,
       receiverPhone: data['receiver_phone'] as String?,
       receiverAddress: data['receiver_address'] as String?,
@@ -105,8 +99,7 @@ class CompletedOrder {
       receiverState: data['receiver_state'] as String?,
       receiverCountry: data['receiver_country'] as String?,
       receiverZipCode: data['receiver_zip_code'] as String?,
-      
-      // Location
+
       latitude: data['latitude'] as String?,
       longitude: data['longitude'] as String?,
       droppedAt: data['dropped_at'] != null

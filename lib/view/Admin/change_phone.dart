@@ -13,27 +13,21 @@ class ChangePhoneSheet extends StatefulWidget {
 class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
   final ApiService _apiService = ApiService();
 
-  // Step tracking
-  int _currentStep =
-      1; // 1: Enter new number, 2: Verify old OTP, 3: Verify new OTP
+  int _currentStep = 1;
 
-  // Controllers
   final _newPhoneController = TextEditingController();
   final _oldOtpController = TextEditingController();
   final _newOtpController = TextEditingController();
 
-  // State variables
   bool _isLoading = false;
   bool _newPhoneEntered = false;
   bool _oldOtpSent = false;
   bool _oldOtpVerified = false;
   bool _newOtpSent = false;
 
-  // Store OTPs from response for debugging/display
   String? _oldOtpFromResponse;
   String? _newOtpFromResponse;
 
-  // Timers for resend
   int _oldResendSeconds = 0;
   int _newResendSeconds = 0;
   Timer? _oldTimer;
@@ -73,7 +67,6 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
     }
   }
 
-  // Step 1: Enter new phone number and send OTP to old number
   Future<void> _enterNewNumber() async {
     if (_newPhoneController.text.length != 10) {
       _showSnackBar(
@@ -96,7 +89,6 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
           _oldOtpSent = true;
           _currentStep = 2;
           _isLoading = false;
-          // Store OTP from response if needed for debugging
           _oldOtpFromResponse = response['otp_old']?.toString();
         });
         _startResendTimer(true);
@@ -110,7 +102,6 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
     }
   }
 
-  // Step 2: Verify OTP sent to old number
   Future<void> _verifyOldOtp() async {
     if (_oldOtpController.text.length != 6) {
       _showSnackBar('Please enter 6-digit OTP', Colors.orange);
@@ -133,8 +124,6 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
         });
         _oldTimer?.cancel();
         _showSnackBar('Old phone verified successfully', Colors.green);
-
-        // Automatically send OTP to new number
         _sendNewOtp();
       }
     } catch (e) {
@@ -145,7 +134,6 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
     }
   }
 
-  // Send OTP to new number
   Future<void> _sendNewOtp() async {
     setState(() => _isLoading = true);
 
@@ -158,7 +146,6 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
         setState(() {
           _newOtpSent = true;
           _isLoading = false;
-          // Store OTP from response if needed for debugging
           _newOtpFromResponse = response['otp_new']?.toString();
         });
         _startResendTimer(false);
@@ -172,7 +159,6 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
     }
   }
 
-  // Step 3: Verify OTP sent to new number
   Future<void> _verifyNewOtp() async {
     if (_newOtpController.text.length != 6) {
       _showSnackBar('Please enter 6-digit OTP', Colors.orange);
@@ -193,8 +179,6 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
           _isLoading = false;
         });
         _newTimer?.cancel();
-
-        // Show success and close after 2 seconds
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) Navigator.pop(context, true);
         });
@@ -228,7 +212,6 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
       ),
       child: Column(
         children: [
-          // Header
           Container(
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(
@@ -254,7 +237,7 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
             ),
           ),
 
-          // Step indicator
+
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -276,7 +259,6 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
             ),
           ),
 
-          // Content based on step
           Expanded(
             child: _isLoading
                 ? const Center(
@@ -433,22 +415,7 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
           'We\'ve sent a verification code to your registered number.',
           style: TextStyle(color: Colors.grey.shade600),
         ),
-        // if (_oldOtpFromResponse != null) ...[
-        //   const SizedBox(height: 4),
-        //   Container(
-        //     padding: const EdgeInsets.all(8),
-        //     decoration: BoxDecoration(
-        //       color: Colors.blue.shade50,
-        //       borderRadius: BorderRadius.circular(8),
-        //     ),
-        //     child: Text(
-        //       'Debug: OTP is ${_oldOtpFromResponse}',
-        //       style: const TextStyle(color: Colors.blue, fontSize: 12),
-        //     ),
-        //   ),
-        // ],
         const SizedBox(height: 24),
-
         TextField(
           controller: _oldOtpController,
           keyboardType: TextInputType.number,
@@ -521,20 +488,6 @@ class _ChangePhoneSheetState extends State<ChangePhoneSheet> {
           'We\'ve sent a verification code to your new number: ${_newPhoneController.text}',
           style: TextStyle(color: Colors.grey.shade600),
         ),
-        // if (_newOtpFromResponse != null) ...[
-        //   const SizedBox(height: 4),
-        //   Container(
-        //     padding: const EdgeInsets.all(8),
-        //     decoration: BoxDecoration(
-        //       color: Colors.blue.shade50,
-        //       borderRadius: BorderRadius.circular(8),
-        //     ),
-        //     child: Text(
-        //       'Debug: OTP is ${_newOtpFromResponse}',
-        //       style: const TextStyle(color: Colors.blue, fontSize: 12),
-        //     ),
-        //   ),
-        // ],
         const SizedBox(height: 24),
 
         TextField(

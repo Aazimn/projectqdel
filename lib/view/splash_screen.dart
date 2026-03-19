@@ -58,100 +58,93 @@ class _SplashScreenState extends State<SplashScreen> {
         go(const ClientDashboard());
         break;
 
+      case "carrier":
+        final profile = await apiService.getMyProfile();
 
+        final profileHasDocs = profile?.hasUploadedDocs ?? false;
 
-case "carrier":
-  final profile = await apiService.getMyProfile();
+        bool apiHasDocs = false;
+        try {
+          apiHasDocs = await apiService.checkDocumentStatus();
+        } catch (_) {}
 
-  final profileHasDocs = profile?.hasUploadedDocs ?? false;
+        final storedHasDocs = await ApiService.getHasUploadedDocs() ?? false;
 
-  bool apiHasDocs = false;
-  try {
-    apiHasDocs = await apiService.checkDocumentStatus();
-  } catch (_) {}
+        final hasDocs = profileHasDocs || apiHasDocs || storedHasDocs;
 
-  final storedHasDocs = await ApiService.getHasUploadedDocs() ?? false;
+        String status = profile?.approvalStatus.trim().toLowerCase() ?? "";
 
-  final hasDocs = profileHasDocs || apiHasDocs || storedHasDocs;
+        if (status.isEmpty) {
+          final cachedStatus = ApiService.approvalStatus;
+          if (cachedStatus != null && cachedStatus.trim().isNotEmpty) {
+            status = cachedStatus.trim().toLowerCase();
+          }
+        }
 
-  String status = profile?.approvalStatus.trim().toLowerCase() ?? "";
+        if (hasDocs && status.isEmpty) {
+          try {
+            final apiStatusRaw = await apiService.checkApprovalStatus();
+            if (apiStatusRaw != null && apiStatusRaw.trim().isNotEmpty) {
+              status = apiStatusRaw.trim().toLowerCase();
+              await ApiService.setApprovalStatus(status);
+            }
+          } catch (_) {}
+        }
 
-  if (status.isEmpty) {
-    final cachedStatus = ApiService.approvalStatus;
-    if (cachedStatus != null && cachedStatus.trim().isNotEmpty) {
-      status = cachedStatus.trim().toLowerCase();
-    }
-  }
+        final activeOrderId = await ApiService.getActiveOrder();
+        final cachedOrder = await ApiService.getActiveOrderDetails();
 
-  if (hasDocs && status.isEmpty) {
-    try {
-      final apiStatusRaw = await apiService.checkApprovalStatus();
-      if (apiStatusRaw != null && apiStatusRaw.trim().isNotEmpty) {
-        status = apiStatusRaw.trim().toLowerCase();
-        await ApiService.setApprovalStatus(status);
-      }
-    } catch (_) {}
-  }
+        if (cachedOrder != null && cachedOrder.id == activeOrderId) {
+          go(AcceptedOrderScreen(orderId: activeOrderId!, order: cachedOrder));
+          return;
+        }
 
-  final activeOrderId = await ApiService.getActiveOrder();
-  final cachedOrder = await ApiService.getActiveOrderDetails();
+        if (!hasDocs) {
+          go(
+            CarrierUploadScreen(
+              registrationData: CarrierRegistrationData(
+                phone: profile!.phone,
+                firstname: profile.firstName,
+                lastname: profile.lastName,
+                email: profile.email,
+                userType: "carrier",
+                countryId: profile.countryId,
+                stateId: profile.stateId,
+                districtId: profile.districtId,
+                isExistingUser: true,
+              ),
+            ),
+          );
+          return;
+        }
 
-  if (cachedOrder != null && cachedOrder.id == activeOrderId) {
-    go(AcceptedOrderScreen(orderId: activeOrderId!, order: cachedOrder));
-    return;
-  }
+        if (status == "pending") {
+          go(StatusPending(phone: profile!.phone));
+          return;
+        }
 
+        if (status == "approved") {
+          final hasSeen = await apiService.hasUserSeenApprovalScreen();
 
-  if (!hasDocs) {
-    go(
-      CarrierUploadScreen(
-        registrationData: CarrierRegistrationData(
-          phone: profile!.phone,
-          firstname: profile.firstName,
-          lastname: profile.lastName,
-          email: profile.email,
-          userType: "carrier",
-          countryId: profile.countryId,
-          stateId: profile.stateId,
-          districtId: profile.districtId,
-          isExistingUser: true,
-        ),
-      ),
-    );
-    return;
-  }
+          if (!hasSeen) {
+            go(const AccountApprovedScreen());
+          } else {
+            go(const CarrierDashboard());
+          }
+          return;
+        }
 
+        if (status == "rejected") {
+          go(const RejectedScreen());
+          return;
+        }
 
-  if (status == "pending") {
-    go(StatusPending(phone: profile!.phone));
-    return;
-  }
-
-
-  if (status == "approved") {
-    final hasSeen = await apiService.hasUserSeenApprovalScreen();
-    
-    if (!hasSeen) {
-      go(const AccountApprovedScreen());
-    } else {
-      go(const CarrierDashboard());
-    }
-    return;
-  }
-
-
-  if (status == "rejected") {
-    go(const RejectedScreen());
-    return;
-  }
-
-
-  if (hasDocs) {
-    go(StatusPending(phone: profile!.phone));
-  } else {
-    go(const CarrierDashboard());
-  }
-  break;
+        if (hasDocs) {
+          go(StatusPending(phone: profile!.phone));
+        } else {
+          go(const CarrierDashboard());
+        }
+        break;
     }
   }
 
@@ -169,8 +162,10 @@ case "carrier":
       backgroundColor: Colors.white,
       body: Center(
         child: Image.asset(
-          "assets/image_assets/qdel_splash.jpeg",
+          "assets/image_assets/logo_qdel.png",
           fit: BoxFit.cover,
+          height: 250,
+          width: 250,
         ),
       ),
     );
