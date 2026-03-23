@@ -15,7 +15,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl = "https://louis-kingdom-entire-sound.trycloudflare.com";
+  final String baseurl =
+      "https://meetings-portions-diameter-extends.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -2113,7 +2114,6 @@ class ApiService {
     }
   }
 
-
   Future<Map<String, dynamic>?> sendPickupOtp({
     required int pickupCarrierId,
   }) async {
@@ -3133,6 +3133,36 @@ class ApiService {
         logger.e('❌ Unknown error type: ${e.runtimeType}');
         throw Exception('Failed to submit complaint: ${e.toString()}');
       }
+    }
+  }
+
+  // api_service.dart - Add this method to your existing ApiService class
+
+  Future<Map<String, dynamic>?> cancelPickupOrder(int pickupCarrierId) async {
+    try {
+      final url = Uri.parse(
+        '$baseurl/api/qdel/carrier/cancel/pickup/$pickupCarrierId/',
+      );
+
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      final response = await http.post(url, headers: headers);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        return {'success': true, 'data': responseData};
+      } else {
+        final Map<String, dynamic> errorData = json.decode(response.body);
+        return {
+          'success': false,
+          'error': errorData['detail'] ?? 'Failed to cancel order',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
     }
   }
 }

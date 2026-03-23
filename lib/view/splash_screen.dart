@@ -164,8 +164,8 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Image.asset(
           "assets/image_assets/logo_qdel.png",
           fit: BoxFit.cover,
-          height: 250,
-          width: 250,
+          height: 220,
+          width: 220,
         ),
       ),
     );

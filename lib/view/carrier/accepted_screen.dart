@@ -38,6 +38,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   bool isDeliveryOtpSent = false;
   bool isDeliveryVerifying = false;
   bool isDeliveryVerified = false;
+  bool isCancelling = false;
 
   final TextEditingController _otpController = TextEditingController();
 
@@ -181,6 +182,101 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     if (widget.order != oldWidget.order) {
       _stopLocationUpdates();
       _startLocationUpdates();
+    }
+  }
+
+  // Method to handle order cancellation
+  Future<void> _cancelOrder() async {
+    // Show confirmation dialog
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          "Cancel Order",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          "Are you sure you want to cancel this order? This action cannot be undone.",
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              "No",
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              "Yes, Cancel",
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldCancel != true) return;
+
+    setState(() {
+      isCancelling = true;
+    });
+
+    try {
+      int? pickupCarrierId = await ApiService.getPickupCarrierId();
+
+      if (pickupCarrierId == null) {
+        _showErrorSnackBar("No pickup carrier ID found");
+        setState(() => isCancelling = false);
+        return;
+      }
+
+      final response = await apiService.cancelPickupOrder(pickupCarrierId);
+
+      if (!mounted) return;
+
+      if (response != null && response['success'] == true) {
+        // Clear all saved order data
+        if (order != null) {
+          await ApiService.clearOrderStatus(order!.id);
+        }
+        await ApiService.clearActiveOrder();
+        await ApiService.clearPickupCarrierId();
+
+        // Stop location updates
+        _stopLocationUpdates();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Order cancelled successfully"),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Navigate back to dashboard
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const CarrierDashboard()),
+          (route) => false,
+        );
+      } else {
+        String errorMsg = response?['error'] ?? "Failed to cancel order";
+        _showErrorSnackBar(errorMsg);
+        setState(() => isCancelling = false);
+      }
+    } catch (e) {
+      logger.e("Error cancelling order: $e");
+      _showErrorSnackBar("Error cancelling order: $e");
+      setState(() => isCancelling = false);
     }
   }
 
@@ -371,6 +467,432 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     _checkAndShowDeliveryBottomSheet();
   }
 
+  void _showOtpBottomSheet() {
+    // Cancel any existing timer when opening new bottom sheet
+    OtpTimer.cancelTimer();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      useSafeArea: false,
+      barrierColor: Colors.black54,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            // Start timer when OTP is sent
+            void startResendTimer() {
+              OtpTimer.startTimer(() {
+                if (mounted) {
+                  setModalState(() {});
+                }
+              });
+            }
+
+            // Handle resend OTP
+            Future<void> handleResendOtp() async {
+              if (OtpTimer.isTimerActive) return;
+
+              setModalState(() {});
+
+              await _resendOtp();
+
+              if (mounted) {
+                setModalState(() {
+                  startResendTimer();
+                });
+              }
+            }
+
+            return PopScope(
+              canPop: false,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          const Text(
+                            "Verify Pickup",
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: ColorConstants.red,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Order #${order!.id}",
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: Colors.white,
+                                  child: Icon(
+                                    Icons.person_outline,
+                                    color: ColorConstants.red,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        order!.senderAddress?.senderName ?? "",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      Text(
+                                        order!.senderAddress?.phoneNumber ?? "",
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Cancel Order Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isCancelling ? null : _cancelOrder,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: isCancelling
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text(
+                                      "Cancel Order",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isOtpSent
+                                  ? null
+                                  : () async {
+                                      setModalState(() {
+                                        isOtpSent = true;
+                                      });
+                                      await _sendOtp();
+                                      if (mounted) {
+                                        setModalState(() {
+                                          startResendTimer();
+                                        });
+                                      }
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: ColorConstants.red,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: isOtpSent
+                                  ? const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.check_circle, size: 20),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          "OTP Sent Successfully",
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : const Text(
+                                      "Send OTP to Sender",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          if (isOtpSent) ...[
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "Enter 6-digit OTP",
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Center(
+                                    child: Pinput(
+                                      controller: _otpController,
+                                      length: 6,
+                                      defaultPinTheme: PinTheme(
+                                        width: 50,
+                                        height: 55,
+                                        textStyle: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          border: Border.all(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      focusedPinTheme: PinTheme(
+                                        width: 50,
+                                        height: 55,
+                                        textStyle: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: ColorConstants.red,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          border: Border.all(
+                                            color: ColorConstants.red,
+                                            width: 2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      submittedPinTheme: PinTheme(
+                                        width: 50,
+                                        height: 55,
+                                        textStyle: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade50,
+                                          border: Border.all(
+                                            color: Colors.green,
+                                            width: 2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      onCompleted: (pin) {
+                                        _verifyOtp(pin);
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        "Didn't receive OTP? ",
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: OtpTimer.isTimerActive
+                                            ? null
+                                            : handleResendOtp,
+                                        child: Text(
+                                          OtpTimer.timerText,
+                                          style: TextStyle(
+                                            color: OtpTimer.isTimerActive
+                                                ? Colors.grey
+                                                : ColorConstants.red,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: isVerifying
+                                    ? null
+                                    : () {
+                                        if (_otpController.text.length == 6) {
+                                          _verifyOtp(_otpController.text);
+                                        } else {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                "Please enter 6-digit OTP",
+                                              ),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 2,
+                                ),
+                                child: isVerifying
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text(
+                                        "Verify & Continue",
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+
+                          if (!isVerifying)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 16,
+                                bottom: 8,
+                              ),
+                              child: Text(
+                                "Complete verification to proceed",
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) {
+      OtpTimer.cancelTimer();
+      if (mounted) {
+        setState(() {
+          if (!isVerifying) {
+            isOtpSent = false;
+          }
+          _otpController.clear();
+        });
+      }
+    });
+  }
+
   void _showDeliveryOtpBottomSheet() {
     // Cancel any existing timer when opening new bottom sheet
     OtpTimer.cancelTimer();
@@ -380,398 +902,408 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       isScrollControlled: true,
       isDismissible: false,
       enableDrag: false,
+      useSafeArea: false,
+      barrierColor: Colors.black54,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       backgroundColor: Colors.white,
       builder: (context) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            return StatefulBuilder(
-              builder: (context, setModalState) {
-                // Start timer when OTP is sent
-                void startResendTimer() {
-                  OtpTimer.startTimer(() {
-                    if (mounted) {
-                      setModalState(() {});
-                    }
-                  });
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            // Start timer when OTP is sent
+            void startResendTimer() {
+              OtpTimer.startTimer(() {
+                if (mounted) {
+                  setModalState(() {});
                 }
+              });
+            }
 
-                // Handle resend OTP
-                Future<void> handleResendOtp() async {
-                  if (OtpTimer.isTimerActive) return;
+            // Handle resend OTP
+            Future<void> handleResendOtp() async {
+              if (OtpTimer.isTimerActive) return;
 
-                  setModalState(() {
-                    // Show loading or disable button
-                  });
+              setModalState(() {});
 
-                  await _resendDeliveryOtp();
+              await _resendDeliveryOtp();
 
-                  if (mounted) {
-                    setModalState(() {
-                      startResendTimer();
-                    });
-                  }
-                }
+              if (mounted) {
+                setModalState(() {
+                  startResendTimer();
+                });
+              }
+            }
 
-                return PopScope(
-                  canPop: false,
-                  child: Container(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.9,
-                    ),
+            return PopScope(
+              canPop: false,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
                     child: Padding(
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom,
-                      ),
-                      child: SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 50,
-                                height: 5,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade300,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
 
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  if (isDeliveryVerifying)
-                                    IconButton(
-                                      icon: const Icon(Icons.close),
-                                      onPressed: () {
-                                        OtpTimer.cancelTimer();
-                                        Navigator.pop(context);
-                                        setState(() {
-                                          isDeliveryOtpSent = false;
-                                          _otpController.clear();
-                                        });
-                                      },
-                                    ),
-                                ],
-                              ),
-                              const Text(
-                                "Verify Delivery",
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "Order #${order!.id}",
-                                style: const TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade50,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundColor: Colors.white,
-                                      child: Icon(
-                                        Icons.person_outline,
-                                        color: Colors.green,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            order!
-                                                    .receiverAddress
-                                                    ?.receiverName ??
-                                                "",
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          Text(
-                                            order!
-                                                    .receiverAddress
-                                                    ?.phoneNumber ??
-                                                "",
-                                            style: const TextStyle(
-                                              color: Colors.grey,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: isDeliveryOtpSent
-                                      ? null
-                                      : () async {
-                                          setModalState(() {
-                                            isDeliveryOtpSent = true;
-                                          });
-                                          await _sendDeliveryOtp();
-                                          if (mounted) {
-                                            setModalState(() {
-                                              startResendTimer();
-                                            });
-                                          }
-                                        },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 2,
+                          const Text(
+                            "Verify Delivery",
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Order #${order!.id}",
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: Colors.white,
+                                  child: Icon(
+                                    Icons.person_outline,
+                                    color: Colors.green,
                                   ),
-                                  child: isDeliveryOtpSent
-                                      ? const Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.check_circle, size: 20),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              "OTP Sent Successfully",
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : const Text(
-                                          "Send OTP to Receiver",
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        order!.receiverAddress?.receiverName ??
+                                            "",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      Text(
+                                        order!.receiverAddress?.phoneNumber ??
+                                            "",
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Drop Order Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isCancelling ? null : _cancelOrder,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: isCancelling
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text(
+                                      "Drop Order",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isDeliveryOtpSent
+                                  ? null
+                                  : () async {
+                                      setModalState(() {
+                                        isDeliveryOtpSent = true;
+                                      });
+                                      await _sendDeliveryOtp();
+                                      if (mounted) {
+                                        setModalState(() {
+                                          startResendTimer();
+                                        });
+                                      }
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: isDeliveryOtpSent
+                                  ? const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.check_circle, size: 20),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          "OTP Sent Successfully",
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                ),
+                                      ],
+                                    )
+                                  : const Text(
+                                      "Send OTP to Receiver",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          if (isDeliveryOtpSent) ...[
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
                               ),
-                              const SizedBox(height: 20),
-                              if (isDeliveryOtpSent) ...[
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade50,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: Colors.grey.shade200,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "Enter 6-digit OTP",
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey,
                                     ),
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                  const SizedBox(height: 12),
+                                  Center(
+                                    child: Pinput(
+                                      controller: _otpController,
+                                      length: 6,
+                                      defaultPinTheme: PinTheme(
+                                        width: 50,
+                                        height: 55,
+                                        textStyle: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          border: Border.all(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      focusedPinTheme: PinTheme(
+                                        width: 50,
+                                        height: 55,
+                                        textStyle: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          border: Border.all(
+                                            color: Colors.green,
+                                            width: 2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      submittedPinTheme: PinTheme(
+                                        width: 50,
+                                        height: 55,
+                                        textStyle: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade50,
+                                          border: Border.all(
+                                            color: Colors.green,
+                                            width: 2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      onCompleted: (pin) {
+                                        _verifyDeliveryOtp(pin);
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      const Text(
-                                        "Enter 6-digit OTP",
+                                      Text(
+                                        "Didn't receive OTP? ",
                                         style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.grey,
+                                          color: Colors.grey.shade600,
                                         ),
                                       ),
-                                      const SizedBox(height: 12),
-                                      Center(
-                                        child: Pinput(
-                                          controller: _otpController,
-                                          length: 6,
-                                          defaultPinTheme: PinTheme(
-                                            width: 50,
-                                            height: 55,
-                                            textStyle: const TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              border: Border.all(
-                                                color: Colors.grey.shade300,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
+                                      GestureDetector(
+                                        onTap: OtpTimer.isTimerActive
+                                            ? null
+                                            : handleResendOtp,
+                                        child: Text(
+                                          OtpTimer.timerText,
+                                          style: TextStyle(
+                                            color: OtpTimer.isTimerActive
+                                                ? Colors.grey
+                                                : Colors.green,
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                          focusedPinTheme: PinTheme(
-                                            width: 50,
-                                            height: 55,
-                                            textStyle: const TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.green,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              border: Border.all(
-                                                color: Colors.green,
-                                                width: 2,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          submittedPinTheme: PinTheme(
-                                            width: 50,
-                                            height: 55,
-                                            textStyle: const TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.green,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.green.shade50,
-                                              border: Border.all(
-                                                color: Colors.green,
-                                                width: 2,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          onCompleted: (pin) {
-                                            _verifyDeliveryOtp(pin);
-                                          },
                                         ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            "Didn't receive OTP? ",
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                          GestureDetector(
-                                            onTap: OtpTimer.isTimerActive
-                                                ? null
-                                                : handleResendOtp,
-                                            child: Text(
-                                              OtpTimer.timerText,
-                                              style: TextStyle(
-                                                color: OtpTimer.isTimerActive
-                                                    ? Colors.grey
-                                                    : Colors.green,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
                                       ),
                                     ],
                                   ),
-                                ),
-                                const SizedBox(height: 20),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
 
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: isDeliveryVerifying
-                                        ? null
-                                        : () {
-                                            if (_otpController.text.length ==
-                                                6) {
-                                              _verifyDeliveryOtp(
-                                                _otpController.text,
-                                              );
-                                            } else {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Please enter 6-digit OTP",
-                                                  ),
-                                                  backgroundColor: Colors.red,
-                                                ),
-                                              );
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      elevation: 2,
-                                    ),
-                                    child: isDeliveryVerifying
-                                        ? const SizedBox(
-                                            height: 20,
-                                            width: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.white,
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: isDeliveryVerifying
+                                    ? null
+                                    : () {
+                                        if (_otpController.text.length == 6) {
+                                          _verifyDeliveryOtp(
+                                            _otpController.text,
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                "Please enter 6-digit OTP",
+                                              ),
+                                              backgroundColor: Colors.red,
                                             ),
-                                          )
-                                        : const Text(
-                                            "Verify & Complete Delivery",
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
+                                          );
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
                                   ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 2,
                                 ),
-                              ],
+                                child: isDeliveryVerifying
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text(
+                                        "Verify & Complete Delivery",
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
 
-                              if (!isDeliveryVerifying)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    top: 16,
-                                    bottom: 8,
-                                  ),
-                                  child: Text(
-                                    "Complete verification to finish delivery",
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 12,
-                                    ),
-                                  ),
+                          if (!isDeliveryVerifying)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 16,
+                                bottom: 8,
+                              ),
+                              child: Text(
+                                "Complete verification to finish delivery",
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 12,
                                 ),
+                              ),
+                            ),
 
-                              const SizedBox(height: 20),
-                            ],
-                          ),
-                        ),
+                          const SizedBox(height: 20),
+                        ],
                       ),
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             );
           },
         );
@@ -942,7 +1474,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
-  }
+  } 
 
   Future<void> _startLiveLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -959,7 +1491,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     setState(() {
       carrierLocation = LatLng(position.latitude, position.longitude);
     });
-
     _locationStream?.cancel();
     _locationStream =
         Geolocator.getPositionStream(
@@ -1065,421 +1596,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     }
   }
 
-  void _showOtpBottomSheet() {
-    // Cancel any existing timer when opening new bottom sheet
-    OtpTimer.cancelTimer();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      backgroundColor: Colors.white,
-      builder: (context) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            return StatefulBuilder(
-              builder: (context, setModalState) {
-                // Start timer when OTP is sent
-                void startResendTimer() {
-                  OtpTimer.startTimer(() {
-                    if (mounted) {
-                      setModalState(() {});
-                    }
-                  });
-                }
-
-                // Handle resend OTP
-                Future<void> handleResendOtp() async {
-                  if (OtpTimer.isTimerActive) return;
-
-                  setModalState(() {
-                    // Show loading or disable button
-                  });
-
-                  await _resendOtp();
-
-                  if (mounted) {
-                    setModalState(() {
-                      startResendTimer();
-                    });
-                  }
-                }
-
-                return PopScope(
-                  canPop: false,
-                  child: Container(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.9,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom,
-                      ),
-                      child: SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 50,
-                                height: 5,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade300,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  if (isVerifying)
-                                    IconButton(
-                                      icon: const Icon(Icons.close),
-                                      onPressed: () {
-                                        OtpTimer.cancelTimer();
-                                        Navigator.pop(context);
-                                        setState(() {
-                                          isOtpSent = false;
-                                          _otpController.clear();
-                                        });
-                                      },
-                                    ),
-                                ],
-                              ),
-                              const Text(
-                                "Verify Pickup",
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: ColorConstants.red,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "Order #${order!.id}",
-                                style: const TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundColor: Colors.white,
-                                      child: Icon(
-                                        Icons.person_outline,
-                                        color: ColorConstants.red,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            order!.senderAddress?.senderName ??
-                                                "",
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          Text(
-                                            order!.senderAddress?.phoneNumber ??
-                                                "",
-                                            style: const TextStyle(
-                                              color: Colors.grey,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: isOtpSent
-                                      ? null
-                                      : () async {
-                                          setModalState(() {
-                                            isOtpSent = true;
-                                          });
-                                          await _sendOtp();
-                                          if (mounted) {
-                                            setModalState(() {
-                                              startResendTimer();
-                                            });
-                                          }
-                                        },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: ColorConstants.red,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 2,
-                                  ),
-                                  child: isOtpSent
-                                      ? const Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.check_circle, size: 20),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              "OTP Sent Successfully",
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : const Text(
-                                          "Send OTP to Sender",
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-
-                              if (isOtpSent) ...[
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade50,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: Colors.grey.shade200,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        "Enter 6-digit OTP",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Center(
-                                        child: Pinput(
-                                          controller: _otpController,
-                                          length: 6,
-                                          defaultPinTheme: PinTheme(
-                                            width: 50,
-                                            height: 55,
-                                            textStyle: const TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              border: Border.all(
-                                                color: Colors.grey.shade300,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          focusedPinTheme: PinTheme(
-                                            width: 50,
-                                            height: 55,
-                                            textStyle: const TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                              color: ColorConstants.red,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              border: Border.all(
-                                                color: ColorConstants.red,
-                                                width: 2,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          submittedPinTheme: PinTheme(
-                                            width: 50,
-                                            height: 55,
-                                            textStyle: const TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.green,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.green.shade50,
-                                              border: Border.all(
-                                                color: Colors.green,
-                                                width: 2,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          onCompleted: (pin) {
-                                            _verifyOtp(pin);
-                                          },
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            "Didn't receive OTP? ",
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                          GestureDetector(
-                                            onTap: OtpTimer.isTimerActive
-                                                ? null
-                                                : handleResendOtp,
-                                            child: Text(
-                                              OtpTimer.timerText,
-                                              style: TextStyle(
-                                                color: OtpTimer.isTimerActive
-                                                    ? Colors.grey
-                                                    : ColorConstants.red,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: isVerifying
-                                        ? null
-                                        : () {
-                                            if (_otpController.text.length ==
-                                                6) {
-                                              _verifyOtp(_otpController.text);
-                                            } else {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Please enter 6-digit OTP",
-                                                  ),
-                                                  backgroundColor: Colors.red,
-                                                ),
-                                              );
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      elevation: 2,
-                                    ),
-                                    child: isVerifying
-                                        ? const SizedBox(
-                                            height: 20,
-                                            width: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.white,
-                                            ),
-                                          )
-                                        : const Text(
-                                            "Verify & Continue",
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                              ],
-
-                              if (!isVerifying)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    top: 16,
-                                    bottom: 8,
-                                  ),
-                                  child: Text(
-                                    "Complete verification to proceed",
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-
-                              const SizedBox(height: 20),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    ).then((_) {
-      OtpTimer.cancelTimer();
-      if (mounted) {
-        setState(() {
-          if (!isVerifying) {
-            isOtpSent = false;
-          }
-          _otpController.clear();
-        });
-      }
-    });
-  }
-
   Future<void> _sendOtp() async {
     setState(() {
       isSubmitting = true;
@@ -1571,36 +1687,28 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     setState(() {
       isVerifying = true;
     });
-
     try {
       int? pickupCarrierId = await ApiService.getPickupCarrierId();
-
       if (pickupCarrierId == null) {
         _showErrorSnackBar("No pickup carrier ID found");
         setState(() => isVerifying = false);
         return;
       }
-
       final response = await apiService.verifyPickupOtp(
         pickupCarrierId: pickupCarrierId,
         otp: otp,
       );
-
       if (!mounted) return;
-
       if (response != null && response['success'] == true) {
         if (order != null) {
           await ApiService.saveVerificationStatus(order!.id, true);
         }
-
         Navigator.pop(context);
-
         setState(() {
           isPickupVerified = true;
           isVerifying = false;
           isOtpSent = false;
         });
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Pickup verified successfully! Proceed to delivery."),
@@ -1698,47 +1806,49 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }
 
   Widget _buildBody() {
-    return Stack(
-      children: [
-        Column(
-          children: [
-            const SizedBox(height: 50),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    "Order Accepted Successfully",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: ColorConstants.red,
+    return SafeArea(
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              const SizedBox(height: 20),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      "Order Accepted Successfully",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: ColorConstants.red,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    "Order #${order!.id}",
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ],
+                    const SizedBox(height: 5),
+                    Text(
+                      "Order #${order!.id}",
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            Lottie.asset(
-              "assets/lottie_assets/delivery_boy.json",
-              width: 180,
-              height: 160,
-              fit: BoxFit.fitWidth,
-            ),
-            Expanded(child: _buildPickupCard()),
-          ],
-        ),
-      ],
+              Lottie.asset(
+                "assets/lottie_assets/delivery_boy.json",
+                width: 180,
+                height: 160,
+                fit: BoxFit.fitWidth,
+              ),
+              Expanded(child: _buildPickupCard()),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -1764,18 +1874,59 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
           const SizedBox(height: 20),
 
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(
-                isPickupVerified ? Icons.location_on : Icons.location_on,
-                color: isPickupVerified ? Colors.green : ColorConstants.red,
+              Row(
+                children: [
+                  Icon(
+                    isPickupVerified ? Icons.location_on : Icons.location_on,
+                    color: isPickupVerified ? Colors.green : ColorConstants.red,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isPickupVerified ? "Delivery Location" : "Pickup Location",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isPickupVerified
+                          ? Colors.green
+                          : ColorConstants.red,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(
-                isPickupVerified ? "Delivery Location" : "Pickup Location",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isPickupVerified ? Colors.green : ColorConstants.red,
+              InkWell(
+                onTap: () {
+                  if (!isCancelling) {
+                    _cancelOrder();
+                  }
+                },
+                child: Container(
+                  height: 35,
+                  width: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: Center(
+                    child: isCancelling
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            isPickupVerified ? "Drop Order" : "Cancel Order",
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
                 ),
               ),
             ],

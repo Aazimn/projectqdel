@@ -289,8 +289,8 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
 
   Widget _paginationControls() {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      margin: const EdgeInsets.only(top: 5, left: 40, right: 40),
+      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -311,7 +311,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
             enabled: hasPreviousPage,
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 25),
 
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -329,7 +329,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 25),
 
           _paginationArrowButton(
             icon: Icons.chevron_right,
@@ -349,8 +349,8 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        width: 44,
-        height: 44,
+        width: 33,
+        height: 33,
         decoration: BoxDecoration(
           color: enabled ? ColorConstants.red : Colors.grey[300],
           borderRadius: BorderRadius.circular(12),

@@ -5,8 +5,6 @@ import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/add_states.dart';
 import 'package:projectqdel/view/Admin/district_screen.dart';
 import 'package:projectqdel/view/Admin/update_state.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 
 class StateScreen extends StatefulWidget {
   final int countryId;
@@ -23,7 +21,7 @@ class StateScreen extends StatefulWidget {
 
 class _StateScreenState extends State<StateScreen> {
   TextEditingController searchCtl = TextEditingController();
-  ApiService apiService = ApiService();
+  final ApiService apiService = ApiService();
 
   List<dynamic> _states = [];
   int _currentPage = 1;
@@ -38,7 +36,6 @@ class _StateScreenState extends State<StateScreen> {
   bool _isSearching = false;
   String _currentSearchQuery = '';
 
-  // Grid configuration
   final int _crossAxisCount = 2;
   final double _cardAspectRatio = 1.1;
 
@@ -77,14 +74,23 @@ class _StateScreenState extends State<StateScreen> {
     });
 
     try {
-      final responseData = await getStatesByCountry(
+      final response = await apiService.getStatesByCountry(
+        countryId: widget.countryId,
         page: page,
         search: searchQuery,
       );
 
       if (searchQuery != null && searchQuery.isNotEmpty) {
-        final List<dynamic> data = responseData['data'] ?? [];
-        final int totalCount = responseData['count'] ?? 0;
+        List<dynamic> data = [];
+        int totalCount = 0;
+
+        if (response is Map) {
+          data = response['data'] ?? response['results'] ?? [];
+          totalCount = response['count'] ?? data.length;
+        } else if (response is List) {
+          data = response;
+          totalCount = data.length;
+        }
 
         print(
           '📥 SEARCH RESULTS - Found: ${data.length} items, Total: $totalCount',
@@ -101,9 +107,19 @@ class _StateScreenState extends State<StateScreen> {
           _isLoadingPrevious = false;
         });
       } else {
-        final List<dynamic> data = responseData['results'] ?? [];
-        final int totalCount = responseData['count'] ?? 0;
-        final bool hasNext = responseData['next'] != null;
+        List<dynamic> data = [];
+        int totalCount = 0;
+        bool hasNext = false;
+
+        if (response is Map) {
+          data = response['results'] ?? [];
+          totalCount = response['count'] ?? 0;
+          hasNext = response['next'] != null;
+        } else if (response is List) {
+          data = response;
+          totalCount = data.length;
+          hasNext = false;
+        }
 
         print(
           '📥 PAGINATED RESULTS - Page $page: ${data.length} items, Total: $totalCount, HasNext: $hasNext',
@@ -128,44 +144,26 @@ class _StateScreenState extends State<StateScreen> {
       );
     } catch (e) {
       print('❌ ERROR: $e');
-      setState(() {
-        isLoading = false;
-        _isLoadingNext = false;
-        _isLoadingPrevious = false;
-      });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error loading states: $e")));
-    }
-  }
+      if (page > 1 && e.toString().contains('Invalid page')) {
+        print('⚠️ Page $page is invalid, falling back to page 1');
+        setState(() {
+          _isLoadingNext = false;
+          _isLoadingPrevious = false;
+        });
+        await fetchStates(page: 1, searchQuery: searchQuery);
+      } else {
+        setState(() {
+          isLoading = false;
+          _isLoadingNext = false;
+          _isLoadingPrevious = false;
+        });
 
-  Future<Map<String, dynamic>> getStatesByCountry({
-    required int page,
-    String? search,
-  }) async {
-    String urlString =
-        "${apiService.baseurl}/api/qdel/states/by/country/${widget.countryId}/?page=$page";
-    if (search != null && search.isNotEmpty) {
-      urlString += "&search=$search";
-    }
-
-    final url = Uri.parse(urlString);
-
-    print('🌐 FETCHING STATES FROM: $url');
-
-    final response = await http.get(
-      url,
-      headers: {"Authorization": "Bearer ${ApiService.accessToken}"},
-    );
-
-    print("📊 STATES STATUS: ${response.statusCode}");
-    print("📦 STATES BODY: ${response.body}");
-
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-      return jsonResponse;
-    } else {
-      throw Exception("Failed to load states: ${response.statusCode}");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Error loading states: ${e.toString()}")),
+          );
+        }
+      }
     }
   }
 
@@ -216,11 +214,22 @@ class _StateScreenState extends State<StateScreen> {
 
       if (success) {
         print('✅ Delete successful');
+        int newTotalItems = _totalItems - 1;
+        int newTotalPages = (newTotalItems / _itemsPerPage).ceil();
+        if (newTotalPages == 0) newTotalPages = 1;
+        int pageToFetch = _currentPage;
+        if (_currentPage > newTotalPages) {
+          pageToFetch = newTotalPages;
+        }
+
+        print(
+          '📊 After delete - Total items: $newTotalItems, Pages: $newTotalPages, Fetching page: $pageToFetch',
+        );
 
         if (_isSearching) {
           await fetchStates(page: 1, searchQuery: _currentSearchQuery);
         } else {
-          await fetchStates(page: _currentPage);
+          await fetchStates(page: pageToFetch);
         }
 
         if (mounted) {
@@ -297,7 +306,6 @@ class _StateScreenState extends State<StateScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Country indicator
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -329,7 +337,6 @@ class _StateScreenState extends State<StateScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Search field
                 TextField(
                   controller: searchCtl,
                   onChanged: _searchStates,
@@ -359,43 +366,44 @@ class _StateScreenState extends State<StateScreen> {
                     ),
                   )
                 : _states.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.location_off,
-                          size: 64,
-                          color: Colors.grey.shade400,
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.location_off,
+                              size: 64,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _currentSearchQuery.isNotEmpty
+                                  ? "No states match '$_currentSearchQuery'"
+                                  : "No states found in ${widget.countryName}",
+                              style: const TextStyle(
+                                color: ColorConstants.black,
+                                fontSize: 16,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _currentSearchQuery.isNotEmpty
-                              ? "No states match '$_currentSearchQuery'"
-                              : "No states found in ${widget.countryName}",
-                          style: const TextStyle(
-                            color: ColorConstants.black,
-                            fontSize: 16,
-                          ),
-                          textAlign: TextAlign.center,
+                      )
+                    : GridView.builder(
+                        padding: const EdgeInsets.all(14),
+                        gridDelegate:
+                            SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: _crossAxisCount,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: _cardAspectRatio,
                         ),
-                      ],
-                    ),
-                  )
-                : GridView.builder(
-                    padding: const EdgeInsets.all(14),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: _crossAxisCount,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: _cardAspectRatio,
-                    ),
-                    itemCount: _states.length,
-                    itemBuilder: (context, index) {
-                      final state = _states[index];
-                      return stateGridCard(state);
-                    },
-                  ),
+                        itemCount: _states.length,
+                        itemBuilder: (context, index) {
+                          final state = _states[index];
+                          return stateGridCard(state);
+                        },
+                      ),
           ),
 
           if (!_isSearching && _states.isNotEmpty && _totalPages > 1)
@@ -577,8 +585,10 @@ class _StateScreenState extends State<StateScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) =>
-                    DistrictScreen(stateId: stateId, stateName: stateName),
+                builder: (_) => DistrictScreen(
+                  stateId: stateId,
+                  stateName: stateName,
+                ),
               ),
             );
           },
@@ -665,7 +675,7 @@ class _StateScreenState extends State<StateScreen> {
                   ),
                 ),
                 const Spacer(),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
 
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -679,7 +689,7 @@ class _StateScreenState extends State<StateScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.location_city, size: 10, color: Colors.black),
+                      const Icon(Icons.location_city, size: 10, color: Colors.black),
                       const SizedBox(width: 4),
                       Text(
                         'Districts',
