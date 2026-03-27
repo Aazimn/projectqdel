@@ -769,8 +769,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           Row(
             children: [
               _buildHelpButton(order),
-              if (_selectedTab != 0)
-                const SizedBox(width: 8), 
+              if (_selectedTab != 0) const SizedBox(width: 8),
 
               Expanded(
                 child: _buildActionButtons(
@@ -789,7 +788,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
 
   Widget _buildHelpButton(Map<String, dynamic> order) {
     if (_selectedTab == 0) {
-      return const SizedBox.shrink(); 
+      return const SizedBox.shrink();
     }
 
     return GestureDetector(
@@ -1062,9 +1061,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     final productName = order['product_details']?['name'] ?? 'Product';
     final int? pickupId = order['id'];
 
-    logger.i(
-      '🔍 Order data for complaint: ${order.keys}',
-    ); 
+    logger.i('🔍 Order data for complaint: ${order.keys}');
 
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -1078,7 +1075,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           pickupId: pickupId,
           orderId: pickupNo,
           productName: productName,
-          orderData: order, 
+          orderData: order,
         ),
       ),
     );

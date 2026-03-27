@@ -16,7 +16,7 @@ class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
   final String baseurl =
-      "https://meetings-portions-diameter-extends.trycloudflare.com";
+      "https://personalized-pressure-foo-definitely.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -35,7 +35,6 @@ class ApiService {
   }
 
   static bool sessionLoaded = false;
-
   static String? accessToken;
 
   static Future<void> setToken(String token) async {
@@ -49,11 +48,9 @@ class ApiService {
     accessToken = prefs.getString('accessToken');
   }
 
-  // Add these static variables at the top with other static variables
   static bool? hasUploadedDocs;
   static const String _hasUploadedDocsKey = 'has_uploaded_docs';
 
-  // Add these methods to your ApiService class
   static Future<void> setHasUploadedDocs(bool value) async {
     hasUploadedDocs = value;
     final prefs = await SharedPreferences.getInstance();
@@ -62,13 +59,11 @@ class ApiService {
 
   static Future<bool?> getHasUploadedDocs() async {
     if (hasUploadedDocs != null) return hasUploadedDocs;
-
     final prefs = await SharedPreferences.getInstance();
     hasUploadedDocs = prefs.getBool(_hasUploadedDocsKey);
     return hasUploadedDocs;
   }
 
-  // Update your loadSession method to include hasUploadedDocs
   static Future<void> loadSession() async {
     if (sessionLoaded) return;
 
@@ -78,17 +73,15 @@ class ApiService {
     approvalStatus = prefs.getString('approval_status');
     phone = prefs.getString('phone');
     isFirstTime = prefs.getBool('first_time');
-    hasUploadedDocs = prefs.getBool(_hasUploadedDocsKey); // Add this line
+    hasUploadedDocs = prefs.getBool(_hasUploadedDocsKey);
     _hasSeenApprovalScreen = prefs.getBool('has_seen_approval');
 
     sessionLoaded = true;
   }
 
-  // Update your logout method
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Core session keys
     await prefs.remove('accessToken');
     await prefs.remove('user_type');
     await prefs.remove('approval_status');
@@ -97,18 +90,15 @@ class ApiService {
     await prefs.remove(_hasUploadedDocsKey);
     await prefs.remove('has_seen_approval');
 
-    // App cached IDs / selections
     await prefs.remove('user_id');
     await prefs.remove('country');
     await prefs.remove('state');
     await prefs.remove('district');
 
-    // Order / carrier caches
     await prefs.remove('pickup_carrier_id');
     await prefs.remove('active_order_id');
     await prefs.remove('active_order_details');
 
-    // Remove per-order cached keys that can accumulate
     final keys = prefs.getKeys();
     final keysToRemove = <String>[];
     for (final k in keys) {
@@ -134,12 +124,11 @@ class ApiService {
     approvalStatus = null;
     phone = null;
     isFirstTime = null;
-    hasUploadedDocs = null; // Add this line
+    hasUploadedDocs = null;
     _hasSeenApprovalScreen = null;
     sessionLoaded = false;
   }
 
-  // Add a method to check document status from API
   Future<bool> checkDocumentStatus() async {
     try {
       final response = await http.get(
@@ -350,6 +339,9 @@ class ApiService {
     required int? countryId,
     required int? stateId,
     required int? districtId,
+    required bool parcelResponsibilityAccepted,
+    required bool damageLossAccepted,
+    required bool payoutTermsAccepted,
   }) async {
     final url = Uri.parse("$baseurl/api/qdel/register/");
     final request = http.MultipartRequest("POST", url);
@@ -367,6 +359,9 @@ class ApiService {
       if (countryId != null) "country": countryId.toString(),
       if (stateId != null) "state": stateId.toString(),
       if (districtId != null) "district": districtId.toString(),
+      "parcel_responsibility_accepted": parcelResponsibilityAccepted.toString(),
+      "damage_loss_accepted": damageLossAccepted.toString(),
+      "payout_terms_accepted": payoutTermsAccepted.toString(),
     });
 
     final response = await request.send();
@@ -382,12 +377,220 @@ class ApiService {
     return false;
   }
 
-  /// Carrier registration that includes document (backend requires it).
+  // Future<bool> shopRegistration({
+  //   required String phone,
+  //   required String firstname,
+  //   required String lastname,
+  //   required String email,
+  //   required String userType,
+
+  //   required int? countryId,
+  //   required int? stateId,
+  //   required int? districtId,
+  //   required bool parcelResponsibilityAccepted,
+  //   required bool damageLossAccepted,
+  //   required bool payoutTermsAccepted,
+
+  //   // 🆕 SHOP FIELDS
+  //   required String shopName,
+  //   required int? shopCategory,
+
+  //   // 🆕 ADDRESS
+  //   required String address,
+  //   required String landmark,
+  //   required String zipCode,
+  //   required double? latitude,
+  //   required double? longitude,
+  //   required int? shopcountryId,
+  //   required int? shopstateId,
+  //   required int? shopdistrictId,
+
+  //   // 🆕 FILES
+  //   File? shopPhoto,
+  //   File? shopDocument,
+  //   File? ownerShopPhoto,
+  // }) async {
+  //   final url = Uri.parse("$baseurl/api/qdel/register/");
+  //   final request = http.MultipartRequest("POST", url);
+
+  //   request.headers.addAll({
+  //     "Authorization": "Bearer ${ApiService.accessToken}",
+  //   });
+
+  //   /// 🔹 BASIC FIELDS
+  //   request.fields.addAll({
+  //     "phone": phone,
+  //     "first_name": firstname,
+  //     "last_name": lastname,
+  //     "email": email,
+  //     "user_type": userType,
+
+  //     if (countryId != null) "country": countryId.toString(),
+  //     if (stateId != null) "state": stateId.toString(),
+  //     if (districtId != null) "district": districtId.toString(),
+  //     "parcel_responsibility_accepted": parcelResponsibilityAccepted.toString(),
+  //     "damage_loss_accepted": damageLossAccepted.toString(),
+  //     "payout_terms_accepted": payoutTermsAccepted.toString(),
+
+  //     "shop_name": shopName,
+  //     "shop_categories": shopCategory.toString(),
+
+  //     "shop_address": jsonEncode({
+  //       "address": address,
+  //       "landmark": landmark,
+  //       "zip_code": zipCode,
+  //       "latitude": latitude.toString(),
+  //       "longitude": longitude.toString(),
+  //       "district": shopdistrictId.toString(),
+  //       "state": shopstateId.toString(),
+  //       "country": shopcountryId.toString(),
+  //     }),
+  //   });
+
+  //   /// 🔹 FILE UPLOADS
+  //   if (shopPhoto != null) {
+  //     request.files.add(
+  //       await http.MultipartFile.fromPath("shop_photo", shopPhoto.path),
+  //     );
+  //   }
+
+  //   if (shopDocument != null) {
+  //     request.files.add(
+  //       await http.MultipartFile.fromPath("shop_document", shopDocument.path),
+  //     );
+  //   }
+
+  //   if (ownerShopPhoto != null) {
+  //     request.files.add(
+  //       await http.MultipartFile.fromPath(
+  //         "owner_shop_photo",
+  //         ownerShopPhoto.path,
+  //       ),
+  //     );
+  //   }
+
+  //   /// 🔹 SEND REQUEST
+  //   final response = await request.send();
+  //   final responseBody = await response.stream.bytesToString();
+
+  //   logger.i("STATUS :: ${response.statusCode}");
+  //   logger.i("BODY :: $responseBody");
+
+  //   if (response.statusCode == 200 || response.statusCode == 201) {
+  //     await ApiService.setFirstTime(false);
+  //     return true;
+  //   }
+
+  //   return false;
+  // }
+
+  Future<bool> shopRegistration({
+    required String phone,
+    required String firstname,
+    required String lastname,
+    required String email,
+    required String userType,
+    required int? countryId,
+    required int? stateId,
+    required int? districtId,
+    required bool parcelResponsibilityAccepted,
+    required bool damageLossAccepted,
+    required bool payoutTermsAccepted,
+    required String shopName,
+    required int? shopCategory,
+    required String address,
+    required String landmark,
+    required String zipCode,
+    required double? latitude,
+    required double? longitude,
+    required int? shopcountryId,
+    required int? shopstateId,
+    required int? shopdistrictId,
+    File? shopPhoto,
+    File? shopDocument,
+    File? ownerShopPhoto,
+  }) async {
+    final url = Uri.parse("$baseurl/api/qdel/register/");
+    final request = http.MultipartRequest("POST", url);
+
+    request.headers.addAll({
+      "Authorization": "Bearer ${ApiService.accessToken}",
+    });
+
+    /// 🔹 BASIC FIELDS
+    request.fields.addAll({
+      "phone": phone,
+      "first_name": firstname,
+      "last_name": lastname,
+      "email": email,
+      "user_type": userType,
+      if (countryId != null) "country": countryId.toString(),
+      if (stateId != null) "state": stateId.toString(),
+      if (districtId != null) "district": districtId.toString(),
+      "parcel_responsibility_accepted": parcelResponsibilityAccepted.toString(),
+      "damage_loss_accepted": damageLossAccepted.toString(),
+      "payout_terms_accepted": payoutTermsAccepted.toString(),
+      "shop_name": shopName,
+      "shop_categories": shopCategory.toString(),
+    });
+
+    /// 🔹 ADDRESS FIELDS - FIXED (no nested structure)
+    request.fields.addAll({
+      "address": address,
+      "landmark": landmark,
+      "zip_code": zipCode,
+      "latitude": latitude?.toString() ?? "",
+      "longitude": longitude?.toString() ?? "",
+      "district": shopdistrictId.toString(),
+      "state": shopstateId.toString(),
+      "country": shopcountryId.toString(),
+    });
+
+    /// 🔹 FILE UPLOADS
+    if (shopPhoto != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath("shop_photo", shopPhoto.path),
+      );
+    }
+
+    if (shopDocument != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath("shop_document", shopDocument.path),
+      );
+    }
+
+    if (ownerShopPhoto != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          "owner_shop_photo",
+          ownerShopPhoto.path,
+        ),
+      );
+    }
+
+    /// 🔹 SEND REQUEST
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
+
+    logger.i("STATUS :: ${response.statusCode}");
+    logger.i("BODY :: $responseBody");
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      await ApiService.setFirstTime(false);
+      return true;
+    }
+
+    return false;
+  }
+
   Future<bool> carrierRegistrationWithDocument({
     required String phone,
     required String firstname,
     required String lastname,
     required String email,
+    required bool parcelResponsibilityAccepted,
+    required bool damageLossAccepted,
+    required bool payoutTermsAccepted,
     required int? countryId,
     required int? stateId,
     required int? districtId,
@@ -405,6 +608,9 @@ class ApiService {
       "first_name": firstname,
       "last_name": lastname,
       "email": email,
+      "parcel_responsibility_accepted": parcelResponsibilityAccepted.toString(),
+      "damage_loss_accepted": damageLossAccepted.toString(),
+      "payout_terms_accepted": payoutTermsAccepted.toString(),
       "user_type": "carrier",
       if (countryId != null) "country": countryId.toString(),
       if (stateId != null) "state": stateId.toString(),
@@ -429,6 +635,40 @@ class ApiService {
     return false;
   }
 
+  Future<String?> refreshUserType() async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseurl/api/qdel/users/detail/update/self/"),
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
+
+      logger.i("REFRESH USER TYPE STATUS :: ${response.statusCode}");
+      logger.i("REFRESH USER TYPE BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final userData = jsonDecode(response.body);
+        final newUserType = userData['user_type']?.toLowerCase();
+
+        if (newUserType != null && newUserType != ApiService.userType) {
+          await ApiService.setUserType(newUserType);
+          logger.i(
+            "✅ User type updated from ${ApiService.userType} to $newUserType",
+          );
+          return newUserType;
+        }
+        return ApiService.userType;
+      }
+      return ApiService.userType;
+    } catch (e) {
+      logger.e("REFRESH USER TYPE ERROR => $e");
+      return ApiService.userType;
+    }
+  }
+
+  // In getMyProfile() method in api_service.dart
   Future<UserModel?> getMyProfile() async {
     final url = Uri.parse("$baseurl/api/qdel/users/detail/update/self/");
 
@@ -444,7 +684,10 @@ class ApiService {
     logger.i("SELF PROFILE BODY :: ${response.body}");
 
     if (response.statusCode == 200) {
-      return UserModel.fromJson(jsonDecode(response.body));
+      final data = jsonDecode(response.body);
+      // Log the document field to debug
+      logger.i("📄 DOCUMENT FIELD: ${data['document']}");
+      return UserModel.fromJson(data);
     }
     return null;
   }
@@ -490,7 +733,6 @@ class ApiService {
       }
       queryParams['page'] = page.toString();
       queryParams['page_size'] = pageSize.toString();
-
       final uri = Uri.parse(urlString).replace(queryParameters: queryParams);
 
       logger.i("GET Users URL :: $uri");
@@ -565,11 +807,9 @@ class ApiService {
         },
         body: jsonEncode({"approval_status": status}),
       );
-
       logger.i("PATCH URL :: $url");
       logger.i("STATUS :: ${response.statusCode}");
       logger.i("BODY :: ${response.body}");
-
       return response.statusCode == 200;
     } catch (e) {
       logger.e("Error updating user status: $e");
@@ -590,9 +830,7 @@ class ApiService {
     );
 
     logger.i("USER TYPE UPDATE :: ${response.statusCode}");
-
     logger.i("BODY :: ${response.body}");
-
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
@@ -660,11 +898,8 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-
         final List users = decoded["data"];
-
         final myPhone = ApiService.phone;
-
         final myUser = users.firstWhere(
           (u) => u["phone"] == myPhone,
           orElse: () => null,
@@ -679,6 +914,41 @@ class ApiService {
       logger.e("STATUS ERROR => $e");
       return null;
     }
+  }
+
+  // Add this method to your ApiService class
+  Future<Map?> getRegistrationDetails() async {
+    try {
+      final url = Uri.parse("$baseurl/api/qdel/register/");
+      final response = await http.get(
+        url,
+        headers: {"Authorization": "Bearer $accessToken"},
+      );
+
+      logger.i("🌐 GET REGISTRATION URL :: $url");
+      logger.i("📊 GET REGISTRATION STATUS :: ${response.statusCode}");
+      logger.i("📦 GET REGISTRATION BODY :: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+
+        // If the response is a list, get the first item
+        if (data is List && data.isNotEmpty) {
+          return data[0] as Map<String, dynamic>;
+        } else if (data is Map) {
+          return data;
+        }
+      }
+      return null;
+    } catch (e) {
+      logger.e("❌ Error fetching registration details: $e");
+      return null;
+    }
+  }
+
+  // Optional: Create a method to get shop status specifically
+  Future<Map?> getShopStatus() async {
+    return await getRegistrationDetails();
   }
 
   Future<List<dynamic>> countriesList() async {
@@ -3165,4 +3435,137 @@ class ApiService {
       return {'success': false, 'error': e.toString()};
     }
   }
+
+  Future<List> getShopCategories() async {
+    final url = Uri.parse("$baseurl/api/qdel/user/view/shop/categories/");
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
+
+      logger.i("STATUS :: ${response.statusCode}");
+      logger.i("BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> json = jsonDecode(response.body);
+
+        final List categories = json['data'] ?? [];
+
+        logger.i("✅ Categories loaded: ${categories.length}");
+
+        return categories; // IMPORTANT
+      } else {
+        throw Exception("Failed to load categories");
+      }
+    } catch (e) {
+      logger.e("❌ Error fetching categories: $e");
+      rethrow;
+    }
+  }
+
+  Future<String?> checkShopApprovalStatus() async {
+  try {
+    final response = await http.get(
+      Uri.parse("$baseurl/api/qdel/register/"),
+      headers: {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      },
+    );
+
+    logger.i("SHOP STATUS CHECK :: ${response.statusCode}");
+    logger.i("SHOP STATUS BODY :: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      final List users = decoded["data"];
+      final myPhone = ApiService.phone;
+      final myUser = users.firstWhere(
+        (u) => u["phone"] == myPhone,
+        orElse: () => null,
+      );
+
+      if (myUser == null) return null;
+      
+      // Return shop approval status (adjust field name as per your API)
+      return myUser["shop_approval_status"] ?? myUser["approval_status"];
+    }
+    return null;
+  } catch (e) {
+    logger.e("SHOP STATUS ERROR => $e");
+    return null;
+  }
+}
+
+Future<bool> registerShopHandler({
+  required String shopName,
+  required int shopCategory,
+
+  required String address,
+  required String landmark,
+  required int district,
+  required int state,
+  required int country,
+  required String zipCode,
+  required double? latitude,
+  required double? longitude,
+
+  required File shopPhoto,
+  required File ownerPhoto,
+  required File shopDocument,
+}) async {
+  final url = Uri.parse("$baseurl/api/qdel/user/register/shop/");
+  final request = http.MultipartRequest("POST", url);
+
+  /// 🔐 AUTH HEADER
+  request.headers.addAll({
+    "Authorization": "Bearer ${ApiService.accessToken}",
+  });
+
+  /// 📦 FIELDS
+  request.fields.addAll({
+    "shop_name": shopName,
+    "shop_categories": shopCategory.toString(),
+
+    "address": address,
+    "landmark": landmark,
+    "district": district.toString(),
+    "state": state.toString(),
+    "country": country.toString(),
+    "zip_code": zipCode,
+    "latitude": latitude.toString(),
+    "longitude": longitude.toString(),
+  });
+
+  /// 📸 FILES
+  request.files.add(
+    await http.MultipartFile.fromPath("shop_photo", shopPhoto.path),
+  );
+
+  request.files.add(
+    await http.MultipartFile.fromPath("owner_shop_photo", ownerPhoto.path),
+  );
+
+  request.files.add(
+    await http.MultipartFile.fromPath("shop_document", shopDocument.path),
+  );
+
+  /// 🚀 SEND REQUEST
+  final response = await request.send();
+  final responseBody = await response.stream.bytesToString();
+
+  logger.i("STATUS :: ${response.statusCode}");
+  logger.i("BODY :: $responseBody");
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    return true;
+  } else {
+    return false;
+  }
+}
 }

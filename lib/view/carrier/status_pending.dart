@@ -5,11 +5,13 @@ import 'package:projectqdel/view/Carrier/approved_screen.dart';
 import 'package:projectqdel/view/Carrier/rejected_screen.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/view/login_screen.dart';
+import 'package:projectqdel/view/shop/shop_home.dart';
 
 class StatusPending extends StatefulWidget {
   final String phone;
+  final String? userType;
 
-  const StatusPending({super.key, required this.phone});
+  const StatusPending({super.key, required this.phone, this.userType});
 
   @override
   State<StatusPending> createState() => _StatusPendingState();
@@ -19,11 +21,20 @@ class _StatusPendingState extends State<StatusPending> {
   Timer? statusTimer;
   final api = ApiService();
   bool isChangingToClient = false;
+  String? currentUserType;
 
   @override
   void initState() {
     super.initState();
+    _loadUserType();
     startCheckingStatus();
+  }
+
+  Future<void> _loadUserType() async {
+    await ApiService.loadSession();
+    setState(() {
+      currentUserType = widget.userType ?? ApiService.userType?.toLowerCase();
+    });
   }
 
   @override
@@ -80,39 +91,133 @@ class _StatusPendingState extends State<StatusPending> {
   void startCheckingStatus() {
     statusTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
       await ApiService.loadSession();
-      final statusRaw = await api.checkApprovalStatus();
 
-      if (statusRaw != null) {
-        await ApiService.setApprovalStatus(statusRaw);
+      String? statusRaw;
+      final isShop = currentUserType == "shop";
+
+      if (isShop) {
+        statusRaw = await api.checkShopApprovalStatus();
+        if (statusRaw != null) {
+          await ApiService.setApprovalStatus(statusRaw);
+        }
+      } else {
+        statusRaw = await api.checkApprovalStatus();
+        if (statusRaw != null) {
+          await ApiService.setApprovalStatus(statusRaw);
+        }
       }
 
       if (!mounted) return;
-
       if (statusRaw == null) return;
       final status = statusRaw.trim().toLowerCase();
+      debugPrint("LIVE STATUS for ${isShop ? 'SHOP' : 'CARRIER'} => $status");
 
-      debugPrint("LIVE STATUS => $status");
       if (status == "approved") {
         await ApiService.setApprovalStatus("approved");
 
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const AccountApprovedScreen()),
-          (_) => false,
-        );
+        if (isShop) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const AccountApprovedScreen()),
+            (_) => false,
+          );
+        } else {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const AccountApprovedScreen()),
+            (_) => false,
+          );
+        }
       } else if (status == "rejected") {
         await ApiService.setApprovalStatus("rejected");
 
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const RejectedScreen()),
-          (_) => false,
-        );
+        if (isShop) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const RejectedScreen()),
+            (_) => false,
+          );
+
+          _showRejectedDialog(isShop: true);
+        } else {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const RejectedScreen()),
+            (_) => false,
+          );
+        }
       }
     });
   }
 
+  void _showRejectedDialog({required bool isShop}) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.cancel, color: Colors.red, size: 28),
+            SizedBox(width: 10),
+            Text("Application Rejected"),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Your ${isShop ? 'shop' : 'carrier'} application has been rejected.",
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: const Text(
+                "You can either switch to client mode or contact support for more information.",
+                style: TextStyle(fontSize: 13, color: Colors.redAccent),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await changeToClient();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen()),
+                (_) => false,
+              );
+            },
+            child: const Text("Switch to Client"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen()),
+                (_) => false,
+              );
+            },
+            child: const Text("Exit"),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showContinueAsClientDialog() {
+    final isShop = currentUserType == "shop";
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -128,9 +233,9 @@ class _StatusPendingState extends State<StatusPending> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Are you sure you want to continue as a Client instead of a Carrier?",
-              style: TextStyle(fontSize: 16),
+            Text(
+              "Are you sure you want to continue as a Client instead of a ${isShop ? 'Shop' : 'Carrier'}?",
+              style: const TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 10),
             Container(
@@ -140,7 +245,7 @@ class _StatusPendingState extends State<StatusPending> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.info_outline, color: Colors.redAccent, size: 18),
                   SizedBox(width: 8),
@@ -184,20 +289,28 @@ class _StatusPendingState extends State<StatusPending> {
 
   @override
   Widget build(BuildContext context) {
+    final isShop = currentUserType == "shop";
+    final title = isShop
+        ? "SHOP APPLICATION STATUS"
+        : "CARRIER APPLICATION STATUS";
+    const subtitle = "Verification in\nProgress";
+    const badgeText = "Reviewing Documents";
+    const description =
+        "Your documents have been submitted. Our team is currently reviewing your profile. You will be notified once you are approved.";
+
     return Scaffold(
       backgroundColor: ColorConstants.white,
       body: SafeArea(
         child: Column(
           children: [
-       
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    "APPLICATION STATUS",
-                    style: TextStyle(
+                  Text(
+                    title,
+                    style: const TextStyle(
                       color: ColorConstants.black,
                       letterSpacing: 2,
                       fontSize: 14,
@@ -208,6 +321,7 @@ class _StatusPendingState extends State<StatusPending> {
             ),
 
             const SizedBox(height: 20),
+
             Container(
               height: 180,
               width: 180,
@@ -234,8 +348,8 @@ class _StatusPendingState extends State<StatusPending> {
                     color: Colors.red.withOpacity(0.08),
                     border: Border.all(color: Colors.redAccent, width: 2),
                   ),
-                  child: const Icon(
-                    Icons.hourglass_empty,
+                  child: Icon(
+                    isShop ? Icons.store : Icons.hourglass_empty,
                     color: Colors.redAccent,
                     size: 60,
                   ),
@@ -245,10 +359,10 @@ class _StatusPendingState extends State<StatusPending> {
 
             const SizedBox(height: 30),
 
-            const Text(
-              "Verification in\nProgress",
+            Text(
+              subtitle,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: ColorConstants.black,
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -266,12 +380,15 @@ class _StatusPendingState extends State<StatusPending> {
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   CircleAvatar(radius: 4, backgroundColor: Colors.redAccent),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Text(
-                    "Reviewing Documents",
-                    style: TextStyle(color: Colors.redAccent, fontSize: 14),
+                    badgeText,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
@@ -397,7 +514,7 @@ class _StatusPendingState extends State<StatusPending> {
                   const SizedBox(height: 8),
                   const Center(
                     child: Text(
-                      "Skip carrier verification and use Qdel as a client",
+                      "Skip verification and use Qdel as a client",
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
@@ -411,9 +528,9 @@ class _StatusPendingState extends State<StatusPending> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 30),
               child: Text(
-                "Your documents have been submitted. Our team is currently reviewing your profile. You will be notified once you are approved.",
+                description,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: ColorConstants.black,
                   fontSize: 15,
                   height: 1.5,
@@ -438,9 +555,9 @@ class _StatusPendingState extends State<StatusPending> {
                   ),
                   border: Border.all(color: ColorConstants.black),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
+                  children: [
                     Icon(Icons.support_agent, color: ColorConstants.black),
                     SizedBox(width: 10),
                     Text(

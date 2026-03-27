@@ -41,7 +41,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
   Future<void> _onRefresh() async => _loadAll();
 
-  // ── Profile ────────────────────────────────────────────────────────────────
   Future<void> _loadProfile() async {
     setState(() => profileLoading = true);
     try {
@@ -55,7 +54,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     }
   }
 
-  // ── Counts (3 parallel calls, read only `count`) ───────────────────────────
   Future<void> _loadCounts() async {
     setState(() => countsLoading = true);
     try {
@@ -76,7 +74,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     }
   }
 
-  // ── Active orders preview ──────────────────────────────────────────────────
   Future<void> _loadActiveOrders() async {
     setState(() => activeOrdersLoading = true);
     try {
@@ -93,7 +90,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
       });
     }
   }
-
+  
   // ── Helpers ────────────────────────────────────────────────────────────────
   int _extractCount(dynamic response) {
     if (response is Map) {
@@ -177,7 +174,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         children: [
           const CircleAvatar(
             radius: 28,
-            backgroundColor: Colors.white,
+            backgroundColor: Color.fromARGB(255, 218, 217, 217),
             child: Icon(Icons.person, color: ColorConstants.red, size: 32),
           ),
           const SizedBox(width: 12),
@@ -430,7 +427,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      orderId,
+                      productName,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -438,7 +435,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      productName,
+                      orderId,
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 12,

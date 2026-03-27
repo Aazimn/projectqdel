@@ -8,6 +8,10 @@ class CarrierRegistrationData {
   final int? stateId;
   final int? districtId;
   final bool isExistingUser;
+  final bool parcelResponsibilityAccepted;
+  final bool damageLossAccepted;
+  final bool payoutTermsAccepted;
+
 
   CarrierRegistrationData({
     required this.phone,
@@ -19,5 +23,8 @@ class CarrierRegistrationData {
     this.stateId,
     this.districtId,
     required this.isExistingUser,
+    required this.parcelResponsibilityAccepted,
+    required this.damageLossAccepted,
+    required this.payoutTermsAccepted,
   });
 }

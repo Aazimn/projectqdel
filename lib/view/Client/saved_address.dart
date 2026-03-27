@@ -281,10 +281,10 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
           colors: [Colors.white, Colors.red.withOpacity(0.05)],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.blue.withOpacity(0.2), width: 1.5),
+        border: Border.all(color: Colors.black.withOpacity(0.2), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -295,7 +295,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.05),
+              color: Colors.black.withOpacity(0.05),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(20),
                 topRight: Radius.circular(20),
@@ -306,10 +306,14 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
+                    color: Colors.black.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.person, color: Colors.blue, size: 16),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.black,
+                    size: 16,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -317,7 +321,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Colors.blue,
+                    color: Colors.black,
                   ),
                 ),
                 const Spacer(),
@@ -327,14 +331,14 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
+                    color: Colors.black.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'ID: ${address['id']}',
                     style: const TextStyle(
                       fontSize: 11,
-                      color: Colors.blue,
+                      color: Colors.black,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -494,10 +498,10 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
           colors: [Colors.white, Colors.red.withOpacity(0.05)],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.green.withOpacity(0.2), width: 1.5),
+        border: Border.all(color: Colors.black.withOpacity(0.2), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.green.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -508,7 +512,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.05),
+              color: Colors.black.withOpacity(0.05),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(20),
                 topRight: Radius.circular(20),
@@ -519,12 +523,12 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
+                    color: Colors.black.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
                     Icons.person,
-                    color: Colors.green,
+                    color: Colors.black,
                     size: 16,
                   ),
                 ),
@@ -534,7 +538,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Colors.green,
+                    color: Colors.black,
                   ),
                 ),
                 const Spacer(),
@@ -544,14 +548,14 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
+                    color: Colors.black.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'ID: ${address['id']}',
                     style: const TextStyle(
                       fontSize: 11,
-                      color: Colors.green,
+                      color: Colors.black,
                       fontWeight: FontWeight.w500,
                     ),
                   ),

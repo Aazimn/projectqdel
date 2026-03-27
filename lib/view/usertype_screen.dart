@@ -7,6 +7,8 @@ import 'package:projectqdel/view/Carrier/carrier_upload.dart';
 import 'package:projectqdel/view/Carrier/status_pending.dart';
 import 'package:projectqdel/view/Carrier/approved_screen.dart';
 import 'package:projectqdel/view/Carrier/rejected_screen.dart';
+import 'package:projectqdel/view/registration_screen.dart';
+import 'package:projectqdel/view/shop/shop_home.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 
 class UsertypeScreen extends StatefulWidget {
@@ -58,6 +60,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
 
                   const SizedBox(height: 30),
 
+                  // Client Card
                   _roleCard(
                     role: "client",
                     title: "Client",
@@ -70,6 +73,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
 
                   const SizedBox(height: 20),
 
+                  // Carrier Card
                   _roleCard(
                     role: "carrier",
                     title: "Carrier",
@@ -77,6 +81,17 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
                     description:
                         "Join our fleet and earn money by fulfilling delivery requests in your area.",
                     icon: Icons.local_shipping_outlined,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Shop Card
+                  _roleCard(
+                    role: "shop",
+                    title: "Shop Hub",
+                    subtitle: "Order Transfer & Dispatch Center",
+                    description:
+                        "Manage order handovers and ensure seamless delivery completion.",
+                    icon: Icons.store_outlined,
                   ),
 
                   const Spacer(),
@@ -96,9 +111,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              selectedRole == "client"
-                                  ? "Continue as Client"
-                                  : "Continue as Carrier",
+                              _getButtonText(),
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
@@ -126,16 +139,67 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
     );
   }
 
+  String _getButtonText() {
+    switch (selectedRole) {
+      case "client":
+        return "Continue as Client";
+      case "shop":
+        return "Continue as Shop";
+      case "carrier":
+        return "Continue as Carrier";
+      default:
+        return "Continue";
+    }
+  }
+
   Future<void> _handleContinue() async {
     if (selectedRole == user.userType) {
       Navigator.pop(context);
       return;
     }
 
-    if (selectedRole == "client") {
-      _confirmClientSwitch();
-    } else {
-      _checkCarrierStatusAndNavigate();
+    switch (selectedRole) {
+      case "client":
+        _confirmClientSwitch();
+        break;
+      case "shop":
+        _switchToShop();
+        break;
+      case "carrier":
+        _checkCarrierStatusAndNavigate();
+        break;
+    }
+  }
+
+  Future<void> _switchToShop() async {
+    setState(() => switchingRole = true);
+
+    try {
+      final success = await apiService.updateUserType("shop");
+
+      if (!success) {
+        setState(() => switchingRole = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to switch to shop")),
+        );
+        return;
+      }
+
+      await ApiService.setUserType("shop");
+
+      setState(() => switchingRole = false);
+
+      // Navigate to Shop Home
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => SplashScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      setState(() => switchingRole = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
     }
   }
 
@@ -214,7 +278,6 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
       }
 
       if (status == "approved") {
-
         final hasSeen = await apiService.hasUserSeenApprovalScreen();
 
         if (!hasSeen) {
@@ -260,6 +323,9 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
             stateId: user.stateId,
             districtId: user.districtId,
             isExistingUser: true,
+            parcelResponsibilityAccepted: true,
+            damageLossAccepted: true,
+            payoutTermsAccepted: true,
           ),
         ),
       ),
@@ -270,7 +336,9 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
   void _navigateToPendingScreen() {
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => StatusPending(phone: user.phone)),
+      MaterialPageRoute(
+        builder: (_) => StatusPending(phone: user.phone, userType: 'carrier'),
+      ),
       (route) => false,
     );
   }
@@ -306,7 +374,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
         title: const Text("Change Account Type"),
         content: const Text(
           "Do you want to switch to Client account?\n\n"
-          "You will lose carrier access and orders.",
+          "You will lose carrier/shop access and orders.",
         ),
         actions: [
           TextButton(

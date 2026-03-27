@@ -26,7 +26,37 @@ class _CarrierUploadScreenState extends State<CarrierUploadScreen> {
   void initState() {
     super.initState();
     logger.i("📄 Carrier Upload Screen Opened");
+    _logFlagState();
+    _checkDocumentStatusFromServer();
   }
+
+  
+Future<void> _logFlagState() async {
+  final hasUploadedDocs = await ApiService.getHasUploadedDocs();
+  final isFirstTime = await ApiService.isFirstTime;
+  final approvalStatus = await ApiService.approvalStatus;
+  
+  logger.i("🔍 Flag State Check:");
+  logger.i("  hasUploadedDocs: $hasUploadedDocs");
+  logger.i("  isFirstTime: $isFirstTime");
+  logger.i("  approvalStatus: $approvalStatus");
+}
+
+Future<void> _checkDocumentStatusFromServer() async {
+  try {
+    final apiService = ApiService();
+    final hasDocs = await apiService.checkDocumentStatus();
+    logger.i("📡 Server document status: $hasDocs");
+    
+    // Update local cache if needed
+    if (!hasDocs && await ApiService.getHasUploadedDocs() == true) {
+      logger.w("⚠️ Flag mismatch! Clearing local flag");
+      await ApiService.setHasUploadedDocs(false);
+    }
+  } catch (e) {
+    logger.e("Error checking document status: $e");
+  }
+}
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -83,7 +113,6 @@ class _CarrierUploadScreenState extends State<CarrierUploadScreen> {
     bool success = false;
 
     try {
-
       if (!widget.registrationData.isExistingUser) {
         logger.i("📝 Registering carrier (with document)...");
         success = await apiService.carrierRegistrationWithDocument(
@@ -95,6 +124,10 @@ class _CarrierUploadScreenState extends State<CarrierUploadScreen> {
           stateId: widget.registrationData.stateId,
           districtId: widget.registrationData.districtId,
           document: document!,
+          parcelResponsibilityAccepted:
+              widget.registrationData.parcelResponsibilityAccepted,
+          damageLossAccepted: widget.registrationData.damageLossAccepted,
+          payoutTermsAccepted: widget.registrationData.payoutTermsAccepted,
         );
 
         logger.i("📝 Carrier registration result: $success");
@@ -123,7 +156,6 @@ class _CarrierUploadScreenState extends State<CarrierUploadScreen> {
 
     if (success) {
       logger.i("✅ Document uploaded successfully");
-
       await ApiService.setFirstTime(false);
 
       logger.i("➡️ Navigating to StatusPending screen");
@@ -131,7 +163,7 @@ class _CarrierUploadScreenState extends State<CarrierUploadScreen> {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (_) => StatusPending(phone: widget.registrationData.phone),
+          builder: (_) => StatusPending(phone: widget.registrationData.phone,userType: "carrier",),
         ),
         (_) => false,
       );

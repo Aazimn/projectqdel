@@ -24,7 +24,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-
   final List<Map<String, String>> countryCodes = [
     {'name': 'India', 'code': '+91', 'flag': '🇮🇳'},
     {'name': 'USA', 'code': '+1', 'flag': '🇺🇸'},
@@ -40,11 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
     {'name': 'Myanmar', 'code': '+95', 'flag': '🇲🇲'},
   ];
 
-  String selectedCode = "+91"; 
-
+  String selectedCode = "+91";
 
   Future<void> fetchCountries() async {
-
     try {
       final data = await apiService.countriesList();
       debugPrint("Countries loaded: $data");
@@ -56,36 +53,40 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    fetchCountries(); 
+    fetchCountries();
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: isError ? Colors.red : Colors.green,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 3),
-        action: isError ? SnackBarAction(
-          label: 'OK',
-          textColor: Colors.white,
-          onPressed: () {},
-        ) : null,
+        action: isError
+            ? SnackBarAction(
+                label: 'OK',
+                textColor: Colors.white,
+                onPressed: () {},
+              )
+            : null,
       ),
     );
   }
 
   Future<void> _login() async {
-
     if (!mounted) return;
     if (!_formkey.currentState!.validate()) {
       return;
     }
 
     if (phonectrl.text.trim().length != 10) {
-      _showSnackBar("Please enter a valid 10-digit phone number", isError: true);
+      _showSnackBar(
+        "Please enter a valid 10-digit phone number",
+        isError: true,
+      );
       return;
     }
 
@@ -115,13 +116,14 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      
+
       String errorMessage = "An error occurred. Please try again.";
 
       if (e.toString().contains("429") || e.toString().contains("rate limit")) {
-        errorMessage = "Too many attempts. Please wait before requesting OTP again.";
+        errorMessage =
+            "Too many attempts. Please wait before requesting OTP again.";
       }
-      
+
       _showSnackBar(errorMessage, isError: true);
     } finally {
       if (mounted) {
@@ -143,55 +145,72 @@ class _LoginScreenState extends State<LoginScreen> {
             fit: BoxFit.cover,
           ),
         ),
-        child: SafeArea(
-          child: Form(
-            key: _formkey,
-            child: Stack(
-              children: [
-                Positioned(
-                  top: 290,
-                  left: 20,
-                  child: Container(
-                    height: 300,
-                    width: 300,
+        child: Form(
+          key: _formkey,
+          child: Stack(
+            children: [
+              Positioned(
+                bottom: MediaQuery.of(context).size.height * 0.22,
+                left: 10,
+                right: 10,
+                child: Center(
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.4,
                     child: Image.asset(
                       "assets/image_assets/qdel_boyy.png",
                       fit: BoxFit.contain,
                     ),
                   ),
                 ),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    SingleChildScrollView(
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      child: Column(
-                        children: [
-                          const Padding(padding: EdgeInsets.only(top: 20)),
-                          Text(
-                            "QDEL",
-                            style: TextStyle(
-                              color: ColorConstants.red,
-                              fontSize: 30,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      children: [
-                        _bottomLoginSheet(),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [_header(context), _bottomLoginSheet()],
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _header(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          height: 120,
+          decoration: const BoxDecoration(
+            color: ColorConstants.red,
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(40),
+              bottomRight: Radius.circular(40),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: -60,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Container(
+              height: 130,
+              width: 130,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: ColorConstants.red, width: 6),
+                color: Colors.white,
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  "assets/image_assets/logo_qdel.png",
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -266,9 +285,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 if (_isLoading)
                   const Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                    ),
+                    child: CircularProgressIndicator(color: Colors.white),
                   ),
               ],
             ),
@@ -299,7 +316,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Text(
                   "${country['flag']} ${country['code']}",
                   style: const TextStyle(
-                    fontSize: 18, 
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/carrier_model.dart';
+import 'package:projectqdel/model/shop_model.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Carrier/carrier_upload.dart';
 import 'package:projectqdel/view/login_screen.dart';
+import 'package:projectqdel/view/shop/shop_home.dart';
+import 'package:projectqdel/view/shop/shop_registration.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
@@ -724,6 +727,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _stateHasNext = false;
   String _stateSearchQuery = '';
 
+  bool parcelResponsibilityAccepted = false;
+  bool damageLossAccepted = false;
+  bool payoutTermsAccepted = false;
+
   int _districtPage = 1;
   bool _districtHasNext = false;
   String _districtSearchQuery = '';
@@ -1002,6 +1009,29 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     if (_customertype == 'client') {
       await _registerUser();
+    } else if (_customertype == 'shop') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ShopRegistrationScreen(
+            registrationData: ShopRegistrationData(
+              phone: widget.phone,
+              firstname: _firstName.text.trim(),
+              lastname: _lastName.text.trim(),
+              email: _email.text.trim(),
+              userType: _customertype,
+              isExistingUser: false,
+              countryId: selectedCountryId,
+              stateId: selectedStateId,
+              districtId: selectedDistrictId,
+              parcelResponsibilityAccepted: parcelResponsibilityAccepted,
+              damageLossAccepted: damageLossAccepted,
+              payoutTermsAccepted: payoutTermsAccepted,
+            ),
+          ),
+        ),
+      );
+      // await _registerUser();
     } else if (_customertype == 'carrier') {
       Navigator.push(
         context,
@@ -1017,6 +1047,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               stateId: selectedStateId,
               districtId: selectedDistrictId,
               isExistingUser: false,
+              parcelResponsibilityAccepted: parcelResponsibilityAccepted,
+              damageLossAccepted: damageLossAccepted,
+              payoutTermsAccepted: payoutTermsAccepted,
             ),
           ),
         ),
@@ -1034,6 +1067,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       countryId: selectedCountryId,
       stateId: selectedStateId,
       districtId: selectedDistrictId,
+      parcelResponsibilityAccepted: parcelResponsibilityAccepted,
+      damageLossAccepted: damageLossAccepted,
+      payoutTermsAccepted: payoutTermsAccepted,
     );
 
     if (status) {
@@ -1356,7 +1392,132 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
             ),
           ),
+
+        const SizedBox(height: 30),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.red.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Terms & Conditions",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "Please read and accept the following terms before registering your shop. These ensure smooth operations, accountability, and secure transactions within the platform.",
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 15),
+
+              /// 1️⃣ Parcel Responsibility
+              _modernCheckbox(
+                value: parcelResponsibilityAccepted,
+                onChanged: (val) {
+                  setState(() => parcelResponsibilityAccepted = val!);
+                },
+                title: "Parcel Responsibility",
+                subtitle:
+                    "I agree to responsibly handle all parcels assigned to my shop, ensuring proper storage, safety, and timely handover to delivery partners without negligence.",
+              ),
+
+              const SizedBox(height: 10),
+
+              /// 2️⃣ Damage / Loss
+              _modernCheckbox(
+                value: damageLossAccepted,
+                onChanged: (val) {
+                  setState(() => damageLossAccepted = val!);
+                },
+                title: "Damage / Loss Policy",
+                subtitle:
+                    "I understand that I may be held accountable for any damage, loss, or mishandling of parcels while they are under my supervision at the shop.",
+              ),
+
+              const SizedBox(height: 10),
+
+              /// 3️⃣ Payout Terms
+              _modernCheckbox(
+                value: payoutTermsAccepted,
+                onChanged: (val) {
+                  setState(() => payoutTermsAccepted = val!);
+                },
+                title: "Payout & Earnings",
+                subtitle:
+                    "I agree to the platform's payout structure, commission rules, and settlement timelines, and acknowledge that payments will be processed accordingly.",
+              ),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _modernCheckbox({
+    required bool value,
+    required Function(bool?) onChanged,
+    required String title,
+    required String subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: value ? Colors.red : Colors.grey.shade300,
+          width: value ? 1.5 : 1,
+        ),
+        boxShadow: [
+          if (value)
+            BoxShadow(
+              color: Colors.red.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Transform.scale(
+            scale: 1.2,
+            child: Checkbox(
+              value: value,
+              activeColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              onChanged: onChanged,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1397,6 +1558,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            SizedBox(height: 20),
                             const Text(
                               "Welcome To QDEL!",
                               style: TextStyle(
@@ -1607,6 +1769,28 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                           ),
                                         ],
                                       ),
+                                      Row(
+                                        children: [
+                                          Radio(
+                                            activeColor: ColorConstants.black,
+                                            value: 'shop',
+                                            groupValue: _customertype,
+                                            onChanged: (value) {
+                                              setState(() {
+                                                _customertype = value!;
+                                              });
+                                            },
+                                          ),
+                                          const Text(
+                                            'Shop Hub',
+                                            style: TextStyle(
+                                              fontSize: 18,
+
+                                              color: ColorConstants.black,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -1618,24 +1802,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                InkWell(
-                                  onTap: register,
-                                  child: Container(
-                                    height: 40,
-                                    width: 100,
-                                    decoration: BoxDecoration(
+                                ElevatedButton(
+                                  onPressed:
+                                      (parcelResponsibilityAccepted &&
+                                          damageLossAccepted &&
+                                          payoutTermsAccepted)
+                                      ? register
+                                      : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: ColorConstants.red,
+                                    minimumSize: const Size(120, 45),
+                                    shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(25),
-                                      color: ColorConstants.red,
                                     ),
-                                    child: const Center(
-                                      child: Text(
-                                        "Register",
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
+                                  ),
+                                  child: const Text(
+                                    "Register",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
                                     ),
                                   ),
                                 ),

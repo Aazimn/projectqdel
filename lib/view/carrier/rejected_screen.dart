@@ -4,7 +4,9 @@ import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/login_screen.dart';
 
 class RejectedScreen extends StatefulWidget {
-  const RejectedScreen({super.key});
+  final String? userType; // Add userType parameter
+
+  const RejectedScreen({super.key, this.userType});
 
   @override
   State<RejectedScreen> createState() => _RejectedScreenState();
@@ -13,10 +15,19 @@ class RejectedScreen extends StatefulWidget {
 class _RejectedScreenState extends State<RejectedScreen> {
   ApiService apiService = ApiService();
   bool isChangingToClient = false;
+  String? _userType;
 
   @override
   void initState() {
     super.initState();
+    _loadUserType();
+  }
+
+  Future<void> _loadUserType() async {
+    await ApiService.loadSession();
+    setState(() {
+      _userType = widget.userType ?? ApiService.userType?.toLowerCase();
+    });
   }
 
   Future<void> changeToClient() async {
@@ -39,6 +50,15 @@ class _RejectedScreenState extends State<RejectedScreen> {
         );
 
         debugPrint("Changed to client type");
+
+        // Navigate to login screen after switching to client
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => LoginScreen()),
+            (_) => false,
+          );
+        }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -66,24 +86,37 @@ class _RejectedScreenState extends State<RejectedScreen> {
   }
 
   void _showContinueAsClientDialog() {
+    final isShop = _userType == "shop";
+    final title = isShop
+        ? "Shop Application Rejected"
+        : "Carrier Application Rejected";
+    final message = isShop
+        ? "Your shop application was rejected. Would you like to continue as a Client instead?"
+        : "Your carrier application was rejected. Would you like to continue as a Client instead?";
+    const infoMessage =
+        "As a Client, you can book deliveries without going through verification.";
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.person, color: Colors.redAccent),
-            SizedBox(width: 10),
-            Text("Continue as Client?"),
+            Icon(isShop ? Icons.store : Icons.person, color: Colors.redAccent),
+            const SizedBox(width: 8),
+            Text(title, style: TextStyle(fontSize: 18)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Your carrier application was rejected. Would you like to continue as a Client instead?",
-              style: TextStyle(fontSize: 16),
+            Text(
+              message,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color.fromARGB(255, 101, 100, 100),
+              ),
             ),
             const SizedBox(height: 10),
             Container(
@@ -93,14 +126,21 @@ class _RejectedScreenState extends State<RejectedScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.redAccent, size: 18),
-                  SizedBox(width: 8),
+                  const Icon(
+                    Icons.info_outline,
+                    color: Colors.redAccent,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "As a Client, you can book deliveries without going through carrier verification.",
-                      style: TextStyle(fontSize: 13, color: Colors.redAccent),
+                      infoMessage,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.redAccent,
+                      ),
                     ),
                   ),
                 ],
@@ -122,10 +162,7 @@ class _RejectedScreenState extends State<RejectedScreen> {
               ),
             ),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => LoginScreen()),
-              );
+              Navigator.pop(context);
               changeToClient();
             },
             child: const Text("Continue as Client"),
@@ -135,8 +172,31 @@ class _RejectedScreenState extends State<RejectedScreen> {
     );
   }
 
+  Future<void> _handleRetry() async {
+    await ApiService.logout();
+
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (_) => false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isShop = _userType == "shop";
+    final title = isShop ? "Shop\nRejected" : "Account\nRejected";
+    final subtitle = isShop
+        ? "We were unable to verify your shop information at this time. Please ensure your shop documents are clear and valid."
+        : "We were unable to verify your information at this time. Please ensure your documents are clear and valid.";
+    const alternativeTitle = "Alternative Option";
+    const switchButtonText = "Continue as Client";
+    const switchDescription = "Skip verification and use Qdel as a client";
+    const retryButtonText = "Retry Registration";
+    const footerText = "PLEASE TRY AGAIN";
+
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
@@ -150,16 +210,16 @@ class _RejectedScreenState extends State<RejectedScreen> {
                   vertical: 10,
                 ),
                 child: Row(
-                  children: const [
+                  children: [
                     Icon(
-                      Icons.error_outline,
+                      isShop ? Icons.store : Icons.error_outline,
                       color: Colors.redAccent,
                       size: 18,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
-                      "ACCOUNT STATUS",
-                      style: TextStyle(
+                      isShop ? "SHOP STATUS" : "ACCOUNT STATUS",
+                      style: const TextStyle(
                         color: Colors.black54,
                         letterSpacing: 2,
                         fontSize: 13,
@@ -185,15 +245,19 @@ class _RejectedScreenState extends State<RejectedScreen> {
                     ),
                   ],
                 ),
-                child: const Icon(Icons.close, color: Colors.white, size: 70),
+                child: Icon(
+                  isShop ? Icons.store : Icons.close,
+                  color: Colors.white,
+                  size: 70,
+                ),
               ),
 
               const SizedBox(height: 30),
 
-              const Text(
-                "Account\nRejected",
+              Text(
+                title,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.black,
                   fontSize: 36,
                   fontWeight: FontWeight.bold,
@@ -202,12 +266,12 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
               const SizedBox(height: 15),
 
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 35),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 35),
                 child: Text(
-                  "We were unable to verify your information at this time. Please ensure your documents are clear and valid.",
+                  subtitle,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.black54,
                     fontSize: 16,
                     height: 1.5,
@@ -235,17 +299,17 @@ class _RejectedScreenState extends State<RejectedScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
                         Icon(
                           Icons.switch_account,
                           color: Colors.redAccent,
                           size: 20,
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text(
-                          "Alternative Option",
-                          style: TextStyle(
+                          alternativeTitle,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: ColorConstants.black,
@@ -304,25 +368,27 @@ class _RejectedScreenState extends State<RejectedScreen> {
                                     ),
                                   ],
                                 )
-                              : const Row(
+                              : Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      Icons.person_outline,
+                                      isShop
+                                          ? Icons.store
+                                          : Icons.person_outline,
                                       color: Colors.white,
                                       size: 24,
                                     ),
-                                    SizedBox(width: 10),
+                                    const SizedBox(width: 10),
                                     Text(
-                                      "Continue as Client",
-                                      style: TextStyle(
+                                      switchButtonText,
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    SizedBox(width: 10),
-                                    Icon(
+                                    const SizedBox(width: 10),
+                                    const Icon(
                                       Icons.arrow_forward,
                                       color: Colors.white,
                                       size: 20,
@@ -335,11 +401,14 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
                     const SizedBox(height: 8),
 
-                    const Center(
+                    Center(
                       child: Text(
-                        "Skip carrier verification and use Qdel as a client",
+                        switchDescription,
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                       ),
                     ),
                   ],
@@ -354,14 +423,7 @@ class _RejectedScreenState extends State<RejectedScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(40),
-                  onTap: () async {
-                    await ApiService.logout();
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      (_) => false,
-                    );
-                  },
+                  onTap: _handleRetry,
                   child: Container(
                     width: double.infinity,
                     height: 60,
@@ -377,12 +439,15 @@ class _RejectedScreenState extends State<RejectedScreen> {
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.refresh, color: ColorConstants.black),
-                        SizedBox(width: 10),
+                      children: [
+                        Icon(
+                          isShop ? Icons.store : Icons.refresh,
+                          color: ColorConstants.black,
+                        ),
+                        const SizedBox(width: 10),
                         Text(
-                          "Retry Registration",
-                          style: TextStyle(
+                          retryButtonText,
+                          style: const TextStyle(
                             color: ColorConstants.black,
                             fontSize: 16,
                           ),
@@ -395,9 +460,9 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
               const SizedBox(height: 20),
 
-              const Text(
-                "PLEASE TRY AGAIN",
-                style: TextStyle(
+              Text(
+                footerText,
+                style: const TextStyle(
                   color: Colors.black38,
                   letterSpacing: 3,
                   fontSize: 12,

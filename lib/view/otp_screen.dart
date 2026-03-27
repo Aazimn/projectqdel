@@ -243,44 +243,74 @@ class _OtpScreenState extends State<OtpScreen> {
               fit: BoxFit.cover,
             ),
           ),
-          child: SafeArea(
-            child: Stack(
-              children: [
-                Positioned(
-                  top: 290,
-                  left: 20,
+          child: Stack(
+            children: [
+              Positioned(
+                bottom: MediaQuery.of(context).size.height * 0.22,
+                left: 10,
+                right: 10,
+                child: Center(
                   child: SizedBox(
-                    height: 300,
-                    width: 300,
+                    height: MediaQuery.of(context).size.height * 0.4,
                     child: Image.asset(
                       "assets/image_assets/qdel_boyy.png",
                       fit: BoxFit.contain,
                     ),
                   ),
                 ),
+              ),
 
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 20),
-                      child: Text(
-                        "QDEL",
-                        style: TextStyle(
-                          color: ColorConstants.red,
-                          fontSize: 30,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    _bottomOtpSheet(),
-                  ],
-                ),
-              ],
-            ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _header(context),
+                  _bottomOtpSheet(),
+                ],
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _header(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          height: 120,
+          decoration: const BoxDecoration(
+            color: ColorConstants.red,
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(40),
+              bottomRight: Radius.circular(40),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: -60,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Container(
+              height: 130,
+              width: 130,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: ColorConstants.red, width: 6),
+                color: Colors.white,
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  "assets/image_assets/logo_qdel.png",
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -301,7 +331,7 @@ class _OtpScreenState extends State<OtpScreen> {
         ),
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
