@@ -115,7 +115,7 @@ class _CountrySelectorState extends State<CountrySelector> {
         children: [
           _buildHeader("Select Country", widget.color),
           _buildSearchField(searchController, (query) => _search(query)),
-          _buildPaginationHeader(),
+
           Expanded(
             child: isLoading
                 ? Center(child: CircularProgressIndicator(color: widget.color))
@@ -139,6 +139,7 @@ class _CountrySelectorState extends State<CountrySelector> {
                     },
                   ),
           ),
+          _buildPaginationHeader(),
         ],
       ),
     );
@@ -151,7 +152,7 @@ class _CountrySelectorState extends State<CountrySelector> {
         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             decoration: BoxDecoration(
@@ -299,7 +300,7 @@ class _StateSelectorState extends State<StateSelector> {
         children: [
           _buildHeader("Select State", widget.color),
           _buildSearchField(searchController, (query) => _search(query)),
-          _buildPaginationHeader(),
+
           Expanded(
             child: isLoading
                 ? Center(child: CircularProgressIndicator(color: widget.color))
@@ -323,6 +324,7 @@ class _StateSelectorState extends State<StateSelector> {
                     },
                   ),
           ),
+          _buildPaginationHeader(),
         ],
       ),
     );
@@ -335,7 +337,7 @@ class _StateSelectorState extends State<StateSelector> {
         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             decoration: BoxDecoration(
@@ -483,7 +485,7 @@ class _DistrictSelectorState extends State<DistrictSelector> {
         children: [
           _buildHeader("Select District", widget.color),
           _buildSearchField(searchController, (query) => _search(query)),
-          _buildPaginationHeader(),
+
           Expanded(
             child: isLoading
                 ? Center(child: CircularProgressIndicator(color: widget.color))
@@ -507,6 +509,7 @@ class _DistrictSelectorState extends State<DistrictSelector> {
                     },
                   ),
           ),
+          _buildPaginationHeader(),
         ],
       ),
     );
@@ -519,7 +522,7 @@ class _DistrictSelectorState extends State<DistrictSelector> {
         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             decoration: BoxDecoration(
@@ -608,13 +611,14 @@ Widget _buildSearchField(
       onChanged: onChanged,
       decoration: InputDecoration(
         hintText: "Search...",
-        prefixIcon: const Icon(Icons.search),
+        hintStyle: TextStyle(color: Colors.white),
+        prefixIcon: const Icon(Icons.search, color: Colors.white),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
         ),
         filled: true,
-        fillColor: Colors.grey.shade100,
+        fillColor: ColorConstants.red,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
           vertical: 12,

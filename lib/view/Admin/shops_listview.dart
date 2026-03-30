@@ -2,27 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:logger/logger.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
-import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/Admin/user_detail.dart';
 import 'dart:async';
 
-enum UserTab { approved, pending, rejected }
+import 'package:projectqdel/view/Admin/shop_details.dart';
 
-class UserDirectoryScreen extends StatefulWidget {
-  const UserDirectoryScreen({super.key});
+enum ShopTab { approved, pending, rejected }
+
+class ShopApprovalScreen extends StatefulWidget {
+  const ShopApprovalScreen({super.key});
 
   @override
-  State<UserDirectoryScreen> createState() => _UserDirectoryScreenState();
+  State<ShopApprovalScreen> createState() => _ShopApprovalScreenState();
 }
 
-class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
+class _ShopApprovalScreenState extends State<ShopApprovalScreen> {
   final ApiService apiService = ApiService();
   TextEditingController searchController = TextEditingController();
   String searchQuery = "";
-  UserTab currentTab = UserTab.approved;
+  ShopTab currentTab = ShopTab.approved;
 
-  List<UserModel> users = [];
+  List<Map<String, dynamic>> shops = [];
   int currentPage = 1;
   int totalPages = 1;
   int totalCount = 0;
@@ -36,10 +36,10 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
   @override
   void initState() {
     super.initState();
-    fetchUsers();
+    fetchShops();
   }
 
-  Future<void> fetchUsers({int page = 1, bool isLoadMore = false}) async {
+  Future<void> fetchShops({int page = 1, bool isLoadMore = false}) async {
     setState(() {
       if (isLoadMore) {
         isLoadingMore = true;
@@ -51,19 +51,19 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
 
     String status;
     switch (currentTab) {
-      case UserTab.approved:
+      case ShopTab.approved:
         status = "approved";
         break;
-      case UserTab.pending:
+      case ShopTab.pending:
         status = "pending";
         break;
-      case UserTab.rejected:
+      case ShopTab.rejected:
         status = "rejected";
         break;
     }
 
     try {
-      final result = await apiService.getUsersByStatus(
+      final result = await apiService.getShopsByStatus(
         status: status,
         searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
         page: page,
@@ -71,30 +71,29 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
 
       if (mounted) {
         setState(() {
-          users = result['users'] as List<UserModel>;
-
+          shops = List<Map<String, dynamic>>.from(result['shops']);
+          print("-------$shops-----------");
           hasNextPage = result['hasNext'] as bool;
           hasPreviousPage = result['hasPrevious'] as bool;
           totalPages = result['totalPages'] as int;
           currentPage = result['currentPage'] as int;
           totalCount = result['count'] as int;
-
           loading = false;
           isLoadingMore = false;
         });
       }
     } catch (e) {
-      logger.e("Error in fetchUsers: $e");
+      logger.e("Error in fetchShops: $e");
       if (mounted) {
         setState(() {
           loading = false;
           isLoadingMore = false;
-          users = [];
+          shops = [];
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Failed to load users: ${e.toString()}"),
+            content: Text("Failed to load shops: ${e.toString()}"),
             backgroundColor: Colors.red,
           ),
         );
@@ -104,19 +103,13 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
 
   void loadNextPage() {
     if (hasNextPage && !isLoadingMore) {
-      fetchUsers(page: currentPage + 1, isLoadMore: false);
+      fetchShops(page: currentPage + 1, isLoadMore: false);
     }
   }
 
   void loadPreviousPage() {
     if (hasPreviousPage && !isLoadingMore) {
-      fetchUsers(page: currentPage - 1, isLoadMore: false);
-    }
-  }
-
-  void goToPage(int page) {
-    if (page >= 1 && page <= totalPages && page != currentPage) {
-      fetchUsers(page: page);
+      fetchShops(page: currentPage - 1, isLoadMore: false);
     }
   }
 
@@ -125,7 +118,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     return Scaffold(
       backgroundColor: ColorConstants.bg,
       body: LiquidPullToRefresh(
-        onRefresh: () => fetchUsers(page: 1),
+        onRefresh: () => fetchShops(page: 1),
         color: ColorConstants.red,
         backgroundColor: Colors.white,
         height: 80,
@@ -137,7 +130,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
             SliverToBoxAdapter(child: _searchBar()),
             SliverToBoxAdapter(child: _tabs()),
 
-            if (!loading && users.isNotEmpty)
+            if (!loading && shops.isNotEmpty)
               SliverToBoxAdapter(child: _paginationInfo()),
 
             SliverPadding(
@@ -146,20 +139,20 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                   ? const SliverFillRemaining(
                       child: Center(child: CircularProgressIndicator()),
                     )
-                  : users.isEmpty
+                  : shops.isEmpty
                   ? SliverFillRemaining(
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.person_off,
+                              Icons.store,
                               size: 64,
                               color: Colors.grey[400],
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              "No ${currentTab.toString().split('.').last} users found",
+                              "No ${currentTab.toString().split('.').last} shops found",
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 16,
@@ -170,7 +163,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                                 onPressed: () {
                                   searchController.clear();
                                   setState(() => searchQuery = "");
-                                  fetchUsers(page: 1);
+                                  fetchShops(page: 1);
                                 },
                                 child: const Text("Clear Search"),
                               ),
@@ -180,9 +173,9 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                     )
                   : SliverList(
                       delegate: SliverChildBuilderDelegate((context, i) {
-                        final user = users[i];
-                        return _unifiedUserCard(user);
-                      }, childCount: users.length),
+                        final shop = shops[i];
+                        return _unifiedShopCard(shop);
+                      }, childCount: shops.length),
                     ),
             ),
 
@@ -195,7 +188,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
               ),
 
             if (!loading &&
-                users.isNotEmpty &&
+                shops.isNotEmpty &&
                 (hasNextPage || hasPreviousPage))
               SliverToBoxAdapter(child: _paginationControls()),
 
@@ -225,11 +218,11 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                   onPressed: () {
                     searchController.clear();
                     setState(() => searchQuery = "");
-                    fetchUsers(page: 1);
+                    fetchShops(page: 1);
                   },
                 )
               : null,
-          hintText: "Search name...",
+          hintText: "Search shop name...",
           hintStyle: const TextStyle(color: Colors.white),
           prefixIcon: const Icon(Icons.search, color: Colors.white),
           filled: true,
@@ -262,7 +255,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            "Showing ${users.length} of $totalCount users",
+            "Showing ${shops.length} of $totalCount shops",
             style: const TextStyle(
               fontWeight: FontWeight.w500,
               color: ColorConstants.red,
@@ -377,7 +370,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
   void _debounceSearch() {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      fetchUsers(page: 1);
+      fetchShops(page: 1);
     });
   }
 
@@ -392,23 +385,23 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
         ),
         child: Row(
           children: [
-            _tab("APPROVED", UserTab.approved),
-            _tab("PENDING", UserTab.pending),
-            _tab("DISAPPROVED", UserTab.rejected),
+            _tab("APPROVED", ShopTab.approved),
+            _tab("PENDING", ShopTab.pending),
+            _tab("REJECTED", ShopTab.rejected),
           ],
         ),
       ),
     );
   }
 
-  Widget _tab(String text, UserTab tab) {
+  Widget _tab(String text, ShopTab tab) {
     final active = currentTab == tab;
 
     return Expanded(
       child: GestureDetector(
         onTap: () {
           setState(() => currentTab = tab);
-          fetchUsers(page: 1);
+          fetchShops(page: 1);
         },
         child: Container(
           margin: const EdgeInsets.all(4),
@@ -429,166 +422,20 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
     );
   }
 
-  void _openStatusModal(UserModel user, String initialStatus) {
-    String selectedStatus = initialStatus;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Color(0xFF1A1414),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 8),
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    "Update User Status",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  _statusOption(
-                    title: "Approve User",
-                    subtitle: "Grants access to platform",
-                    selected: selectedStatus == "approved",
-                    color: Colors.green,
-                    onTap: () =>
-                        setModalState(() => selectedStatus = "approved"),
-                  ),
-                  const SizedBox(height: 12),
-
-                  _statusOption(
-                    title: "Reject User",
-                    subtitle: "Deny application",
-                    selected: selectedStatus == "rejected",
-                    color: Colors.red,
-                    onTap: () =>
-                        setModalState(() => selectedStatus = "rejected"),
-                  ),
-                  const SizedBox(height: 12),
-
-                  _statusOption(
-                    title: "Set as Pending",
-                    subtitle: "Move back to pending review",
-                    selected: selectedStatus == "pending",
-                    color: Colors.orange,
-                    onTap: () =>
-                        setModalState(() => selectedStatus = "pending"),
-                  ),
-
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    onPressed: () async {
-                      Navigator.pop(context);
-
-                      final success = await apiService.updateUserStatus(
-                        userId: user.id,
-                        status: selectedStatus,
-                      );
-
-                      if (!success) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Failed to update user status"),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                        return;
-                      }
-
-                      await fetchUsers(page: currentPage);
-
-                      if (mounted) {
-                        String message;
-                        Color color;
-                        switch (selectedStatus) {
-                          case "approved":
-                            message = "User approved successfully";
-                            color = Colors.green;
-                            break;
-                          case "rejected":
-                            message = "User rejected successfully";
-                            color = Colors.red;
-                            break;
-                          default:
-                            message = "User status updated successfully";
-                            color = Colors.orange;
-                        }
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(message),
-                            backgroundColor: color,
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text(
-                      "Confirm Changes",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: ColorConstants.white,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      "Cancel",
-                      style: TextStyle(color: ColorConstants.white),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _unifiedUserCard(UserModel user) {
-    final status = user.approvalStatus.toLowerCase();
+  Widget _unifiedShopCard(Map<String, dynamic> shop) {
+    final status = (shop['shop_approval_status'] ?? "pending").toLowerCase();
 
     return GestureDetector(
       onTap: () async {
         final result = await Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => UserDetailScreen(user: user)),
+          MaterialPageRoute(
+            builder: (_) => ShopDetailScreen(shopId: shop['id']),
+          ),
         );
 
         if (result != null) {
-          fetchUsers(page: currentPage);
+          fetchShops(page: currentPage); // refresh if needed
         }
       },
       child: Container(
@@ -602,7 +449,7 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
           children: [
             CircleAvatar(
               backgroundColor: Colors.red.withOpacity(.15),
-              child: const Icon(Icons.person),
+              child: const Icon(Icons.store),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -610,16 +457,16 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "${user.firstName} ${user.lastName}".toUpperCase(),
+                    (shop['shop_name'] ?? "SHOP").toUpperCase(),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    "ID: ${user.id}",
+                    "${shop['first_name']} ${shop['last_name']}",
                     style: const TextStyle(color: Colors.grey),
                   ),
                   Text(
-                    user.email,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    "${shop['phone']}",
+                    style: const TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 4),
                   Container(
@@ -652,23 +499,24 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
               ),
             ),
 
-            if (currentTab == UserTab.approved)
+            /// Action buttons based on current tab
+            if (currentTab == ShopTab.approved)
               _actionButton(
                 label: "REJECT",
                 color: Colors.red,
-                onPressed: () => _openStatusModal(user, status),
+                onPressed: () => _openStatusModal(shop, status),
               )
-            else if (currentTab == UserTab.pending)
+            else if (currentTab == ShopTab.pending)
               _actionButton(
                 label: "APPROVE",
                 color: Colors.green,
-                onPressed: () => _openStatusModal(user, status),
+                onPressed: () => _openStatusModal(shop, status),
               )
-            else if (currentTab == UserTab.rejected)
+            else if (currentTab == ShopTab.rejected)
               _actionButton(
                 label: "APPROVE",
                 color: Colors.green,
-                onPressed: () => _openStatusModal(user, status),
+                onPressed: () => _openStatusModal(shop, status),
               ),
           ],
         ),
@@ -693,6 +541,154 @@ class _UserDirectoryScreenState extends State<UserDirectoryScreen> {
         label,
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
       ),
+    );
+  }
+
+  void _openStatusModal(Map<String, dynamic> shop, String initialStatus) {
+    String selectedStatus = initialStatus;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A1414),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Update Shop Status",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  _statusOption(
+                    title: "Approve Shop",
+                    subtitle: "Allow shop to operate",
+                    selected: selectedStatus == "approved",
+                    color: Colors.green,
+                    onTap: () =>
+                        setModalState(() => selectedStatus = "approved"),
+                  ),
+                  const SizedBox(height: 12),
+
+                  _statusOption(
+                    title: "Reject Shop",
+                    subtitle: "Block this shop",
+                    selected: selectedStatus == "rejected",
+                    color: Colors.red,
+                    onTap: () =>
+                        setModalState(() => selectedStatus = "rejected"),
+                  ),
+                  const SizedBox(height: 12),
+
+                  _statusOption(
+                    title: "Set as Pending",
+                    subtitle: "Move back to pending review",
+                    selected: selectedStatus == "pending",
+                    color: Colors.orange,
+                    onTap: () =>
+                        setModalState(() => selectedStatus = "pending"),
+                  ),
+
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () async {
+                      Navigator.pop(context);
+
+                      final success = await apiService.updateShopStatus(
+                        shopId: shop['id'],
+                        status: selectedStatus,
+                      );
+
+                      if (!success) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Failed to update shop status"),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                        return;
+                      }
+
+                      await fetchShops(page: currentPage);
+
+                      if (mounted) {
+                        String message;
+                        Color color;
+                        switch (selectedStatus) {
+                          case "approved":
+                            message = "Shop approved successfully";
+                            color = Colors.green;
+                            break;
+                          case "rejected":
+                            message = "Shop rejected successfully";
+                            color = Colors.red;
+                            break;
+                          default:
+                            message = "Shop status updated successfully";
+                            color = Colors.orange;
+                        }
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(message),
+                            backgroundColor: color,
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text(
+                      "Confirm Changes",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: ColorConstants.white,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text(
+                      "Cancel",
+                      style: TextStyle(color: ColorConstants.white),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

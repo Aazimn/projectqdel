@@ -3,6 +3,7 @@ import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/view/Admin/admin_screen.dart';
 import 'package:projectqdel/view/Admin/admin_settings.dart';
 import 'package:projectqdel/view/Admin/country_screen.dart';
+import 'package:projectqdel/view/Admin/shops_listview.dart';
 import 'package:projectqdel/view/Admin/users_view.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final List<Widget> _pages = const [
     AdminHomeScreen(),
     UserDirectoryScreen(),
+    ShopApprovalScreen(),
     CountryScreen(),
     AdminSettingsScreen(),
   ];
@@ -63,6 +65,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.people),
             label: 'Users',
+          ),
+           BottomNavigationBarItem(
+            icon: Icon(Icons.people),
+            label: 'Shops',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.public),

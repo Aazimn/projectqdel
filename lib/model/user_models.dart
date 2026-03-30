@@ -1,93 +1,35 @@
-// class UserModel {
-//   final int id;
-//   final String firstName;
-//   final String lastName;
-//   final String email;
-//   final String phone;
-
-//   final String approvalStatus;
-//   final String requestedAt;
-//   final String? document;
-
-//   final String userType;
-//   final int? countryId;
-//   final int? stateId;
-//   final int? districtId;
-
-//   UserModel({
-//     required this.id,
-//     required this.firstName,
-//     required this.lastName,
-//     required this.email,
-//     required this.phone,
-//     required this.approvalStatus,
-//     required this.requestedAt,
-//     this.document,
-
-//     required this.userType,
-//     this.countryId,
-//     this.stateId,
-//     this.districtId,
-//   });
-
-//   factory UserModel.fromJson(Map<String, dynamic> json) {
-//     return UserModel(
-//       id: json['id'],
-//       firstName: json['first_name'] ?? '',
-//       lastName: json['last_name'] ?? '',
-//       email: json['email'] ?? '',
-//       phone: json['phone'] ?? '',
-
-//       approvalStatus: json['approval_status'] ?? '',
-//       requestedAt: json['date_joined'] ?? '',
-//       document: json['document'],
-
-//       userType: json['user_type'] ?? 'client',
-//       countryId: json['country_id'],
-//       stateId: json['state_id'],
-//       districtId: json['district_id'],
-//     );
-//   }
-
-//   UserModel copyWith({
-//     int? id,
-//     String? firstName,
-//     String? lastName,
-//     String? email,
-//     String? phone,
-//     String? approvalStatus,
-//     String? requestedAt,
-//     String? document,
-//     String? userType,
-//     int? countryId,
-//     int? stateId,
-//     int? districtId,
-//   }) {
-//     return UserModel(
-//       id: id ?? this.id,
-//       firstName: firstName ?? this.firstName,
-//       lastName: lastName ?? this.lastName,
-//       email: email ?? this.email,
-//       phone: phone ?? this.phone,
-//       approvalStatus: approvalStatus ?? this.approvalStatus,
-//       requestedAt: requestedAt ?? this.requestedAt,
-//       document: document ?? this.document,
-//       userType: userType ?? this.userType,
-//       countryId: countryId ?? this.countryId,
-//       stateId: stateId ?? this.stateId,
-//       districtId: districtId ?? this.districtId,
-//     );
-//   }
-
-//   bool get isCarrier => userType == "carrier";
-//   bool get isApproved => approvalStatus == "approved";
-//   bool get isPending => approvalStatus == "pending";
-//   bool get isRejected => approvalStatus == "rejected";
-//   bool get hasUploadedDocs => document != null && document!.isNotEmpty;
-
-// }
-
 import 'package:flutter/material.dart';
+
+class CarrierDocument {
+  final int id;
+  final String? document;
+  final String? shopPhoto;
+  final String? ownerShopPhoto;
+  final String? shopDocument;
+  final DateTime uploadedAt;
+
+  CarrierDocument({
+    required this.id,
+    this.document,
+    this.shopPhoto,
+    this.ownerShopPhoto,
+    this.shopDocument,
+    required this.uploadedAt,
+  });
+
+  factory CarrierDocument.fromJson(Map<String, dynamic> json) {
+    return CarrierDocument(
+      id: json['id'],
+      document: json['document'],
+      shopPhoto: json['shop_photo'],
+      ownerShopPhoto: json['owner_shop_photo'],
+      shopDocument: json['shop_document'],
+      uploadedAt: DateTime.parse(json['uploaded_at']),
+    );
+  }
+
+  bool get hasCarrierDocument => document != null && document!.isNotEmpty;
+}
 
 class UserModel {
   final int id;
@@ -97,37 +39,33 @@ class UserModel {
   final String phone;
   final String userType;
   
-  // Approval statuses
-  final String approvalStatus;  // User approval status
-  final String? shopApprovalStatus;  // Shop approval status (for shop users)
+  final String approvalStatus;  
+  final String? shopApprovalStatus;  
   
-  // Location fields (as strings from API)
   final String? country;
   final String? state;
   final String? district;
   
-  // Location IDs (for API calls)
   final int? countryId;
   final int? stateId;
   final int? districtId;
   
-  // Shop specific fields
   final String? shopName;
   final int? shopCategories;
   final String? shopPhoto;
   final String? shopDocument;
   final String? ownerShopPhoto;
+  
+  final CarrierDocument? carrierDocument;
+  
   final String? document;
   
-  // Terms acceptance
   final bool parcelResponsibilityAccepted;
   final bool damageLossAccepted;
   final bool payoutTermsAccepted;
   
-  // Address fields
   final Map<String, dynamic>? shopAddress;
   
-  // Timestamps
   final String requestedAt;
 
   UserModel({
@@ -150,6 +88,7 @@ class UserModel {
     this.shopPhoto,
     this.shopDocument,
     this.ownerShopPhoto,
+    this.carrierDocument,
     this.document,
     required this.parcelResponsibilityAccepted,
     required this.damageLossAccepted,
@@ -159,6 +98,11 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    CarrierDocument? carrierDoc;
+    if (json['carrier_document'] != null) {
+      carrierDoc = CarrierDocument.fromJson(json['carrier_document']);
+    }
+    
     return UserModel(
       id: json['id'],
       firstName: json['first_name'] ?? '',
@@ -179,6 +123,7 @@ class UserModel {
       shopPhoto: json['shop_photo'],
       shopDocument: json['shop_document'],
       ownerShopPhoto: json['owner_shop_photo'],
+      carrierDocument: carrierDoc,
       document: json['document'],
       parcelResponsibilityAccepted: json['parcel_responsibility_accepted'] ?? false,
       damageLossAccepted: json['damage_loss_accepted'] ?? false,
@@ -208,6 +153,7 @@ class UserModel {
     String? shopPhoto,
     String? shopDocument,
     String? ownerShopPhoto,
+    CarrierDocument? carrierDocument,
     String? document,
     bool? parcelResponsibilityAccepted,
     bool? damageLossAccepted,
@@ -235,6 +181,7 @@ class UserModel {
       shopPhoto: shopPhoto ?? this.shopPhoto,
       shopDocument: shopDocument ?? this.shopDocument,
       ownerShopPhoto: ownerShopPhoto ?? this.ownerShopPhoto,
+      carrierDocument: carrierDocument ?? this.carrierDocument,
       document: document ?? this.document,
       parcelResponsibilityAccepted: parcelResponsibilityAccepted ?? this.parcelResponsibilityAccepted,
       damageLossAccepted: damageLossAccepted ?? this.damageLossAccepted,
@@ -244,7 +191,6 @@ class UserModel {
     );
   }
 
-  // Helper getters for status checks
   bool get isCarrier => userType == "carrier";
   bool get isShop => userType == "shop";
   bool get isClient => userType == "client";
@@ -257,15 +203,32 @@ class UserModel {
   bool get isShopPending => shopApprovalStatus == "pending";
   bool get isShopRejected => shopApprovalStatus == "rejected";
   
-  bool get hasUploadedDocs => document != null && document!.isNotEmpty;
+  bool get hasUploadedDocs {
+    if (isCarrier) {
+      return carrierDocument?.hasCarrierDocument ?? false;
+    }
+    return document != null && document!.isNotEmpty;
+  }
   
-  bool get hasShopDocuments => 
-      shopPhoto != null && 
-      shopPhoto!.isNotEmpty &&
-      shopDocument != null && 
-      shopDocument!.isNotEmpty &&
-      ownerShopPhoto != null && 
-      ownerShopPhoto!.isNotEmpty;
+  String? get carrierDocumentUrl => carrierDocument?.document;
+  
+  bool get hasShopDocuments {
+  if (isShop) {
+    if (shopPhoto != null && shopPhoto!.isNotEmpty &&
+        shopDocument != null && shopDocument!.isNotEmpty &&
+        ownerShopPhoto != null && ownerShopPhoto!.isNotEmpty) {
+      return true;
+    }
+    if (carrierDocument != null) {
+      return (carrierDocument!.shopPhoto != null && carrierDocument!.shopPhoto!.isNotEmpty) &&
+             (carrierDocument!.shopDocument != null && carrierDocument!.shopDocument!.isNotEmpty) &&
+             (carrierDocument!.ownerShopPhoto != null && carrierDocument!.ownerShopPhoto!.isNotEmpty);
+    }
+    return false;
+  }
+  return document != null && document!.isNotEmpty;
+}
+
   
   bool get hasShopAddress => shopAddress != null;
   

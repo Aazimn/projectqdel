@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/login_screen.dart';
+import 'package:projectqdel/view/splash_screen.dart';
 
 class RejectedScreen extends StatefulWidget {
   final String? userType; // Add userType parameter
@@ -14,6 +15,7 @@ class RejectedScreen extends StatefulWidget {
 
 class _RejectedScreenState extends State<RejectedScreen> {
   ApiService apiService = ApiService();
+  bool isChangingRole = false;
   bool isChangingToClient = false;
   String? _userType;
 
@@ -51,11 +53,11 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
         debugPrint("Changed to client type");
 
-        // Navigate to login screen after switching to client
+        // Navigate to splash screen after switching to client
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => LoginScreen()),
+            MaterialPageRoute(builder: (context) => const SplashScreen()),
             (_) => false,
           );
         }
@@ -85,6 +87,73 @@ class _RejectedScreenState extends State<RejectedScreen> {
     }
   }
 
+  Future<void> switchToOtherRole() async {
+    setState(() {
+      isChangingRole = true;
+    });
+
+    try {
+      // Determine the new role based on current user type
+      final currentType = _userType;
+      String newType;
+      
+      if (currentType == "shop") {
+        newType = "carrier";
+      } else if (currentType == "carrier") {
+        newType = "shop";
+      } else {
+        newType = "client"; // Fallback to client if unknown
+      }
+
+      final success = await apiService.updateUserType(newType);
+
+      if (success && mounted) {
+        await ApiService.setUserType(newType);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Successfully switched to ${newType.toUpperCase()} mode"),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        debugPrint("Changed to $newType type");
+
+        // Navigate to splash screen after switching role
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const SplashScreen()),
+            (_) => false,
+          );
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to switch to ${newType.toUpperCase()} mode"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isChangingRole = false;
+        });
+      }
+    }
+  }
+
   void _showContinueAsClientDialog() {
     final isShop = _userType == "shop";
     final title = isShop
@@ -104,7 +173,7 @@ class _RejectedScreenState extends State<RejectedScreen> {
           children: [
             Icon(isShop ? Icons.store : Icons.person, color: Colors.redAccent),
             const SizedBox(width: 8),
-            Text(title, style: TextStyle(fontSize: 18)),
+            Text(title, style: const TextStyle(fontSize: 18)),
           ],
         ),
         content: Column(
@@ -172,6 +241,95 @@ class _RejectedScreenState extends State<RejectedScreen> {
     );
   }
 
+  void _showContinueAsOtherRoleDialog() {
+    final isShop = _userType == "shop";
+    final switchRole = isShop ? "Carrier" : "Shop";
+    final title = isShop
+        ? "Shop Application Rejected"
+        : "Carrier Application Rejected";
+    final message = isShop
+        ? "Your shop application was rejected. Would you like to continue as a Carrier instead?"
+        : "Your carrier application was rejected. Would you like to continue as a Shop instead?";
+    final infoMessage = isShop
+        ? "As a Carrier, you can deliver packages and earn money."
+        : "As a Shop, you can send packages and manage deliveries.";
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(isShop ? Icons.store : Icons.local_shipping, color: Colors.redAccent),
+            const SizedBox(width: 8),
+            Text(title, style: const TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color.fromARGB(255, 101, 100, 100),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    color: Colors.redAccent,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      infoMessage,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              switchToOtherRole();
+            },
+            child: Text("Continue as $switchRole"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleRetry() async {
     await ApiService.logout();
 
@@ -191,9 +349,13 @@ class _RejectedScreenState extends State<RejectedScreen> {
     final subtitle = isShop
         ? "We were unable to verify your shop information at this time. Please ensure your shop documents are clear and valid."
         : "We were unable to verify your information at this time. Please ensure your documents are clear and valid.";
-    const alternativeTitle = "Alternative Option";
-    const switchButtonText = "Continue as Client";
-    const switchDescription = "Skip verification and use Qdel as a client";
+    const alternativeTitle = "Alternative Options";
+    final switchRoleText = isShop ? "Continue as Carrier" : "Continue as Shop";
+    final switchDescription = isShop 
+        ? "Switch to carrier mode and start delivering packages" 
+        : "Switch to shop mode and start sending packages";
+    const clientButtonText = "Continue as Client";
+    const clientDescription = "Skip verification and use Qdel as a client";
     const retryButtonText = "Retry Registration";
     const footerText = "PLEASE TRY AGAIN";
 
@@ -319,10 +481,101 @@ class _RejectedScreenState extends State<RejectedScreen> {
                     ),
                     const SizedBox(height: 12),
 
+                    // Continue as Shop/Carrier Button
                     GestureDetector(
-                      onTap: isChangingToClient
-                          ? null
-                          : _showContinueAsClientDialog,
+                      onTap: isChangingRole ? null : _showContinueAsOtherRoleDialog,
+                      child: Container(
+                        height: 55,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.redAccent,
+                              Colors.red.withOpacity(0.7),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.redAccent.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: isChangingRole
+                              ? const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                      ),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text(
+                                      "Switching...",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      isShop ? Icons.local_shipping : Icons.store,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      switchRoleText,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Icon(
+                                      Icons.arrow_forward,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Center(
+                      child: Text(
+                        switchDescription,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Continue as Client Button
+                    GestureDetector(
+                      onTap: isChangingToClient ? null : _showContinueAsClientDialog,
                       child: Container(
                         height: 55,
                         decoration: BoxDecoration(
@@ -371,16 +624,14 @@ class _RejectedScreenState extends State<RejectedScreen> {
                               : Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(
-                                      isShop
-                                          ? Icons.store
-                                          : Icons.person_outline,
+                                    const Icon(
+                                      Icons.person_outline,
                                       color: Colors.white,
                                       size: 24,
                                     ),
                                     const SizedBox(width: 10),
                                     Text(
-                                      switchButtonText,
+                                      clientButtonText,
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 16,
@@ -403,7 +654,7 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
                     Center(
                       child: Text(
-                        switchDescription,
+                        clientDescription,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 12,

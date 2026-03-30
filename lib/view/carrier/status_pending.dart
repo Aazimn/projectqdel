@@ -5,7 +5,7 @@ import 'package:projectqdel/view/Carrier/approved_screen.dart';
 import 'package:projectqdel/view/Carrier/rejected_screen.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/view/login_screen.dart';
-import 'package:projectqdel/view/shop/shop_home.dart';
+import 'package:projectqdel/view/splash_screen.dart';
 
 class StatusPending extends StatefulWidget {
   final String phone;
@@ -20,6 +20,7 @@ class StatusPending extends StatefulWidget {
 class _StatusPendingState extends State<StatusPending> {
   Timer? statusTimer;
   final api = ApiService();
+  bool isChangingRole = false;
   bool isChangingToClient = false;
   String? currentUserType;
 
@@ -62,6 +63,14 @@ class _StatusPendingState extends State<StatusPending> {
           ),
         );
         debugPrint("Changed to client type");
+
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const SplashScreen()),
+            (_) => false,
+          );
+        }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -83,6 +92,73 @@ class _StatusPendingState extends State<StatusPending> {
       if (mounted) {
         setState(() {
           isChangingToClient = false;
+        });
+      }
+    }
+  }
+
+  Future<void> switchToOtherRole() async {
+    setState(() {
+      isChangingRole = true;
+    });
+
+    try {
+      final currentType = currentUserType;
+      String newType;
+
+      if (currentType == "shop") {
+        newType = "carrier";
+      } else if (currentType == "carrier") {
+        newType = "shop";
+      } else {
+        newType = "client"; 
+      }
+
+      final success = await api.updateUserType(newType);
+
+      if (success && mounted) {
+        await ApiService.setUserType(newType);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Successfully switched to ${newType.toUpperCase()} mode",
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        debugPrint("Changed to $newType type");
+
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const SplashScreen()),
+            (_) => false,
+          );
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to switch to ${newType.toUpperCase()} mode"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isChangingRole = false;
         });
       }
     }
@@ -169,7 +245,7 @@ class _StatusPendingState extends State<StatusPending> {
           children: [
             Text(
               "Your ${isShop ? 'shop' : 'carrier'} application has been rejected.",
-              style: TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 10),
             Container(
@@ -191,11 +267,6 @@ class _StatusPendingState extends State<StatusPending> {
             onPressed: () async {
               Navigator.pop(context);
               await changeToClient();
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoginScreen()),
-                (_) => false,
-              );
             },
             child: const Text("Switch to Client"),
           ),
@@ -217,16 +288,24 @@ class _StatusPendingState extends State<StatusPending> {
 
   void _showContinueAsClientDialog() {
     final isShop = currentUserType == "shop";
+    final title = isShop
+        ? "Shop Application Pending"
+        : "Carrier Application Pending";
+    final message = isShop
+        ? "Your shop application is pending verification. Would you like to continue as a Client instead?"
+        : "Your carrier application is pending verification. Would you like to continue as a Client instead?";
+    const infoMessage =
+        "As a Client, you can book deliveries without going through verification.";
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.person, color: Colors.redAccent),
-            SizedBox(width: 10),
-            Text("Continue as Client?"),
+            Icon(isShop ? Icons.store : Icons.person, color: Colors.redAccent),
+            const SizedBox(width: 8),
+            Text(title, style: const TextStyle(fontSize: 18)),
           ],
         ),
         content: Column(
@@ -234,8 +313,11 @@ class _StatusPendingState extends State<StatusPending> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Are you sure you want to continue as a Client instead of a ${isShop ? 'Shop' : 'Carrier'}?",
-              style: const TextStyle(fontSize: 16),
+              message,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color.fromARGB(255, 101, 100, 100),
+              ),
             ),
             const SizedBox(height: 10),
             Container(
@@ -247,12 +329,19 @@ class _StatusPendingState extends State<StatusPending> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.redAccent, size: 18),
-                  SizedBox(width: 8),
+                  const Icon(
+                    Icons.info_outline,
+                    color: Colors.redAccent,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "This will change your user type to Client. You can always switch back later.",
-                      style: TextStyle(fontSize: 13, color: Colors.redAccent),
+                      infoMessage,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.redAccent,
+                      ),
                     ),
                   ),
                 ],
@@ -274,13 +363,102 @@ class _StatusPendingState extends State<StatusPending> {
               ),
             ),
             onPressed: () {
+              Navigator.pop(context);
               changeToClient();
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => LoginScreen()),
-              );
             },
             child: const Text("Continue as Client"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showContinueAsOtherRoleDialog() {
+    final isShop = currentUserType == "shop";
+    final switchRole = isShop ? "Carrier" : "Shop";
+    final title = isShop
+        ? "Shop Application Pending"
+        : "Carrier Application Pending";
+    final message = isShop
+        ? "Your shop application is pending verification. Would you like to continue as a Carrier instead?"
+        : "Your carrier application is pending verification. Would you like to continue as a Shop instead?";
+    final infoMessage = isShop
+        ? "As a Carrier, you can deliver packages and earn money."
+        : "As a Shop, you will get packages and manage deliveries.";
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(
+              isShop ? Icons.store : Icons.local_shipping,
+              color: Colors.redAccent,
+            ),
+            const SizedBox(width: 8),
+            Text(title, style: const TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color.fromARGB(255, 101, 100, 100),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    color: Colors.redAccent,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      infoMessage,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              switchToOtherRole();
+            },
+            child: Text("Continue as $switchRole"),
           ),
         ],
       ),
@@ -297,6 +475,12 @@ class _StatusPendingState extends State<StatusPending> {
     const badgeText = "Reviewing Documents";
     const description =
         "Your documents have been submitted. Our team is currently reviewing your profile. You will be notified once you are approved.";
+    const alternativeTitle = "Alternative Options";
+    final switchRoleText = isShop ? "Continue as Carrier" : "Continue as Shop";
+    final switchDescription = isShop
+        ? "Switch to carrier mode and start delivering packages"
+        : "Switch to shop mode and start sending packages";
+    const clientDescription = "Skip verification and use Qdel as a client";
 
     return Scaffold(
       backgroundColor: ColorConstants.white,
@@ -323,8 +507,8 @@ class _StatusPendingState extends State<StatusPending> {
             const SizedBox(height: 20),
 
             Container(
-              height: 180,
-              width: 180,
+              height: 150,
+              width: 150,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
@@ -332,17 +516,13 @@ class _StatusPendingState extends State<StatusPending> {
                   width: 6,
                 ),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.red.withOpacity(0.3),
-                    blurRadius: 30,
-                    spreadRadius: 5,
-                  ),
+                  BoxShadow(color: Colors.red.withOpacity(0.3), blurRadius: 20),
                 ],
               ),
               child: Center(
                 child: Container(
-                  height: 140,
-                  width: 140,
+                  height: 120,
+                  width: 120,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.red.withOpacity(0.08),
@@ -357,7 +537,7 @@ class _StatusPendingState extends State<StatusPending> {
               ),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
 
             Text(
               subtitle,
@@ -369,7 +549,7 @@ class _StatusPendingState extends State<StatusPending> {
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
 
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -414,17 +594,17 @@ class _StatusPendingState extends State<StatusPending> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(
                         Icons.switch_account,
                         color: Colors.redAccent,
                         size: 20,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        "Switch to Client",
-                        style: TextStyle(
+                        alternativeTitle,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: ColorConstants.black,
@@ -433,6 +613,95 @@ class _StatusPendingState extends State<StatusPending> {
                     ],
                   ),
                   const SizedBox(height: 12),
+
+                  GestureDetector(
+                    onTap: isChangingRole
+                        ? null
+                        : _showContinueAsOtherRoleDialog,
+                    child: Container(
+                      height: 55,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.redAccent,
+                            Colors.red.withOpacity(0.7),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.redAccent.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: isChangingRole
+                            ? const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 10),
+                                  Text(
+                                    "Switching...",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    isShop ? Icons.local_shipping : Icons.store,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    switchRoleText,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Icon(
+                                    Icons.arrow_forward,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  Center(
+                    child: Text(
+                      switchDescription,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
 
                   GestureDetector(
                     onTap: isChangingToClient
@@ -512,11 +781,12 @@ class _StatusPendingState extends State<StatusPending> {
                   ),
 
                   const SizedBox(height: 8),
-                  const Center(
+
+                  Center(
                     child: Text(
-                      "Skip verification and use Qdel as a client",
+                      clientDescription,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ),
                 ],
@@ -532,7 +802,7 @@ class _StatusPendingState extends State<StatusPending> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: ColorConstants.black,
-                  fontSize: 15,
+                  fontSize: 12,
                   height: 1.5,
                 ),
               ),

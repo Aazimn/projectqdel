@@ -5,9 +5,7 @@ import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/admin_profile.dart';
-import 'package:projectqdel/view/Admin/dashboard_screen.dart';
-import 'package:projectqdel/view/splash_screen.dart';
-
+import 'package:projectqdel/view/Admin/shop_categoryview.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -119,7 +117,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      
       backgroundColor: ColorConstants.bg,
       body: LiquidPullToRefresh(
         onRefresh: _onRefresh,
@@ -447,6 +444,24 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
                     const SizedBox(height: 20),
 
+                    // Container(
+                    //   decoration: BoxDecoration(
+                    //     borderRadius: BorderRadius.circular(10),
+                    //     color: const Color.fromARGB(255, 230, 140, 140),
+                    //   ),
+                    //   height: 50,
+                    //   child: Padding(
+                    //     padding: const EdgeInsets.all(15),
+                    //     child: Text(
+                    //       "Manage Shop Category",
+                    //       style: TextStyle(
+                    //         color: Colors.black54,
+                    //         fontSize: 16,
+                    //         fontWeight: FontWeight.bold,
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ),
                     GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -456,75 +471,74 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       childAspectRatio: 1.1,
                       children: [
                         _dashboardCard(
-                          icon: Icons.people,
-                          title: "Users",
-                          subtitle: "Manage users",
+                          icon: Icons.store,
+                          title: "Shop Category",
+                          subtitle: "Manage Shop Category",
                           iconColor: Colors.red,
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    const DashboardScreen(initialTab: 1),
+                                builder: (_) => const ShopCategoriesScreen(),
                               ),
                             );
                           },
                         ),
 
-                        _dashboardCard(
-                          icon: Icons.location_city,
-                          title: "Locations",
-                          subtitle: "Country / State / District",
-                          iconColor: Colors.red,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const DashboardScreen(initialTab: 2),
-                              ),
-                            );
-                          },
-                        ),
+                        // _dashboardCard(
+                        //   icon: Icons.location_city,
+                        //   title: "Locations",
+                        //   subtitle: "Country / State / District",
+                        //   iconColor: Colors.red,
+                        //   onTap: () {
+                        //     Navigator.push(
+                        //       context,
+                        //       MaterialPageRoute(
+                        //         builder: (_) =>
+                        //             const DashboardScreen(initialTab: 2),
+                        //       ),
+                        //     );
+                        //   },
+                        // ),
 
-                        _dashboardCard(
-                          icon: Icons.person,
-                          title: "Profile",
-                          subtitle: "Admin profile",
-                          iconColor: Colors.red,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AdminProfileScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        _dashboardCard(
-                          icon: Icons.settings,
-                          title: "Settings",
-                          subtitle: "Admin controls",
-                          iconColor: Colors.red,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const DashboardScreen(initialTab: 3),
-                              ),
-                            );
-                          },
-                        ),
-                        _dashboardCard(
-                          icon: Icons.logout,
-                          title: "Logout",
-                          subtitle: "Sign out",
-                          iconColor: Colors.red,
-                          onTap: () {
-                            _showLogoutDialog(context);
-                          },
-                        ),
+                        // _dashboardCard(
+                        //   icon: Icons.person,
+                        //   title: "Profile",
+                        //   subtitle: "Admin profile",
+                        //   iconColor: Colors.red,
+                        //   onTap: () {
+                        //     Navigator.push(
+                        //       context,
+                        //       MaterialPageRoute(
+                        //         builder: (_) => const AdminProfileScreen(),
+                        //       ),
+                        //     );
+                        //   },
+                        // ),
+                        // _dashboardCard(
+                        //   icon: Icons.settings,
+                        //   title: "Settings",
+                        //   subtitle: "Admin controls",
+                        //   iconColor: Colors.red,
+                        //   onTap: () {
+                        //     Navigator.push(
+                        //       context,
+                        //       MaterialPageRoute(
+                        //         builder: (_) =>
+                        //             const DashboardScreen(initialTab: 3),
+                        //       ),
+                        //     );
+                        //   },
+                        // ),
+                        // _dashboardCard(
+                        //   icon: Icons.logout,
+                        //   title: "Logout",
+                        //   subtitle: "Sign out",
+                        //   iconColor: Colors.red,
+                        //   onTap: () {
+                        //     _showLogoutDialog(context);
+                        //   },
+                        // ),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -647,7 +661,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         boxShadow: [
           BoxShadow(
             color: color.withOpacity(0.1),
-            blurRadius: 8,
+            blurRadius: 1,
             offset: const Offset(0, 2),
           ),
         ],
@@ -739,13 +753,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           boxShadow: [
             BoxShadow(
               color: iconColor.withOpacity(0.1),
-              blurRadius: 8,
+              blurRadius: 1,
               offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -778,60 +792,60 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.logout, color: Colors.red, size: 24),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Logout',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-            ),
-          ],
-        ),
-        content: const Text(
-          'Are you sure you want to logout?',
-          style: TextStyle(fontSize: 16),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await ApiService.logout();
+  // void _showLogoutDialog(BuildContext context) {
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+  //       title: Row(
+  //         children: [
+  //           Container(
+  //             padding: const EdgeInsets.all(8),
+  //             decoration: BoxDecoration(
+  //               color: Colors.red.withOpacity(0.1),
+  //               shape: BoxShape.circle,
+  //             ),
+  //             child: const Icon(Icons.logout, color: Colors.red, size: 24),
+  //           ),
+  //           const SizedBox(width: 12),
+  //           const Text(
+  //             'Logout',
+  //             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+  //           ),
+  //         ],
+  //       ),
+  //       content: const Text(
+  //         'Are you sure you want to logout?',
+  //         style: TextStyle(fontSize: 16),
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+  //         ),
+  //         ElevatedButton(
+  //           onPressed: () async {
+  //             Navigator.pop(context);
+  //             await ApiService.logout();
 
-              if (mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SplashScreen()),
-                  (route) => false,
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('Logout', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
+  //             if (mounted) {
+  //               Navigator.pushAndRemoveUntil(
+  //                 context,
+  //                 MaterialPageRoute(builder: (_) => const SplashScreen()),
+  //                 (route) => false,
+  //               );
+  //             }
+  //           },
+  //           style: ElevatedButton.styleFrom(
+  //             backgroundColor: Colors.red,
+  //             shape: RoundedRectangleBorder(
+  //               borderRadius: BorderRadius.circular(10),
+  //             ),
+  //           ),
+  //           child: const Text('Logout', style: TextStyle(color: Colors.white)),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 }

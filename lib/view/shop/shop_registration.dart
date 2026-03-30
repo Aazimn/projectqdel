@@ -28,7 +28,6 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
   int? selectedCategoryId;
 
   final TextEditingController shopNameController = TextEditingController();
-  // final TextEditingController ownerNameController = TextEditingController();
   final TextEditingController addressController = TextEditingController();
   final TextEditingController landmarkController = TextEditingController();
   final TextEditingController zipCodeController = TextEditingController();
@@ -61,7 +60,6 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
   @override
   void dispose() {
     shopNameController.dispose();
-    // ownerNameController.dispose();
     addressController.dispose();
     landmarkController.dispose();
 
@@ -73,9 +71,6 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
 
   Future<void> _pickImage(ImageSource source, String type) async {
     try {
-      // logger.i(
-      //   "📸 Opening image picker: $source for ${isPhoto ? 'photo' : 'document'}",
-      // );
 
       final picked = await picker.pickImage(source: source, imageQuality: 70);
 
@@ -106,20 +101,12 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
   Future<void> submitShop() async {
     logger.i("🚀 Submit Shop Button Pressed");
 
-    // Validate required fields
     if (shopNameController.text.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Please enter shop name")));
       return;
     }
-
-    // if (ownerNameController.text.isEmpty) {
-    //   ScaffoldMessenger.of(
-    //     context,
-    //   ).showSnackBar(const SnackBar(content: Text("Please enter owner name")));
-    //   return;
-    // }
 
     if (addressController.text.isEmpty) {
       ScaffoldMessenger.of(
@@ -197,7 +184,6 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
 
     logger.i("📊 SHOP REGISTRATION DATA");
     logger.i("🏪 Shop Name: ${shopNameController.text}");
-    // logger.i("👨‍💼 Owner Name: ${ownerNameController.text}");
     logger.i("📍 Address: ${addressController.text}");
     logger.i("🗺️ Landmark: ${landmarkController.text}");
     logger.i("📮 Zip Code: ${zipCodeController.text}");
@@ -211,7 +197,6 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
 
     try {
       if (!widget.registrationData.isExistingUser) {
-        /// 🆕 NEW USER → FULL REGISTRATION
         logger.i("🆕 New user → shopRegistration");
 
         success = await apiService.shopRegistration(
@@ -246,7 +231,6 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
               : null,
         );
       } else {
-        /// 🔁 EXISTING USER → UPGRADE TO SHOP
         logger.i("🔁 Existing user → registerShopHandler");
 
         success = await apiService.registerShopHandler(
@@ -289,7 +273,12 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
 
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => StatusPending(phone: widget.registrationData.phone, userType: 'shop',)),
+        MaterialPageRoute(
+          builder: (_) => StatusPending(
+            phone: widget.registrationData.phone,
+            userType: 'shop',
+          ),
+        ),
         (_) => false,
       );
     } else {
@@ -399,15 +388,6 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // TextField(
-                  //   controller: ownerNameController,
-                  //   decoration: const InputDecoration(
-                  //     labelText: "Owner Name",
-                  //     border: OutlineInputBorder(),
-                  //     prefixIcon: Icon(Icons.person),
-                  //   ),
-                  // ),
-                  // const SizedBox(height: 15),
                   TextField(
                     controller: shopNameController,
                     decoration: const InputDecoration(
@@ -671,7 +651,6 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
     );
   }
 
-  // Add these state variables with your existing controllers
   Map<String, dynamic>? selectedCountry;
   Map<String, dynamic>? selectedState;
   Map<String, dynamic>? selectedDistrict;
@@ -680,15 +659,14 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
   int? get selectedStateId => selectedState?['id'];
   int? get selectedDistrictId => selectedDistrict?['id'];
 
-  // Add this method in your _ShopRegistrationScreenState class
   Widget _buildLocationSelectorButtons() {
     return Column(
       children: [
-        // Country Selector
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: InkWell(
             onTap: () async {
+              // ignore: unused_local_variable
               final selected = await showModalBottomSheet<Map<String, dynamic>>(
                 context: context,
                 isScrollControlled: true,
@@ -767,12 +745,12 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
           ),
         ),
 
-        // State Selector
         if (selectedCountry != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: InkWell(
               onTap: () async {
+                // ignore: unused_local_variable
                 final selected =
                     await showModalBottomSheet<Map<String, dynamic>>(
                       context: context,
@@ -852,12 +830,12 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
             ),
           ),
 
-        // District Selector
         if (selectedState != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: InkWell(
               onTap: () async {
+                // ignore: unused_local_variable
                 final selected =
                     await showModalBottomSheet<Map<String, dynamic>>(
                       context: context,

@@ -13,7 +13,7 @@ import 'package:projectqdel/view/carrier/rejected_screen.dart';
 import 'package:projectqdel/view/carrier/status_pending.dart';
 import 'package:projectqdel/view/Client/client_dashboard.dart';
 import 'package:projectqdel/view/login_screen.dart';
-import 'package:projectqdel/view/shop/shop_home.dart';
+import 'package:projectqdel/view/shop/shop_dashboard.dart';
 import 'package:projectqdel/view/shop/shop_registration.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -76,33 +76,23 @@ class _SplashScreenState extends State<SplashScreen> {
         break;
 
       case "shop":
-        await handleShopNavigation(); // Changed this line
+        await handleShopNavigation();
         break;
-
-      // case "carrier":
-      //   await handleCarrierNavigation(); // Changed this line
-      //   break;
 
       case "carrier":
         final profile = await apiService.getMyProfile();
 
-        // Only check the document field from profile - NOT multiple sources
-        final profileHasDocs = profile?.hasUploadedDocs ?? false;
+        if (profile == null) {
+          logger.e("❌ No carrier profile found");
+          go(LoginScreen());
+          return;
+        }
 
-        // Remove the API check - it might be returning false positive
-        // bool apiHasDocs = false;
-        // try {
-        //   apiHasDocs = await apiService.checkDocumentStatus();
-        // } catch (_) {}
-
-        // Remove stored docs check - don't rely on cached value
-        // final storedHasDocs = await ApiService.getHasUploadedDocs() ?? false;
-
-        // Use ONLY profileHasDocs
-        final hasDocs =
-            profileHasDocs; // Changed: removed apiHasDocs and storedHasDocs
-
-        String status = profile?.approvalStatus.trim().toLowerCase() ?? "";
+        final hasDocs = profile.hasUploadedDocs;
+        
+        final storedHasDocs = await ApiService.getHasUploadedDocs() ?? false;
+        final finalHasDocs = hasDocs || storedHasDocs;
+        String status = profile.approvalStatus.trim().toLowerCase();
 
         if (status.isEmpty) {
           final cachedStatus = ApiService.approvalStatus;
@@ -111,29 +101,25 @@ class _SplashScreenState extends State<SplashScreen> {
           }
         }
 
-        if (hasDocs && status.isEmpty) {
-          try {
-            final apiStatusRaw = await apiService.checkApprovalStatus();
-            if (apiStatusRaw != null && apiStatusRaw.trim().isNotEmpty) {
-              status = apiStatusRaw.trim().toLowerCase();
-              await ApiService.setApprovalStatus(status);
+        logger.i("📊 Carrier - HasDocs: $finalHasDocs, HasCarrierDocument: ${profile.carrierDocument != null}, Status: $status");
+
+        if (status == "approved" && !finalHasDocs) {
+          if (profile.carrierDocument != null && profile.carrierDocument!.hasCarrierDocument) {
+            logger.i("✅ Approved carrier has carrier_document - setting flag");
+            await ApiService.setHasUploadedDocs(true);
+            final finalDocsCheck = hasDocs || (await ApiService.getHasUploadedDocs() ?? false);
+            if (finalDocsCheck) {
             }
-          } catch (_) {}
+          }
         }
 
-        final activeOrderId = await ApiService.getActiveOrder();
-        final cachedOrder = await ApiService.getActiveOrderDetails();
+        final finalDocs = hasDocs || (await ApiService.getHasUploadedDocs() ?? false);
 
-        if (cachedOrder != null && cachedOrder.id == activeOrderId) {
-          go(AcceptedOrderScreen(orderId: activeOrderId!, order: cachedOrder));
-          return;
-        }
-
-        if (!hasDocs) {
+        if (!finalDocs && status != "approved") {
           go(
             CarrierUploadScreen(
               registrationData: CarrierRegistrationData(
-                phone: profile!.phone,
+                phone: profile.phone,
                 firstname: profile.firstName,
                 lastname: profile.lastName,
                 email: profile.email,
@@ -151,8 +137,16 @@ class _SplashScreenState extends State<SplashScreen> {
           return;
         }
 
+        final activeOrderId = await ApiService.getActiveOrder();
+        final cachedOrder = await ApiService.getActiveOrderDetails();
+
+        if (cachedOrder != null && cachedOrder.id == activeOrderId) {
+          go(AcceptedOrderScreen(orderId: activeOrderId!, order: cachedOrder));
+          return;
+        }
+
         if (status == "pending") {
-          go(StatusPending(phone: profile!.phone));
+          go(StatusPending(phone: profile.phone, userType: "carrier"));
           return;
         }
 
@@ -168,12 +162,12 @@ class _SplashScreenState extends State<SplashScreen> {
         }
 
         if (status == "rejected") {
-          go(const RejectedScreen());
+          go(const RejectedScreen(userType: "carrier"));
           return;
         }
 
-        if (hasDocs) {
-          go(StatusPending(phone: profile!.phone));
+        if (finalDocs) {
+          go(StatusPending(phone: profile.phone, userType: "carrier"));
         } else {
           go(const CarrierDashboard());
         }
@@ -215,7 +209,7 @@ class _SplashScreenState extends State<SplashScreen> {
       }
 
       final profileHasDocs = profile.hasShopDocuments;
-      final hasDocs = profileHasDocs;
+      final hasDocs = profileHasDocs ;
 
       String status = profile.shopApprovalStatus?.trim().toLowerCase() ?? "";
 
@@ -289,7 +283,7 @@ class _SplashScreenState extends State<SplashScreen> {
       }
 
       if (status == "pending") {
-        go(StatusPending(phone: profile.phone));
+        go(StatusPending(phone: profile.phone, userType: "shop"));
         return;
       }
 
@@ -299,118 +293,23 @@ class _SplashScreenState extends State<SplashScreen> {
         if (!hasSeen) {
           go(AccountApprovedScreen());
         } else {
-          go(const ShopHome());
+          go(const ShopDashboard());
         }
         return;
       }
 
       if (status == "rejected") {
-        go(const RejectedScreen());
+        go(const RejectedScreen(userType: "shop"));
         return;
       }
+      
       if (hasDocs) {
-        go(const ShopHome());
+        go(const ShopDashboard());
       } else {
-        go(StatusPending(phone: profile.phone));
+        go(StatusPending(phone: profile.phone, userType: "shop"));
       }
     } catch (e, stack) {
       logger.e("❌ Error in shop navigation: $e", stackTrace: stack);
-      go(LoginScreen());
-    }
-  }
-
-  Future<void> handleCarrierNavigation() async {
-    try {
-      final profile = await apiService.getMyProfile();
-
-      final profileHasDocs = profile?.hasUploadedDocs ?? false;
-
-      bool apiHasDocs = false;
-      try {
-        apiHasDocs = await apiService.checkDocumentStatus();
-      } catch (_) {}
-
-      final storedHasDocs = await ApiService.getHasUploadedDocs() ?? false;
-
-      final hasDocs = profileHasDocs || apiHasDocs || storedHasDocs;
-
-      String status = profile?.approvalStatus.trim().toLowerCase() ?? "";
-
-      if (status.isEmpty) {
-        final cachedStatus = ApiService.approvalStatus;
-        if (cachedStatus != null && cachedStatus.trim().isNotEmpty) {
-          status = cachedStatus.trim().toLowerCase();
-        }
-      }
-
-      if (hasDocs && status.isEmpty) {
-        try {
-          final apiStatusRaw = await apiService.checkApprovalStatus();
-          if (apiStatusRaw != null && apiStatusRaw.trim().isNotEmpty) {
-            status = apiStatusRaw.trim().toLowerCase();
-            await ApiService.setApprovalStatus(status);
-          }
-        } catch (_) {}
-      }
-
-      final activeOrderId = await ApiService.getActiveOrder();
-      final cachedOrder = await ApiService.getActiveOrderDetails();
-
-      if (cachedOrder != null && cachedOrder.id == activeOrderId) {
-        go(AcceptedOrderScreen(orderId: activeOrderId!, order: cachedOrder));
-        return;
-      }
-
-      if (!hasDocs) {
-        go(
-          CarrierUploadScreen(
-            registrationData: CarrierRegistrationData(
-              phone: profile!.phone,
-              firstname: profile.firstName,
-              lastname: profile.lastName,
-              email: profile.email,
-              userType: "carrier",
-              countryId: profile.countryId,
-              stateId: profile.stateId,
-              districtId: profile.districtId,
-              isExistingUser: true,
-              parcelResponsibilityAccepted: true,
-              damageLossAccepted: true,
-              payoutTermsAccepted: true,
-            ),
-          ),
-        );
-        return;
-      }
-
-      if (status == "pending") {
-        go(StatusPending(phone: profile!.phone));
-        return;
-      }
-
-      if (status == "approved") {
-        final hasSeen = await apiService.hasUserSeenApprovalScreen();
-
-        if (!hasSeen) {
-          go(const AccountApprovedScreen());
-        } else {
-          go(const CarrierDashboard());
-        }
-        return;
-      }
-
-      if (status == "rejected") {
-        go(const RejectedScreen());
-        return;
-      }
-
-      if (hasDocs) {
-        go(StatusPending(phone: profile!.phone));
-      } else {
-        go(const CarrierDashboard());
-      }
-    } catch (e, stack) {
-      logger.e("❌ Error in carrier navigation: $e", stackTrace: stack);
       go(LoginScreen());
     }
   }

@@ -1,14 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:projectqdel/model/carrier_model.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/Carrier/carrier_dashboard.dart';
-import 'package:projectqdel/view/Carrier/carrier_upload.dart';
-import 'package:projectqdel/view/Carrier/status_pending.dart';
-import 'package:projectqdel/view/Carrier/approved_screen.dart';
-import 'package:projectqdel/view/Carrier/rejected_screen.dart';
-import 'package:projectqdel/view/registration_screen.dart';
-import 'package:projectqdel/view/shop/shop_home.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 
 class UsertypeScreen extends StatefulWidget {
@@ -60,7 +52,6 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
 
                   const SizedBox(height: 30),
 
-                  // Client Card
                   _roleCard(
                     role: "client",
                     title: "Client",
@@ -73,7 +64,6 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Carrier Card
                   _roleCard(
                     role: "carrier",
                     title: "Carrier",
@@ -84,7 +74,6 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Shop Card
                   _roleCard(
                     role: "shop",
                     title: "Shop Hub",
@@ -189,7 +178,6 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
 
       setState(() => switchingRole = false);
 
-      // Navigate to Shop Home
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => SplashScreen()),
@@ -218,153 +206,19 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
       }
 
       await ApiService.setUserType("carrier");
+      setState(() => switchingRole = false);
 
-      final updatedUser = await apiService.getMyProfile();
-
-      if (updatedUser == null) {
-        setState(() => switchingRole = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Failed to load profile")));
-        return;
-      }
-
-      setState(() {
-        user = updatedUser;
-        switchingRole = false;
-      });
-
-      final bool profileHasDocs =
-          updatedUser.document != null && updatedUser.document!.isNotEmpty;
-
-      bool apiHasDocs = false;
-      try {
-        apiHasDocs = await apiService.checkDocumentStatus();
-      } catch (_) {}
-
-      final storedHasDocs = await ApiService.getHasUploadedDocs() ?? false;
-
-      final bool hasDocs = profileHasDocs || apiHasDocs || storedHasDocs;
-
-      String status = updatedUser.approvalStatus.trim().toLowerCase();
-
-      if (hasDocs && status.isEmpty) {
-        try {
-          final apiStatusRaw = await apiService.checkApprovalStatus();
-          if (apiStatusRaw != null && apiStatusRaw.trim().isNotEmpty) {
-            status = apiStatusRaw.trim().toLowerCase();
-            await ApiService.setApprovalStatus(status);
-          }
-        } catch (_) {}
-      }
-
-      print("========= CARRIER FLOW DEBUG =========");
-      print("User Type: ${updatedUser.userType}");
-      print("Document: ${updatedUser.document}");
-      print("Has Docs: $hasDocs");
-      print("Approval Status: $status");
-      print("======================================");
-
-      if (!hasDocs) {
-        print("➡️ NAVIGATE → Upload Screen");
-        _navigateToUploadScreen();
-        return;
-      }
-
-      if (status == "pending") {
-        print("➡️ NAVIGATE → Pending Screen");
-        _navigateToPendingScreen();
-        return;
-      }
-
-      if (status == "approved") {
-        final hasSeen = await apiService.hasUserSeenApprovalScreen();
-
-        if (!hasSeen) {
-          print("➡️ NAVIGATE → Approved Screen (first time - from server)");
-          _navigateToApprovedScreen();
-        } else {
-          print(
-            "➡️ NAVIGATE → Carrier Dashboard (already seen approved - from server)",
-          );
-          _navigateToApprovedScreen(goToDashboardOnly: true);
-        }
-        return;
-      }
-
-      if (status == "rejected") {
-        print("➡️ NAVIGATE → Rejected Screen");
-        _navigateToRejectedScreen();
-        return;
-      }
-
-      print("➡️ NAVIGATE → Pending Screen (fallback with docs)");
-      _navigateToPendingScreen();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => SplashScreen()),
+        (route) => false,
+      );
     } catch (e) {
       setState(() => switchingRole = false);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
     }
-  }
-
-  void _navigateToUploadScreen() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CarrierUploadScreen(
-          registrationData: CarrierRegistrationData(
-            phone: user.phone,
-            firstname: user.firstName,
-            lastname: user.lastName,
-            email: user.email,
-            userType: "carrier",
-            countryId: user.countryId,
-            stateId: user.stateId,
-            districtId: user.districtId,
-            isExistingUser: true,
-            parcelResponsibilityAccepted: true,
-            damageLossAccepted: true,
-            payoutTermsAccepted: true,
-          ),
-        ),
-      ),
-      (route) => false,
-    );
-  }
-
-  void _navigateToPendingScreen() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StatusPending(phone: user.phone, userType: 'carrier'),
-      ),
-      (route) => false,
-    );
-  }
-
-  void _navigateToApprovedScreen({bool goToDashboardOnly = false}) {
-    if (goToDashboardOnly) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const CarrierDashboard()),
-        (route) => false,
-      );
-    } else {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const AccountApprovedScreen()),
-        (route) => false,
-      );
-    }
-  }
-
-  void _navigateToRejectedScreen() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const RejectedScreen()),
-      (route) => false,
-    );
   }
 
   void _confirmClientSwitch() {

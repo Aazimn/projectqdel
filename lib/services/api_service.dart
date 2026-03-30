@@ -15,8 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl =
-      "https://personalized-pressure-foo-definitely.trycloudflare.com";
+  final String baseurl = "https://marie-peter-partly-solaris.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -127,32 +126,6 @@ class ApiService {
     hasUploadedDocs = null;
     _hasSeenApprovalScreen = null;
     sessionLoaded = false;
-  }
-
-  Future<bool> checkDocumentStatus() async {
-    try {
-      final response = await http.get(
-        Uri.parse("$baseurl/api/qdel/carrier/document-status/"),
-        headers: {
-          "Authorization": "Bearer ${ApiService.accessToken}",
-          "Content-Type": "application/json",
-        },
-      );
-
-      logger.i("DOCUMENT STATUS CHECK :: ${response.statusCode}");
-      logger.i("DOCUMENT STATUS BODY :: ${response.body}");
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final hasDocs = data['has_documents'] ?? false;
-        await ApiService.setHasUploadedDocs(hasDocs);
-        return hasDocs;
-      }
-      return false;
-    } catch (e) {
-      logger.e("DOCUMENT STATUS ERROR => $e");
-      return false;
-    }
   }
 
   static String? userType;
@@ -377,112 +350,6 @@ class ApiService {
     return false;
   }
 
-  // Future<bool> shopRegistration({
-  //   required String phone,
-  //   required String firstname,
-  //   required String lastname,
-  //   required String email,
-  //   required String userType,
-
-  //   required int? countryId,
-  //   required int? stateId,
-  //   required int? districtId,
-  //   required bool parcelResponsibilityAccepted,
-  //   required bool damageLossAccepted,
-  //   required bool payoutTermsAccepted,
-
-  //   // 🆕 SHOP FIELDS
-  //   required String shopName,
-  //   required int? shopCategory,
-
-  //   // 🆕 ADDRESS
-  //   required String address,
-  //   required String landmark,
-  //   required String zipCode,
-  //   required double? latitude,
-  //   required double? longitude,
-  //   required int? shopcountryId,
-  //   required int? shopstateId,
-  //   required int? shopdistrictId,
-
-  //   // 🆕 FILES
-  //   File? shopPhoto,
-  //   File? shopDocument,
-  //   File? ownerShopPhoto,
-  // }) async {
-  //   final url = Uri.parse("$baseurl/api/qdel/register/");
-  //   final request = http.MultipartRequest("POST", url);
-
-  //   request.headers.addAll({
-  //     "Authorization": "Bearer ${ApiService.accessToken}",
-  //   });
-
-  //   /// 🔹 BASIC FIELDS
-  //   request.fields.addAll({
-  //     "phone": phone,
-  //     "first_name": firstname,
-  //     "last_name": lastname,
-  //     "email": email,
-  //     "user_type": userType,
-
-  //     if (countryId != null) "country": countryId.toString(),
-  //     if (stateId != null) "state": stateId.toString(),
-  //     if (districtId != null) "district": districtId.toString(),
-  //     "parcel_responsibility_accepted": parcelResponsibilityAccepted.toString(),
-  //     "damage_loss_accepted": damageLossAccepted.toString(),
-  //     "payout_terms_accepted": payoutTermsAccepted.toString(),
-
-  //     "shop_name": shopName,
-  //     "shop_categories": shopCategory.toString(),
-
-  //     "shop_address": jsonEncode({
-  //       "address": address,
-  //       "landmark": landmark,
-  //       "zip_code": zipCode,
-  //       "latitude": latitude.toString(),
-  //       "longitude": longitude.toString(),
-  //       "district": shopdistrictId.toString(),
-  //       "state": shopstateId.toString(),
-  //       "country": shopcountryId.toString(),
-  //     }),
-  //   });
-
-  //   /// 🔹 FILE UPLOADS
-  //   if (shopPhoto != null) {
-  //     request.files.add(
-  //       await http.MultipartFile.fromPath("shop_photo", shopPhoto.path),
-  //     );
-  //   }
-
-  //   if (shopDocument != null) {
-  //     request.files.add(
-  //       await http.MultipartFile.fromPath("shop_document", shopDocument.path),
-  //     );
-  //   }
-
-  //   if (ownerShopPhoto != null) {
-  //     request.files.add(
-  //       await http.MultipartFile.fromPath(
-  //         "owner_shop_photo",
-  //         ownerShopPhoto.path,
-  //       ),
-  //     );
-  //   }
-
-  //   /// 🔹 SEND REQUEST
-  //   final response = await request.send();
-  //   final responseBody = await response.stream.bytesToString();
-
-  //   logger.i("STATUS :: ${response.statusCode}");
-  //   logger.i("BODY :: $responseBody");
-
-  //   if (response.statusCode == 200 || response.statusCode == 201) {
-  //     await ApiService.setFirstTime(false);
-  //     return true;
-  //   }
-
-  //   return false;
-  // }
 
   Future<bool> shopRegistration({
     required String phone,
@@ -517,7 +384,6 @@ class ApiService {
       "Authorization": "Bearer ${ApiService.accessToken}",
     });
 
-    /// 🔹 BASIC FIELDS
     request.fields.addAll({
       "phone": phone,
       "first_name": firstname,
@@ -534,7 +400,6 @@ class ApiService {
       "shop_categories": shopCategory.toString(),
     });
 
-    /// 🔹 ADDRESS FIELDS - FIXED (no nested structure)
     request.fields.addAll({
       "address": address,
       "landmark": landmark,
@@ -546,7 +411,6 @@ class ApiService {
       "country": shopcountryId.toString(),
     });
 
-    /// 🔹 FILE UPLOADS
     if (shopPhoto != null) {
       request.files.add(
         await http.MultipartFile.fromPath("shop_photo", shopPhoto.path),
@@ -568,7 +432,6 @@ class ApiService {
       );
     }
 
-    /// 🔹 SEND REQUEST
     final response = await request.send();
     final responseBody = await response.stream.bytesToString();
 
@@ -668,7 +531,6 @@ class ApiService {
     }
   }
 
-  // In getMyProfile() method in api_service.dart
   Future<UserModel?> getMyProfile() async {
     final url = Uri.parse("$baseurl/api/qdel/users/detail/update/self/");
 
@@ -685,8 +547,23 @@ class ApiService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      // Log the document field to debug
-      logger.i("📄 DOCUMENT FIELD: ${data['document']}");
+
+      if (data['carrier_document'] != null) {
+        logger.i(
+          "📄 CARRIER DOCUMENT: ${data['carrier_document']['document']}",
+        );
+        logger.i("📸 SHOP PHOTO: ${data['carrier_document']['shop_photo']}");
+        logger.i(
+          "📄 SHOP DOCUMENT: ${data['carrier_document']['shop_document']}",
+        );
+        logger.i(
+          "👤 OWNER PHOTO: ${data['carrier_document']['owner_shop_photo']}",
+        );
+      } else {
+        logger.i("📄 CARRIER DOCUMENT: null");
+      }
+      logger.i("📄 LEGACY DOCUMENT FIELD: ${data['document']}");
+
       return UserModel.fromJson(data);
     }
     return null;
@@ -817,6 +694,136 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getShopsByStatus({
+    required String status, 
+    String? searchQuery,
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    try {
+      String urlString = "$baseurl/api/qdel/admin/shop/approval/$status/";
+
+      final queryParams = <String, String>{};
+
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        queryParams['search'] = searchQuery;
+      }
+
+      queryParams['page'] = page.toString();
+      queryParams['page_size'] = pageSize.toString();
+
+      final uri = Uri.parse(urlString).replace(queryParameters: queryParams);
+
+      logger.i("GET Shops URL :: $uri");
+
+      final response = await http.get(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $accessToken",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+        List shops = [];
+
+        if (jsonResponse['data'] != null) {
+          shops = jsonResponse['data']; 
+        }
+
+        int totalCount = jsonResponse['count'] ?? shops.length;
+        int totalPages = (totalCount / pageSize).ceil();
+
+        return {
+          'shops': shops,
+          'hasNext': (page * pageSize) < totalCount,
+          'hasPrevious': page > 1,
+          'totalPages': totalPages > 0 ? totalPages : 1,
+          'currentPage': page,
+          'count': totalCount,
+        };
+      } else {
+        logger.e("Failed to fetch shops: ${response.statusCode}");
+
+        return {
+          'shops': [],
+          'hasNext': false,
+          'hasPrevious': false,
+          'totalPages': 1,
+          'currentPage': page,
+          'count': 0,
+        };
+      }
+    } catch (e) {
+      logger.e("Error fetching shops: $e");
+
+      return {
+        'shops': [],
+        'hasNext': false,
+        'hasPrevious': false,
+        'totalPages': 1,
+        'currentPage': page,
+        'count': 0,
+      };
+    }
+  }
+
+  Future<bool> updateShopStatus({
+    required int shopId,
+    required String status, 
+  }) async {
+    try {
+      final url = Uri.parse("$baseurl/api/qdel/admin/shop/approval/$shopId/");
+
+      final response = await http.patch(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $accessToken",
+        },
+        body: jsonEncode({"shop_approval_status": status}),
+      );
+
+      logger.i("PATCH SHOP URL :: $url");
+      logger.i("STATUS :: ${response.statusCode}");
+      logger.i("BODY :: ${response.body}");
+
+      return response.statusCode == 200;
+    } catch (e) {
+      logger.e("Error updating shop status: $e");
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getShopDetailsByUserId(int userId) async {
+    try {
+      final url = Uri.parse("$baseurl/api/qdel/admin/shop/detail/$userId/");
+
+      final response = await http.get(
+        url,
+        headers: {
+          "Authorization": "Bearer $accessToken",
+          "Content-Type": "application/json",
+        },
+      );
+
+      logger.i("SHOP DETAILS URL :: $url");
+      logger.i("STATUS :: ${response.statusCode}");
+      logger.i("BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body)['data'];
+      }
+
+      return null;
+    } catch (e) {
+      logger.e("Error fetching shop details: $e");
+      return null;
+    }
+  }
+
   Future<bool> updateUserType(String userType) async {
     final url = Uri.parse("$baseurl/api/qdel/users/detail/update/self/");
 
@@ -916,7 +923,6 @@ class ApiService {
     }
   }
 
-  // Add this method to your ApiService class
   Future<Map?> getRegistrationDetails() async {
     try {
       final url = Uri.parse("$baseurl/api/qdel/register/");
@@ -932,7 +938,6 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
 
-        // If the response is a list, get the first item
         if (data is List && data.isNotEmpty) {
           return data[0] as Map<String, dynamic>;
         } else if (data is Map) {
@@ -946,7 +951,6 @@ class ApiService {
     }
   }
 
-  // Optional: Create a method to get shop status specifically
   Future<Map?> getShopStatus() async {
     return await getRegistrationDetails();
   }
@@ -1203,12 +1207,10 @@ class ApiService {
 
   static bool? _hasSeenApprovalScreen;
 
-  /// Call this when user views the approval screen for the first time
   Future<bool> markApprovalScreenSeen() async {
     try {
       final url = Uri.parse("$baseurl/api/qdel/user/click/update/");
 
-      // POST request to set is_clicked = true
       final response = await http.post(
         url,
         headers: {
@@ -1221,7 +1223,6 @@ class ApiService {
       logger.i("MARK APPROVAL SEEN BODY :: ${response.body}");
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Update local cache
         await ApiService.setApprovalScreenSeen(true);
         return true;
       }
@@ -3406,8 +3407,6 @@ class ApiService {
     }
   }
 
-  // api_service.dart - Add this method to your existing ApiService class
-
   Future<Map<String, dynamic>?> cancelPickupOrder(int pickupCarrierId) async {
     try {
       final url = Uri.parse(
@@ -3436,8 +3435,11 @@ class ApiService {
     }
   }
 
-  Future<List> getShopCategories() async {
-    final url = Uri.parse("$baseurl/api/qdel/user/view/shop/categories/");
+  Future<List> getShopCategories({String? search}) async {
+    final url = Uri.parse(
+      "$baseurl/api/qdel/user/view/shop/categories/"
+      "${search != null && search.isNotEmpty ? "?search=$search" : ""}",
+    );
 
     try {
       final response = await http.get(
@@ -3453,12 +3455,8 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> json = jsonDecode(response.body);
-
         final List categories = json['data'] ?? [];
-
-        logger.i("✅ Categories loaded: ${categories.length}");
-
-        return categories; // IMPORTANT
+        return categories;
       } else {
         throw Exception("Failed to load categories");
       }
@@ -3468,103 +3466,154 @@ class ApiService {
     }
   }
 
-  Future<String?> checkShopApprovalStatus() async {
-  try {
-    final response = await http.get(
-      Uri.parse("$baseurl/api/qdel/register/"),
-      headers: {
-        "Authorization": "Bearer ${ApiService.accessToken}",
-        "Content-Type": "application/json",
-      },
-    );
+  Future<bool> addCategory(String name) async {
+    final url = Uri.parse("$baseurl/api/qdel/user/add/shop/category/");
 
-    logger.i("SHOP STATUS CHECK :: ${response.statusCode}");
-    logger.i("SHOP STATUS BODY :: ${response.body}");
-
-    if (response.statusCode == 200) {
-      final decoded = jsonDecode(response.body);
-      final List users = decoded["data"];
-      final myPhone = ApiService.phone;
-      final myUser = users.firstWhere(
-        (u) => u["phone"] == myPhone,
-        orElse: () => null,
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({"name": name}),
       );
 
-      if (myUser == null) return null;
-      
-      // Return shop approval status (adjust field name as per your API)
-      return myUser["shop_approval_status"] ?? myUser["approval_status"];
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (e) {
+      throw Exception("Error adding category: $e");
     }
-    return null;
-  } catch (e) {
-    logger.e("SHOP STATUS ERROR => $e");
-    return null;
   }
-}
 
-Future<bool> registerShopHandler({
-  required String shopName,
-  required int shopCategory,
+  Future<String?> checkShopApprovalStatus() async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseurl/api/qdel/register/"),
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
 
-  required String address,
-  required String landmark,
-  required int district,
-  required int state,
-  required int country,
-  required String zipCode,
-  required double? latitude,
-  required double? longitude,
+      logger.i("SHOP STATUS CHECK :: ${response.statusCode}");
+      logger.i("SHOP STATUS BODY :: ${response.body}");
 
-  required File shopPhoto,
-  required File ownerPhoto,
-  required File shopDocument,
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final List users = decoded["data"];
+        final myPhone = ApiService.phone;
+        final myUser = users.firstWhere(
+          (u) => u["phone"] == myPhone,
+          orElse: () => null,
+        );
+
+        if (myUser == null) return null;
+
+        return myUser["shop_approval_status"] ?? myUser["approval_status"];
+      }
+      return null;
+    } catch (e) {
+      logger.e("SHOP STATUS ERROR => $e");
+      return null;
+    }
+  }
+
+  Future<bool> registerShopHandler({
+    required String shopName,
+    required int shopCategory,
+
+    required String address,
+    required String landmark,
+    required int district,
+    required int state,
+    required int country,
+    required String zipCode,
+    required double? latitude,
+    required double? longitude,
+
+    required File shopPhoto,
+    required File ownerPhoto,
+    required File shopDocument,
+  }) async {
+    final url = Uri.parse("$baseurl/api/qdel/user/register/shop/");
+    final request = http.MultipartRequest("POST", url);
+
+    request.headers.addAll({
+      "Authorization": "Bearer ${ApiService.accessToken}",
+    });
+
+    request.fields.addAll({
+      "shop_name": shopName,
+      "shop_categories": shopCategory.toString(),
+
+      "address": address,
+      "landmark": landmark,
+      "district": district.toString(),
+      "state": state.toString(),
+      "country": country.toString(),
+      "zip_code": zipCode,
+      "latitude": latitude.toString(),
+      "longitude": longitude.toString(),
+    });
+
+    request.files.add(
+      await http.MultipartFile.fromPath("shop_photo", shopPhoto.path),
+    );
+
+    request.files.add(
+      await http.MultipartFile.fromPath("owner_shop_photo", ownerPhoto.path),
+    );
+
+    request.files.add(
+      await http.MultipartFile.fromPath("shop_document", shopDocument.path),
+    );
+
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
+
+    logger.i("STATUS :: ${response.statusCode}");
+    logger.i("BODY :: $responseBody");
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+
+Future<bool> createComplaint({
+  required String subject,
+  required String description,
 }) async {
-  final url = Uri.parse("$baseurl/api/qdel/user/register/shop/");
-  final request = http.MultipartRequest("POST", url);
+  final url = Uri.parse('$baseurl/api/qdel/user/complaints/create/');
 
-  /// 🔐 AUTH HEADER
-  request.headers.addAll({
-    "Authorization": "Bearer ${ApiService.accessToken}",
-  });
+  try {
+    final response = await http.post(
+      url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      body: jsonEncode({
+        "subject": subject,
+        "description": description,
+      }),
+    );
 
-  /// 📦 FIELDS
-  request.fields.addAll({
-    "shop_name": shopName,
-    "shop_categories": shopCategory.toString(),
-
-    "address": address,
-    "landmark": landmark,
-    "district": district.toString(),
-    "state": state.toString(),
-    "country": country.toString(),
-    "zip_code": zipCode,
-    "latitude": latitude.toString(),
-    "longitude": longitude.toString(),
-  });
-
-  /// 📸 FILES
-  request.files.add(
-    await http.MultipartFile.fromPath("shop_photo", shopPhoto.path),
-  );
-
-  request.files.add(
-    await http.MultipartFile.fromPath("owner_shop_photo", ownerPhoto.path),
-  );
-
-  request.files.add(
-    await http.MultipartFile.fromPath("shop_document", shopDocument.path),
-  );
-
-  /// 🚀 SEND REQUEST
-  final response = await request.send();
-  final responseBody = await response.stream.bytesToString();
-
-  logger.i("STATUS :: ${response.statusCode}");
-  logger.i("BODY :: $responseBody");
-
-  if (response.statusCode == 200 || response.statusCode == 201) {
-    return true;
-  } else {
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      print("✅ Complaint submitted successfully");
+      return true;
+    } else {
+      print("❌ Failed: ${response.body}");
+      return false;
+    }
+  } catch (e) {
+    print("🚨 Error: $e");
     return false;
   }
 }

@@ -44,12 +44,7 @@ Future<void> _logFlagState() async {
 
 Future<void> _checkDocumentStatusFromServer() async {
   try {
-    final apiService = ApiService();
-    final hasDocs = await apiService.checkDocumentStatus();
-    logger.i("📡 Server document status: $hasDocs");
-    
-    // Update local cache if needed
-    if (!hasDocs && await ApiService.getHasUploadedDocs() == true) {
+    if ( await ApiService.getHasUploadedDocs() == true) {
       logger.w("⚠️ Flag mismatch! Clearing local flag");
       await ApiService.setHasUploadedDocs(false);
     }

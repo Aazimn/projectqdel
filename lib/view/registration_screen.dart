@@ -5,7 +5,6 @@ import 'package:projectqdel/model/shop_model.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Carrier/carrier_upload.dart';
 import 'package:projectqdel/view/login_screen.dart';
-import 'package:projectqdel/view/shop/shop_home.dart';
 import 'package:projectqdel/view/shop/shop_registration.dart';
 import 'package:projectqdel/view/splash_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';

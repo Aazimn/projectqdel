@@ -19,13 +19,11 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   UserModel? user;
   bool profileLoading = true;
 
-  // Server-side counts from API `count` field
   int pendingCount = 0;
   int activeCount = 0;
   int completedCount = 0;
   bool countsLoading = true;
 
-  // Active orders for home preview (page 1 only, max 3 shown)
   List<dynamic> activeOrders = [];
   bool activeOrdersLoading = true;
 
@@ -91,7 +89,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     }
   }
   
-  // ── Helpers ────────────────────────────────────────────────────────────────
   int _extractCount(dynamic response) {
     if (response is Map) {
       final c = response['count'];
