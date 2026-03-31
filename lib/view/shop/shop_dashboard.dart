@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
-import 'package:projectqdel/view/shop/shop_home.dart';
-import 'package:projectqdel/view/shop/shop_settings.dart';
+import 'package:projectqdel/view/Shop/shop_home.dart';
+import 'package:projectqdel/view/Shop/shop_settings.dart';
 
 class ShopDashboard extends StatefulWidget {
   const ShopDashboard({super.key});

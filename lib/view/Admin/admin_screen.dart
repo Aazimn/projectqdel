@@ -5,6 +5,7 @@ import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/admin_profile.dart';
+import 'package:projectqdel/view/Admin/manage_transportation.dart';
 import 'package:projectqdel/view/Admin/shop_categoryview.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -470,6 +471,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       mainAxisSpacing: 14,
                       childAspectRatio: 1.1,
                       children: [
+                        _dashboardCard(
+                          icon: Icons.store,
+                          title: "Transportation Modes",
+                          subtitle: "Manage Transportation",
+                          iconColor: Colors.red,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const DeliveryModesAdmin(),
+                              ),
+                            );
+                          },
+                        ),
                         _dashboardCard(
                           icon: Icons.store,
                           title: "Shop Category",

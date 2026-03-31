@@ -5,6 +5,7 @@ import 'package:projectqdel/model/carrier_model.dart';
 import 'package:projectqdel/model/shop_model.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/dashboard_screen.dart';
+import 'package:projectqdel/view/Registration/login_screen.dart';
 import 'package:projectqdel/view/carrier/accepted_screen.dart';
 import 'package:projectqdel/view/carrier/approved_screen.dart';
 import 'package:projectqdel/view/carrier/carrier_dashboard.dart';
@@ -12,9 +13,8 @@ import 'package:projectqdel/view/carrier/carrier_upload.dart';
 import 'package:projectqdel/view/carrier/rejected_screen.dart';
 import 'package:projectqdel/view/carrier/status_pending.dart';
 import 'package:projectqdel/view/Client/client_dashboard.dart';
-import 'package:projectqdel/view/login_screen.dart';
-import 'package:projectqdel/view/shop/shop_dashboard.dart';
-import 'package:projectqdel/view/shop/shop_registration.dart';
+import 'package:projectqdel/view/Shop/shop_dashboard.dart';
+import 'package:projectqdel/view/Shop/shop_registration.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

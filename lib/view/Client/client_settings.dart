@@ -3,12 +3,13 @@ import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Client/client_dashboard.dart';
-import 'package:projectqdel/view/Client/client_profile.dart';
+import 'package:projectqdel/view/CommonPages/profile_screen.dart';
 import 'package:projectqdel/view/Client/help_support.dart';
 import 'package:projectqdel/view/Client/notification_screen.dart';
 import 'package:projectqdel/view/Client/privacy_security.dart';
 import 'package:projectqdel/view/Client/saved_address.dart';
-import 'package:projectqdel/view/splash_screen.dart';
+import 'package:projectqdel/view/CommonPages/splash_screen.dart';
+
 
 class ClientSettings extends StatefulWidget {
   const ClientSettings({super.key});
@@ -120,7 +121,7 @@ class _ClientSettingsState extends State<ClientSettings> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const ClientProfile()),
+          MaterialPageRoute(builder: (_) => const ProfileScreen()),
         );
       },
       child: Container(

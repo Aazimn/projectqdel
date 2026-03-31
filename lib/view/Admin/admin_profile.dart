@@ -3,7 +3,7 @@ import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/change_phone.dart';
-import 'package:projectqdel/view/splash_screen.dart';
+import 'package:projectqdel/view/CommonPages/splash_screen.dart';
 
 class AdminProfileScreen extends StatefulWidget {
   const AdminProfileScreen({super.key});
@@ -28,7 +28,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
 
   bool _isUpdating = false;
 
-  // Date range for stats (last 7 days by default)
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
 

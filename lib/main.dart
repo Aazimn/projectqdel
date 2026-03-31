@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/splash_screen.dart';
+import 'package:projectqdel/view/CommonPages/splash_screen.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

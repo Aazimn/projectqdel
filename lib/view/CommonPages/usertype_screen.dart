@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/splash_screen.dart';
+import 'package:projectqdel/view/CommonPages/splash_screen.dart';
 
 class UsertypeScreen extends StatefulWidget {
   final UserModel currentUser;

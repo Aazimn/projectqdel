@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/usertype_screen.dart';
+import 'package:projectqdel/view/CommonPages/usertype_screen.dart';
 
-class ClientProfile extends StatefulWidget {
-  const ClientProfile({super.key});
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
 
   @override
-  State<ClientProfile> createState() => _ClientProfileState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ClientProfileState extends State<ClientProfile> {
+class _ProfileScreenState extends State<ProfileScreen> {
   final ApiService apiService = ApiService();
   bool isCarrier = false;
   bool switchingRole = false;

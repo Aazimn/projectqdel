@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/registration_screen.dart';
-import 'package:projectqdel/view/splash_screen.dart';
+import 'package:projectqdel/view/CommonPages/splash_screen.dart';
+import 'package:projectqdel/view/Registration/registration_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phone;

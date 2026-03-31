@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:logger/logger.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
+import 'package:projectqdel/model/transportation_model.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Client/lottie_success.dart';
 import 'package:projectqdel/view/Client/map_picker.dart';
@@ -719,6 +720,26 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   String? senderLocationName;
   String? receiverLocationName;
 
+  List<DeliveryMode> deliveryModes = [];
+  bool isDeliveryModeLoading = false;
+  int? selectedDeliveryModeId;
+  String? selectedDeliveryModeName;
+
+  Future<void> _loadDeliveryModes() async {
+    setState(() => isDeliveryModeLoading = true);
+    try {
+      final data = await apiService.getDeliveryModes();
+      setState(() {
+        deliveryModes = data;
+      });
+    } catch (e) {
+      logger.e("Delivery mode load error: $e");
+      setState(() => deliveryModes = []);
+    } finally {
+      setState(() => isDeliveryModeLoading = false);
+    }
+  }
+
   Future<void> _loadSenderAddresses() async {
     setState(() => isSenderLoading = true);
 
@@ -1119,6 +1140,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
       "Saved IDs => country:$savedCountryId state:$savedStateId district:$savedDistrictId",
     );
     await _loadAllCountries();
+
     if (savedCountryId != null) {
       selectedCountryId = savedCountryId;
       final country = countries.firstWhere(
@@ -1164,6 +1186,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     if (selectedReceiverStateId != null) {
       await _loadReceiverDistricts(selectedReceiverStateId!);
     }
+    await _loadDeliveryModes();
     isInitializingDefaults = false;
     setState(() {});
   }
@@ -1448,8 +1471,362 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     }
   }
 
+  Widget _buildDeliveryModeSelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: ColorConstants.red,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                "Delivery Mode",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const Spacer(),
+              if (selectedDeliveryModeId != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ColorConstants.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: ColorConstants.red.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        size: 12,
+                        color: ColorConstants.red,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Selected",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: ColorConstants.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          isDeliveryModeLoading
+              ? _buildDeliveryModeShimmer()
+              : deliveryModes.isEmpty
+              ? _buildDeliveryModeEmpty()
+              : SizedBox(
+                  height: 130,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: deliveryModes.length,
+                    itemBuilder: (context, index) {
+                      final mode = deliveryModes[index];
+                      final isSelected = selectedDeliveryModeId == mode.id;
+                      final description = (mode.discription as String?) ?? '';
+                      return _buildDeliveryModeCard(
+                        mode: mode,
+                        isSelected: isSelected,
+                        description: description,
+                        index: index,
+                      );
+                    },
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryModeCard({
+    required DeliveryMode mode,
+    required bool isSelected,
+    required String description,
+    required int index,
+  }) {
+    final List<List<Color>> gradients = [
+      [const Color(0xFFEC2F2F), const Color(0xFFFF6B6B)],
+      [const Color(0xFF1E293B), const Color(0xFF475569)],
+      [const Color(0xFF9E1D1D), const Color(0xFFEC2F2F)],
+      [const Color(0xFF374151), const Color(0xFF6B7280)],
+      [const Color(0xFF7F1D1D), const Color(0xFFDC2626)],
+    ];
+
+    final gradient = gradients[index % gradients.length];
+    final icon = Icons.local_shipping_outlined;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedDeliveryModeId = mode.id;
+          selectedDeliveryModeName = mode.name;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        margin: const EdgeInsets.only(right: 12),
+        width: 110,
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: gradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected ? null : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? Colors.transparent : Colors.grey.shade200,
+            width: isSelected ? 0 : 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: gradient[0].withOpacity(0.4),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                    spreadRadius: 0,
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: Stack(
+          children: [
+            if (isSelected)
+              Positioned(
+                top: -10,
+                right: -10,
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.1),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.white.withOpacity(0.2)
+                              : gradient[0].withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          icon,
+                          size: 18,
+                          color: isSelected ? Colors.white : gradient[0],
+                        ),
+                      ),
+                      if (isSelected)
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.check,
+                            size: 10,
+                            color: gradient[0],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    mode.name,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected
+                          ? Colors.white
+                          : AddressColors.textPrimary,
+                      height: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    mode.discription,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected
+                          ? Colors.white
+                          : AddressColors.textPrimary,
+                      height: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (description.isNotEmpty)
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isSelected
+                            ? Colors.white.withOpacity(0.8)
+                            : AddressColors.textSecondary,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeliveryModeShimmer() {
+    return SizedBox(
+      height: 130,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 4,
+        itemBuilder: (_, index) {
+          return Container(
+            margin: const EdgeInsets.only(right: 12),
+            width: 110,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  width: 70,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: 50,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDeliveryModeEmpty() {
+    return Container(
+      height: 100,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.local_shipping_outlined,
+            size: 32,
+            color: ColorConstants.red.withOpacity(0.3),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "No delivery modes",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AddressColors.textSecondary,
+                ),
+              ),
+              GestureDetector(
+                onTap: _loadDeliveryModes,
+                child: Text(
+                  "Tap to retry",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: ColorConstants.red,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _onRefresh() async {
     await _loadAllCountries();
+    await _loadDeliveryModes();
     if (selectedStateId != null) {
       await _fetchSenderDistricts(
         stateId: selectedStateId!,
@@ -1508,6 +1885,15 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
+                    Container(
+                      width: 4,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: ColorConstants.red,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       "SENDER ADDRESS",
                       style: TextStyle(
@@ -1554,6 +1940,15 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
+                    Container(
+                      width: 4,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: ColorConstants.red,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       "RECEIVER ADDRESS",
                       style: TextStyle(
@@ -1611,13 +2006,26 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
+          Row(
+            children: [
+              // Container(
+              //   width: 4,
+              //   height: 18,
+              //   decoration: BoxDecoration(
+              //     color: ColorConstants.red,
+              //     borderRadius: BorderRadius.circular(2),
+              //   ),
+              // ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 6),
           Container(
@@ -1772,13 +2180,26 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Product Image",
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: ColorConstants.red,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                "Product Image",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 6),
           GestureDetector(
@@ -1871,6 +2292,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
           ],
         ),
         _imageUploadBox(),
+        _buildDeliveryModeSelector(),
       ],
     );
   }
@@ -2142,6 +2564,11 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                       _showErrorSnackBar("Please select a receiver address");
                       return;
                     }
+                    if (selectedDeliveryModeId == null) {
+                      logger.w("⚠️ Delivery mode not selected");
+                      _showErrorSnackBar("Please select a delivery mode");
+                      return;
+                    }
 
                     if (!mounted) return;
 
@@ -2184,6 +2611,19 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                         return;
                       }
 
+                      logger.i(
+                        "📡 Posting delivery mode: $selectedDeliveryModeId",
+                      );
+
+                      // if (!deliveryModeSuccess) {
+                      //   logger.e("❌ Delivery mode post failed");
+                      //   _showErrorSnackBar("Failed to set delivery mode");
+                      //   setState(() => isCreatingShipment = false);
+                      //   return;
+                      // }
+
+                      logger.i("✅ Delivery mode posted successfully");
+
                       logger.i("📡 Creating pickup request with:");
                       logger.i("  receiverId: $selectedReceiverAddressId");
                       logger.i(
@@ -2196,10 +2636,10 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
 
                       final pickupResponse = await apiService
                           .createPickupRequest(
-                            receiverId: selectedReceiverAddressId!,
                             productId: apiService.lastCreatedProductId!,
                             senderAddressId: selectedSenderAddressId!,
                             receiverAddressId: selectedReceiverAddressId!,
+                            deliverymodeId: selectedDeliveryModeId!,
                           );
 
                       if (pickupResponse == null) {

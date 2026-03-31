@@ -1704,6 +1704,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
           await ApiService.saveVerificationStatus(order!.id, true);
         }
         Navigator.pop(context);
+        
         setState(() {
           isPickupVerified = true;
           isVerifying = false;

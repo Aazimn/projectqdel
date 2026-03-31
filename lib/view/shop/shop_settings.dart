@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
-import 'package:projectqdel/view/Client/client_profile.dart';
+import 'package:projectqdel/view/CommonPages/profile_screen.dart';
 import 'package:projectqdel/view/Client/help_support.dart';
 import 'package:projectqdel/view/Client/notification_screen.dart';
 import 'package:projectqdel/view/Client/privacy_security.dart';
-import 'package:projectqdel/view/splash_screen.dart';
+import 'package:projectqdel/view/CommonPages/splash_screen.dart';
 
 class ShopSettings extends StatefulWidget {
   const ShopSettings({super.key});
@@ -17,7 +17,7 @@ class ShopSettings extends StatefulWidget {
 class _ShopSettingsState extends State<ShopSettings> {
   @override
   Widget build(BuildContext context) {
-    return  Scaffold(
+    return Scaffold(
       backgroundColor: ColorConstants.white,
       body: SingleChildScrollView(
         child: Column(
@@ -26,8 +26,6 @@ class _ShopSettingsState extends State<ShopSettings> {
             const SizedBox(height: 50),
             _profileCard(context),
             const SizedBox(height: 20),
-            _buildSectionTitle("Dashboard"),
-            const SizedBox(height: 10),
             _buildSectionTitle("Activities"),
             const SizedBox(height: 10),
             _buildActivitiesTiles(),
@@ -100,7 +98,7 @@ class _ShopSettingsState extends State<ShopSettings> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const ClientProfile()),
+          MaterialPageRoute(builder: (_) => const ProfileScreen()),
         );
       },
       child: Container(
@@ -174,7 +172,6 @@ class _ShopSettingsState extends State<ShopSettings> {
       ),
     );
   }
-
 
   Widget _buildActivitiesTiles() {
     return Padding(

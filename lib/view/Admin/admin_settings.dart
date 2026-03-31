@@ -3,7 +3,7 @@ import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/admin_profile.dart';
 import 'package:projectqdel/view/Admin/dashboard_screen.dart';
-import 'package:projectqdel/view/splash_screen.dart';
+import 'package:projectqdel/view/CommonPages/splash_screen.dart';
 
 class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
@@ -121,7 +121,7 @@ class AdminSettingsScreen extends StatelessWidget {
             border: Border.all(
               color: isDestructive
                   ? Colors
-                        .grey //.withOpacity(.4)
+                        .grey
                   : ColorConstants.grey,
             ),
             boxShadow: [

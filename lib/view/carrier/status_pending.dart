@@ -4,8 +4,9 @@ import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Carrier/approved_screen.dart';
 import 'package:projectqdel/view/Carrier/rejected_screen.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
-import 'package:projectqdel/view/login_screen.dart';
-import 'package:projectqdel/view/splash_screen.dart';
+import 'package:projectqdel/view/CommonPages/splash_screen.dart';
+import 'package:projectqdel/view/Registration/login_screen.dart';
+
 
 class StatusPending extends StatefulWidget {
   final String phone;

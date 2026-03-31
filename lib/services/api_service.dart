@@ -9,13 +9,16 @@ import 'package:logger/logger.dart';
 import 'package:projectqdel/model/carrier_orders.dart';
 import 'package:projectqdel/model/complaint_model.dart';
 import 'package:projectqdel/model/order_model.dart';
+import 'package:projectqdel/model/shop_workingdays.dart';
+import 'package:projectqdel/model/transportation_model.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl = "https://marie-peter-partly-solaris.trycloudflare.com";
+  final String baseurl =
+      "https://collar-portion-footage-wars.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -97,6 +100,9 @@ class ApiService {
     await prefs.remove('pickup_carrier_id');
     await prefs.remove('active_order_id');
     await prefs.remove('active_order_details');
+
+    await prefs.remove('shop_approval_status');
+    await prefs.remove('has_registered_shop');
 
     final keys = prefs.getKeys();
     final keysToRemove = <String>[];
@@ -349,7 +355,6 @@ class ApiService {
     }
     return false;
   }
-
 
   Future<bool> shopRegistration({
     required String phone,
@@ -695,7 +700,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getShopsByStatus({
-    required String status, 
+    required String status,
     String? searchQuery,
     int page = 1,
     int pageSize = 10,
@@ -730,7 +735,7 @@ class ApiService {
         List shops = [];
 
         if (jsonResponse['data'] != null) {
-          shops = jsonResponse['data']; 
+          shops = jsonResponse['data'];
         }
 
         int totalCount = jsonResponse['count'] ?? shops.length;
@@ -772,7 +777,7 @@ class ApiService {
 
   Future<bool> updateShopStatus({
     required int shopId,
-    required String status, 
+    required String status,
   }) async {
     try {
       final url = Uri.parse("$baseurl/api/qdel/admin/shop/approval/$shopId/");
@@ -1990,46 +1995,60 @@ class ApiService {
     return LatLng(position.latitude, position.longitude);
   }
 
-  Future<Map<String, dynamic>?> createPickupRequest({
-    required int receiverId,
-    required int productId,
-    required int senderAddressId,
-    int? receiverAddressId,
-  }) async {
-    final url = Uri.parse("$baseurl/api/qdel/users/sent/request/");
+Future<Map<String, dynamic>?> createPickupRequest({
+  required int deliverymodeId,
+  required int productId,
+  required int senderAddressId,
+  required int receiverAddressId,
+}) async {
+  final url = Uri.parse("$baseurl/api/qdel/users/sent/request/");
 
-    final body = {
-      "receiver": receiverId,
-      "product": productId,
-      "address": senderAddressId,
-      "receiver_address": receiverAddressId,
-    };
+  final body = {
+    "delivery_mode": deliverymodeId,  
+    "product": productId,
+    "address": senderAddressId,
+    "receiver_address": receiverAddressId,
+  };
 
-    logger.i("CREATE PICKUP URL => $url");
-    logger.i("CREATE PICKUP BODY => $body");
+  logger.i("CREATE PICKUP URL => $url");
+  logger.i("CREATE PICKUP BODY => $body");
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {
-          "Authorization": "Bearer ${ApiService.accessToken}",
-          "Content-Type": "application/json",
-        },
-        body: jsonEncode(body),
-      );
-      logger.i("CREATE PICKUP STATUS => ${response.statusCode}");
-      logger.i("CREATE PICKUP RESPONSE => ${response.body}");
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return jsonDecode(response.body);
-      } else {
-        logger.e("CREATE PICKUP FAILED => ${response.body}");
-        return null;
+  try {
+    final response = await http.post(
+      url,
+      headers: {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode(body),
+    );
+    
+    logger.i("CREATE PICKUP STATUS => ${response.statusCode}");
+    logger.i("CREATE PICKUP RESPONSE => ${response.body}");
+    
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      
+      if (responseData.containsKey('data')) {
+        final data = responseData['data'];
+        logger.i("Delivery mode in response: ${data['delivery_mode']}");
+        if (data['delivery_mode'] == null) {
+          logger.w("⚠️ Delivery mode was not saved in the backend!");
+        } else {
+          logger.i("✅ Delivery mode saved successfully: ${data['delivery_mode']}");
+        }
       }
-    } catch (e) {
-      logger.e("CREATE PICKUP ERROR => $e");
+      
+      return responseData;
+    } else {
+      logger.e("CREATE PICKUP FAILED => ${response.body}");
       return null;
     }
+  } catch (e) {
+    logger.e("CREATE PICKUP ERROR => $e");
+    return null;
   }
+}
 
   int? lastAcceptedPickupCarrierId;
 
@@ -3585,36 +3604,284 @@ class ApiService {
     }
   }
 
+  Future<bool> createComplaint({
+    required String subject,
+    required String description,
+  }) async {
+    final url = Uri.parse('$baseurl/api/qdel/user/complaints/create/');
 
-Future<bool> createComplaint({
-  required String subject,
-  required String description,
-}) async {
-  final url = Uri.parse('$baseurl/api/qdel/user/complaints/create/');
-
-  try {
-    final response = await http.post(
-      url,
+    try {
+      final response = await http.post(
+        url,
         headers: {
           "Authorization": "Bearer ${ApiService.accessToken}",
           "Content-Type": "application/json",
         },
-      body: jsonEncode({
-        "subject": subject,
-        "description": description,
-      }),
-    );
+        body: jsonEncode({"subject": subject, "description": description}),
+      );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      print("✅ Complaint submitted successfully");
-      return true;
-    } else {
-      print("❌ Failed: ${response.body}");
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print("✅ Complaint submitted successfully");
+        return true;
+      } else {
+        print("❌ Failed: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("🚨 Error: $e");
       return false;
     }
-  } catch (e) {
-    print("🚨 Error: $e");
-    return false;
   }
-}
+
+  Future<bool> createShopStatus({required bool isManuallyClosed}) async {
+    final url = Uri.parse("$baseurl/api/qdel/shop/create/time/");
+
+    final body = {"is_manually_closed": isManuallyClosed};
+
+    print("========== API DEBUG START ==========");
+    print("URL: $url");
+    print("BODY: ${jsonEncode(body)}");
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode(body),
+      );
+
+      print("STATUS CODE: ${response.statusCode}");
+      print("RESPONSE BODY: ${response.body}");
+      print("========== API DEBUG END ==========");
+
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print("❌ EXCEPTION: $e");
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getShopTimings() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseurl/api/qdel/shop/create/time/'),
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        return data['data'];
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching shop timings: $e');
+      return null;
+    }
+  }
+
+  Future<bool> createShopTimings({
+    required List<WorkingDay> workingDays,
+    required List<SpecialDay> specialDays,
+    required bool isManuallyClosed,
+  }) async {
+    try {
+      final Map<String, dynamic> body = {
+        'is_manually_closed': isManuallyClosed,
+        'working_days': workingDays.map((d) => d.toJson()).toList(),
+        'special_days': specialDays.map((d) => d.toJson()).toList(),
+      };
+
+      print('Creating shop timings with special days: ${specialDays.length}');
+      print('Request body: ${json.encode(body)}');
+
+      final response = await http.post(
+        Uri.parse('$baseurl/api/qdel/shop/create/time/'),
+        headers: {
+          "Authorization": "Bearer $accessToken",
+          "Content-Type": "application/json",
+        },
+        body: json.encode(body),
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print('Error creating shop timings: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateShopTimings({
+    required int? shopId,
+    required List<WorkingDay> workingDays,
+    required List<SpecialDay> specialDays,
+    required bool isManuallyClosed,
+  }) async {
+    try {
+      final Map<String, dynamic> body = {
+        'is_manually_closed': isManuallyClosed,
+        'working_days': workingDays.map((d) => d.toJson()).toList(),
+        'special_days': specialDays.map((d) => d.toJson()).toList(),
+      };
+
+      print('Updating shop timings with special days: ${specialDays.length}');
+      print('Request body: ${json.encode(body)}');
+
+      final url = '$baseurl/api/qdel/shop/update/shop/time/';
+
+      final response = await http.put(
+        Uri.parse(url),
+        headers: {
+          "Authorization": "Bearer $accessToken",
+          "Content-Type": "application/json",
+        },
+        body: json.encode(body),
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error updating shop timings: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteSpecialDay(int specialDayId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseurl/api/qdel/shop/special/day/$specialDayId/'),
+        headers: {
+          "Authorization": "Bearer $accessToken",
+          "Content-Type": "application/json",
+        },
+      );
+
+      print('Delete special day response status: ${response.statusCode}');
+      print('Delete special day response body: ${response.body}');
+
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      print('Error deleting special day: $e');
+      return false;
+    }
+  }
+
+  Future<List<DeliveryMode>> getDeliveryModes({bool fetchAll = true}) async {
+    List<DeliveryMode> allModes = [];
+    String? nextUrl = '$baseurl/api/qdel/admin/add/delivery/modes/';
+
+    try {
+      while (nextUrl != null) {
+        final response = await http.get(
+          Uri.parse(nextUrl),
+          headers: {
+            "Authorization": "Bearer $accessToken",
+            "Content-Type": "application/json",
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final Map<String, dynamic> data = json.decode(response.body);
+
+          List<dynamic> items = data['data'] ?? [];
+          final modes = items
+              .map((item) => DeliveryMode.fromJson(item))
+              .toList();
+          allModes.addAll(modes);
+          nextUrl = fetchAll ? data['next'] : null;
+        } else {
+          break;
+        }
+      }
+
+      return allModes;
+    } catch (e) {
+      print('Error fetching delivery modes: $e');
+      return allModes;
+    }
+  }
+
+  Future<bool> createDeliveryMode(String name, String descriptionMode) async {
+    try {
+      final Map<String, dynamic> body = {
+        'name': name,
+        "description": descriptionMode,
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseurl/api/qdel/admin/add/delivery/modes/'),
+        headers: {
+          "Authorization": "Bearer $accessToken",
+          "Content-Type": "application/json",
+        },
+        body: json.encode(body),
+      );
+
+      print('POST delivery mode response: ${response.statusCode}');
+      print('POST delivery mode body: ${response.body}');
+
+      return response.statusCode == 201 || response.statusCode == 200;
+    } catch (e) {
+      print('Error creating delivery mode: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateDeliveryMode(
+    int id,
+    String name,
+    String descriptionMode,
+  ) async {
+    try {
+      final Map<String, dynamic> body = {
+        'name': name,
+        'description': descriptionMode,
+      };
+
+      final response = await http.put(
+        Uri.parse('$baseurl/api/qdel/admin/update/delivery/modes/$id/'),
+        headers: {
+          "Authorization": "Bearer $accessToken",
+          "Content-Type": "application/json",
+        },
+        body: json.encode(body),
+      );
+
+      print('PUT delivery mode response: ${response.statusCode}');
+      print('PUT delivery mode body: ${response.body}');
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error updating delivery mode: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteDeliveryMode(int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseurl/api/qdel/admin/update/delivery/modes/$id/'),
+        headers: {
+          "Authorization": "Bearer $accessToken",
+          "Content-Type": "application/json",
+        },
+      );
+
+      print('DELETE delivery mode response: ${response.statusCode}');
+
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      print('Error deleting delivery mode: $e');
+      return false;
+    }
+  }
 }

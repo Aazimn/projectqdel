@@ -718,100 +718,9 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: _complaintBottomSheet,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.white,
-                        ColorConstants.red.withOpacity(0.05),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: ColorConstants.red.withOpacity(0.2),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ColorConstants.red.withOpacity(0.15),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: ColorConstants.red.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.report_problem_outlined,
-                          color: ColorConstants.red,
-                          size: 22,
-                        ),
-                      ),
-
-                      const SizedBox(width: 12),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Register Complaint',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Tell us what went wrong',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: ColorConstants.red.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 14,
-                          color: ColorConstants.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
             const SizedBox(height: 24),
-
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(16),
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -890,9 +799,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 24),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -921,9 +828,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 12),
-
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -937,9 +842,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 12),
-
             _filteredFaqs.isEmpty
                 ? Center(
                     child: Padding(
@@ -981,14 +884,12 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                       return _buildFaqTile(faq);
                     },
                   ),
-
             const SizedBox(height: 20),
-
             Padding(
               padding: const EdgeInsets.all(16),
               child: OutlinedButton.icon(
                 onPressed: () {
-                  _showChatBottomSheet();
+                  _complaintBottomSheet();
                 },
                 icon: const Icon(Icons.flag_outlined, color: Colors.red),
                 label: const Text(
@@ -1004,7 +905,6 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
           ],
         ),
