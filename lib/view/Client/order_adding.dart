@@ -4,7 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:logger/logger.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
-import 'package:projectqdel/model/transportation_model.dart';
+import 'package:projectqdel/model/delivery_model.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Client/lottie_success.dart';
 import 'package:projectqdel/view/Client/map_picker.dart';

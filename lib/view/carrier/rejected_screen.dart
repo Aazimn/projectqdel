@@ -6,7 +6,7 @@ import 'package:projectqdel/view/Registration/login_screen.dart';
 
 
 class RejectedScreen extends StatefulWidget {
-  final String? userType; // Add userType parameter
+  final String? userType; 
 
   const RejectedScreen({super.key, this.userType});
 
@@ -54,7 +54,6 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
         debugPrint("Changed to client type");
 
-        // Navigate to splash screen after switching to client
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
@@ -94,7 +93,6 @@ class _RejectedScreenState extends State<RejectedScreen> {
     });
 
     try {
-      // Determine the new role based on current user type
       final currentType = _userType;
       String newType;
       
@@ -103,7 +101,7 @@ class _RejectedScreenState extends State<RejectedScreen> {
       } else if (currentType == "carrier") {
         newType = "shop";
       } else {
-        newType = "client"; // Fallback to client if unknown
+        newType = "client"; 
       }
 
       final success = await apiService.updateUserType(newType);
@@ -121,7 +119,6 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
         debugPrint("Changed to $newType type");
 
-        // Navigate to splash screen after switching role
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
@@ -482,7 +479,6 @@ class _RejectedScreenState extends State<RejectedScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Continue as Shop/Carrier Button
                     GestureDetector(
                       onTap: isChangingRole ? null : _showContinueAsOtherRoleDialog,
                       child: Container(
@@ -574,7 +570,6 @@ class _RejectedScreenState extends State<RejectedScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Continue as Client Button
                     GestureDetector(
                       onTap: isChangingToClient ? null : _showContinueAsClientDialog,
                       child: Container(

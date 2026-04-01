@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:logger/logger.dart'; // Make sure you have this
+import 'package:logger/logger.dart'; 
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
 
@@ -15,14 +15,14 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   final ApiService apiService = ApiService();
   final Logger logger = Logger();
   late UserModel user;
-  late String baseUrl; // Add this
+  late String baseUrl; 
   bool isUpdating = false;
 
   @override
   void initState() {
     super.initState();
     user = widget.user;
-    baseUrl = apiService.baseurl; // Get base URL from ApiService
+    baseUrl = apiService.baseurl; 
     _logDocumentInfo();
   }
 
@@ -31,17 +31,14 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       return '';
     }
 
-    // If it's already a full URL, return as is
     if (user.document!.startsWith('http')) {
       return user.document!;
     }
 
-    // Remove leading slash if present to avoid double slashes
     String documentPath = user.document!.startsWith('/')
         ? user.document!.substring(1)
         : user.document!;
 
-    // Ensure baseUrl doesn't end with slash
     String base = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
         : baseUrl;
@@ -66,7 +63,6 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         "Document URL contains 'media': ${user.document!.contains('media')}",
       );
 
-      // Log the full URL we'll use
       String fullUrl = _getFullDocumentUrl();
       logger.i("Full document URL: $fullUrl");
     }
@@ -436,7 +432,6 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   }
 
   Widget _documentCard(BuildContext context) {
-    // Check if document exists
     if (user.document == null || user.document!.isEmpty) {
       logger.w("No document available for user ${user.id}");
       return _card(

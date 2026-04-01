@@ -7,6 +7,7 @@ import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/model/order_model.dart';
 import 'package:projectqdel/view/Carrier/carrier_dashboard.dart';
+import 'package:projectqdel/view/Carrier/drop_location_screen.dart';
 import 'package:url_launcher/url_launcher.dart' as launcher;
 import 'package:slider_button/slider_button.dart';
 import 'package:pinput/pinput.dart';
@@ -185,9 +186,20 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     }
   }
 
-  // Method to handle order cancellation
+  void _navigateToDropLocation() {
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DropLocationScreen(
+          
+        ),
+      ),
+    );
+  }
+
+ 
   Future<void> _cancelOrder() async {
-    // Show confirmation dialog
     final shouldCancel = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -243,17 +255,14 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       if (!mounted) return;
 
       if (response != null && response['success'] == true) {
-        // Clear all saved order data
         if (order != null) {
           await ApiService.clearOrderStatus(order!.id);
         }
         await ApiService.clearActiveOrder();
         await ApiService.clearPickupCarrierId();
 
-        // Stop location updates
         _stopLocationUpdates();
 
-        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Order cancelled successfully"),
@@ -262,7 +271,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
           ),
         );
 
-        // Navigate back to dashboard
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const CarrierDashboard()),
@@ -468,7 +476,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }
 
   void _showOtpBottomSheet() {
-    // Cancel any existing timer when opening new bottom sheet
     OtpTimer.cancelTimer();
 
     showModalBottomSheet(
@@ -485,7 +492,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            // Start timer when OTP is sent
             void startResendTimer() {
               OtpTimer.startTimer(() {
                 if (mounted) {
@@ -494,7 +500,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
               });
             }
 
-            // Handle resend OTP
             Future<void> handleResendOtp() async {
               if (OtpTimer.isTimerActive) return;
 
@@ -596,8 +601,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
-
-                          // Cancel Order Button
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
@@ -894,7 +897,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }
 
   void _showDeliveryOtpBottomSheet() {
-    // Cancel any existing timer when opening new bottom sheet
     OtpTimer.cancelTimer();
 
     showModalBottomSheet(
@@ -911,7 +913,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            // Start timer when OTP is sent
             void startResendTimer() {
               OtpTimer.startTimer(() {
                 if (mounted) {
@@ -920,7 +921,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
               });
             }
 
-            // Handle resend OTP
             Future<void> handleResendOtp() async {
               if (OtpTimer.isTimerActive) return;
 
@@ -1024,7 +1024,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
                           ),
                           const SizedBox(height: 24),
 
-                          // Drop Order Button
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
@@ -1474,7 +1473,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
-  } 
+  }
 
   Future<void> _startLiveLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -1704,7 +1703,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
           await ApiService.saveVerificationStatus(order!.id, true);
         }
         Navigator.pop(context);
-        
+
         setState(() {
           isPickupVerified = true;
           isVerifying = false;
@@ -1853,6 +1852,84 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     );
   }
 
+  void _showDropLocationConfirmation() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.store, color: Colors.red.shade700, size: 28),
+            const SizedBox(width: 12),
+            const Text(
+              'Drop Location',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to proceed?',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.red.shade700,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You will be able to view nearby drop locations and select one for delivery.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700),
+            child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop(true);
+              _navigateToDropLocation();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Proceed', style: TextStyle(fontSize: 16)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPickupCard() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1899,14 +1976,19 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
               InkWell(
                 onTap: () {
                   if (!isCancelling) {
-                    _cancelOrder();
+                    if (isPickupVerified) {
+                      // Show confirmation dialog before navigating to Drop Location
+                      _showDropLocationConfirmation();
+                    } else {
+                      _cancelOrder();
+                    }
                   }
                 },
                 child: Container(
                   height: 35,
                   width: 100,
                   decoration: BoxDecoration(
-                    color: Colors.red,
+                    color: isPickupVerified ? Colors.red : Colors.red,
                     borderRadius: BorderRadius.circular(25),
                   ),
                   child: Center(

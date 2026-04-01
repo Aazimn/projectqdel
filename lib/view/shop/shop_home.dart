@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/shop_workingdays.dart';
 import 'package:projectqdel/services/api_service.dart';
 
@@ -16,30 +15,25 @@ class _ShopHomeState extends State<ShopHome> {
   bool isLoading = true;
   bool isUpdating = false;
 
-  // Shop data
   int? shopId;
   bool isManuallyClosed = false;
   List<WorkingDay> workingDays = [];
   List<SpecialDay> specialDays = [];
 
-  // Registration flow
   bool isRegistering = false;
   int registrationStep = 0;
 
-  // Edit mode
   bool isEditMode = false;
   bool hasUnsavedChanges = false;
   int? editingDayIndex;
   int? editingSpecialDayIndex;
 
-  // Special day form - only used in edit mode
   DateTime? selectedSpecialDate;
   bool specialDayIsOpen = true;
   TimeOfDay? specialOpenTime;
   TimeOfDay? specialCloseTime;
   List<BreakTime> specialBreaks = [];
 
-  // Temporary copies for edit mode
   List<WorkingDay> tempWorkingDays = [];
   List<SpecialDay> tempSpecialDays = [];
 
@@ -211,7 +205,6 @@ class _ShopHomeState extends State<ShopHome> {
   }
 
   void enterEditMode() {
-    // Create copies of current data
     setState(() {
       tempWorkingDays = workingDays.map((day) => day.copyWith()).toList();
       tempSpecialDays = specialDays.map((day) => day.copyWith()).toList();
@@ -265,7 +258,6 @@ class _ShopHomeState extends State<ShopHome> {
         ),
       );
     } else {
-      // No unsaved changes, exit normally without dialog
       setState(() {
         isEditMode = false;
         editingDayIndex = null;
@@ -294,9 +286,7 @@ class _ShopHomeState extends State<ShopHome> {
               backgroundColor: Colors.green,
             ),
           );
-          // Refresh data to get updated IDs from backend
           await fetchShopData();
-          // Reset hasUnsavedChanges before exiting
           setState(() {
             hasUnsavedChanges = false;
             isEditMode = false;
@@ -694,7 +684,6 @@ class _ShopHomeState extends State<ShopHome> {
   }
 
   Widget _buildDashboard() {
-    // Use temp data when in edit mode
     final displayWorkingDays = isEditMode ? tempWorkingDays : workingDays;
     final displaySpecialDays = isEditMode ? tempSpecialDays : specialDays;
 
@@ -746,7 +735,6 @@ class _ShopHomeState extends State<ShopHome> {
               ],
             ),
           ),
-          // Grey overlay when shop is closed (but not fully disabling)
           if (isManuallyClosed && !isEditMode)
             Container(
               color: Colors.black.withOpacity(0.3),

@@ -6,12 +6,18 @@ import 'package:latlong2/latlong.dart';
 import 'package:logger/web.dart';
 import 'package:lottie/lottie.dart' hide Marker;
 import 'package:projectqdel/core/constants/color_constants.dart';
+import 'package:projectqdel/model/delivery_model.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/model/order_model.dart';
 import 'package:projectqdel/view/Carrier/accepted_screen.dart';
 
 class CarrierMapScreen extends StatefulWidget {
-  const CarrierMapScreen({super.key});
+  final DeliveryMode? selectedDeliveryMode;
+
+  const CarrierMapScreen({
+    super.key,
+    this.selectedDeliveryMode,
+  });
 
   @override
   State<CarrierMapScreen> createState() => _CarrierMapScreenState();
@@ -20,7 +26,6 @@ class CarrierMapScreen extends StatefulWidget {
 class _CarrierMapScreenState extends State<CarrierMapScreen> {
   bool isLocationEnabled = false;
   bool isCheckingLocation = true;
-  // bool isAcceptingOrder = false;
   Logger logger = Logger();
   LatLng? carrierLocation;
   Future<List<OrderModel>>? ordersFuture;
@@ -30,39 +35,37 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
   Future<void> _startLiveLocation() async {
     _locationStream?.cancel();
 
-    _locationStream =
-        Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 50,
-          ),
-        ).listen((position) async {
-          setState(() {
-            carrierLocation = LatLng(position.latitude, position.longitude);
-          });
+    _locationStream = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 50,
+      ),
+    ).listen((position) async {
+      setState(() {
+        carrierLocation = LatLng(position.latitude, position.longitude);
+      });
 
-          try {
-            // Get saved pickup_carrier_id (set after accepting an order)
-            int? pickupCarrierId = await ApiService.getPickupCarrierId();
+      try {
+        int? pickupCarrierId = await ApiService.getPickupCarrierId();
 
-            if (pickupCarrierId == null) {
-              logger.w("⚠️ pickupCarrierId not available yet");
-              return;
-            }
+        if (pickupCarrierId == null) {
+          logger.w("⚠️ pickupCarrierId not available yet");
+          return;
+        }
 
-            await ApiService().updateCarrierLocation(
-              pickupCarrierId: pickupCarrierId,
-              latitude: position.latitude,
-              longitude: position.longitude,
-            );
+        await ApiService().updateCarrierLocation(
+          pickupCarrierId: pickupCarrierId,
+          latitude: position.latitude,
+          longitude: position.longitude,
+        );
 
-            logger.i(
-              "📍 Location Updated -> ${position.latitude}, ${position.longitude} | ID: $pickupCarrierId",
-            );
-          } catch (e) {
-            logger.e("❌ Live location update error: $e");
-          }
-        });
+        logger.i(
+          "📍 Location Updated -> ${position.latitude}, ${position.longitude} | ID: $pickupCarrierId",
+        );
+      } catch (e) {
+        logger.e("❌ Live location update error: $e");
+      }
+    });
   }
 
   bool _isWithinRadius(OrderModel order) {
@@ -115,7 +118,18 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
       setState(() {
         isLocationEnabled = true;
         carrierLocation = location;
-        ordersFuture = ApiService().getAllOrders();
+
+        if (widget.selectedDeliveryMode != null) {
+          debugPrint(
+            "🔍 Filtering orders by delivery mode: ${widget.selectedDeliveryMode!.name} (ID: ${widget.selectedDeliveryMode!.id})",
+          );
+          ordersFuture = ApiService().getAllOrders(
+            deliveryModeId: widget.selectedDeliveryMode!.id,
+          );
+        } else {
+          ordersFuture = ApiService().getAllOrders();
+        }
+
         isCheckingLocation = false;
       });
       _startLiveLocation();
@@ -128,26 +142,111 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: ColorConstants.red,
-        title: const Center(
-          child: Text(
-            "Pickup Orders",
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 25,
+  Future<bool> _onWillPop() async {
+    return await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.exit_to_app,
+              color: Colors.red.shade700,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Exit Confirmation',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to exit?',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey.shade700,
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontSize: 16),
             ),
           ),
-        ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'Exit',
+              style: TextStyle(fontSize: 16),
+            ),
+          ),
+        ],
       ),
+    ) ?? false;
+  }
 
-      body: isCheckingLocation
-          ? const Center(child: CircularProgressIndicator())
-          : (!isLocationEnabled ? _locationOffUI() : _mapWithOrders()),
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: ColorConstants.red,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () async {
+              final shouldPop = await _onWillPop();
+              if (shouldPop && mounted) {
+                Navigator.pop(context);
+              }
+            },
+          ),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Pickup Orders",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 25,
+                ),
+              ),
+              if (widget.selectedDeliveryMode != null)
+                Text(
+                  widget.selectedDeliveryMode!.name,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+            ],
+          ),
+          centerTitle: true, 
+          automaticallyImplyLeading: false, 
+        ),
+        body: isCheckingLocation
+            ? const Center(child: CircularProgressIndicator())
+            : (!isLocationEnabled ? _locationOffUI() : _mapWithOrders()),
+      ),
     );
   }
 
@@ -275,11 +374,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
               child: GestureDetector(
                 onTap: () => _showOrderDetails(order),
                 child: Container(
-                  // decoration: BoxDecoration(
-                  //   color: ColorConstants.red.withOpacity(0.3),
-                  //   shape: BoxShape.circle,
-                  //   border: Border.all(color: ColorConstants.red, width: 2),
-                  // ),
                   child: Lottie.asset(
                     "assets/lottie_assets/location.json",
                     repeat: true,
@@ -461,9 +555,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 16),
-
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -471,7 +563,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                             children: [
                               const Icon(
                                 Icons.circle,
-
                                 size: 10,
                                 color: Colors.black,
                               ),
@@ -513,7 +604,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                                       : "Pickup address not available",
                                   style: const TextStyle(color: Colors.black54),
                                 ),
-
                                 const SizedBox(height: 50),
                                 const Text(
                                   "Deliver To",
@@ -532,7 +622,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-
                                 Text(
                                   order.receiverAddress != null
                                       ? "${order.receiverAddress!.address}, "
@@ -547,9 +636,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 24),
-
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -620,14 +707,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
     return true;
   }
 
-  // In CarrierMapScreen.dart - Update the _acceptOrder method
-  // In CarrierMapScreen.dart - Update the _acceptOrder method
-  // In CarrierMapScreen.dart - Update the _acceptOrder method
-  // In CarrierMapScreen.dart - Update _acceptOrder method
-  // In CarrierMapScreen.dart - Update the _acceptOrder method
-
-  // In CarrierMapScreen.dart - Update _acceptOrder method
-  // In CarrierMapScreen.dart - Update _acceptOrder method
   Future<void> _acceptOrder(OrderModel order) async {
     try {
       if (carrierLocation == null) {
@@ -651,19 +730,15 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
       if (response != null) {
         Navigator.pop(context);
 
-        // Save the order ID
         await ApiService.saveActiveOrder(order.id);
         await ApiService.saveActiveOrderDetails(order);
 
-        // Save the pickup_carrier_id if available
         if (ApiService().lastAcceptedPickupCarrierId != null) {
           int pickupCarrierId = ApiService().lastAcceptedPickupCarrierId!;
 
-          // Save globally
           await ApiService.savePickupCarrierId(pickupCarrierId);
           debugPrint("✅ Saved global pickup_carrier_id: $pickupCarrierId");
 
-          // IMPORTANT: Save it for this specific order
           await ApiService.savePickupCarrierIdForOrder(
             order.id,
             pickupCarrierId,
@@ -672,7 +747,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
             "✅ Saved pickup_carrier_id $pickupCarrierId for order ${order.id}",
           );
 
-          // Verify it was saved
           int? savedId = await ApiService.getPickupCarrierIdForOrder(order.id);
           debugPrint(
             "✅ Verified: pickup_carrier_id for order ${order.id} is $savedId",

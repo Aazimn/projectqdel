@@ -8,9 +8,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:logger/logger.dart';
 import 'package:projectqdel/model/carrier_orders.dart';
 import 'package:projectqdel/model/complaint_model.dart';
+import 'package:projectqdel/model/drop_location.dart';
 import 'package:projectqdel/model/order_model.dart';
 import 'package:projectqdel/model/shop_workingdays.dart';
-import 'package:projectqdel/model/transportation_model.dart';
+import 'package:projectqdel/model/delivery_model.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,7 +19,7 @@ class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
   final String baseurl =
-      "https://collar-portion-footage-wars.trycloudflare.com";
+      "https://sector-mattress-hypothesis-therefore.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -1889,13 +1890,26 @@ class ApiService {
     }
   }
 
-  Future<List<OrderModel>> getAllOrders() async {
+  Future<List<OrderModel>> getAllOrders({int? deliveryModeId}) async {
     try {
+      // Build URL with query parameters
+      Uri uri;
+      if (deliveryModeId != null) {
+        uri = Uri.parse(
+          '$baseurl/api/qdel/user/view/all/orders/?delivery_mode=$deliveryModeId',
+        );
+        debugPrint("🔍 Filtering orders by delivery mode: $deliveryModeId");
+      } else {
+        uri = Uri.parse('$baseurl/api/qdel/user/view/all/orders/');
+        debugPrint("📋 Fetching all orders (no filter)");
+      }
+
       final response = await http.get(
-        Uri.parse('$baseurl/api/qdel/user/view/all/orders/'),
+        uri,
         headers: {'Authorization': "Bearer ${ApiService.accessToken}"},
       );
       debugPrint("💡 GET ORDERS STATUS => ${response.statusCode}");
+
       if (response.statusCode != 200) {
         debugPrint("❌ HTTP Error: ${response.statusCode}");
         debugPrint("❌ Response body: ${response.body}");
@@ -1974,6 +1988,91 @@ class ApiService {
     }
   }
 
+  // Future<List<OrderModel>> getAllOrders() async {
+  //   try {
+  //     final response = await http.get(
+  //       Uri.parse('$baseurl/api/qdel/user/view/all/orders/'),
+  //       headers: {'Authorization': "Bearer ${ApiService.accessToken}"},
+  //     );
+  //     debugPrint("💡 GET ORDERS STATUS => ${response.statusCode}");
+  //     if (response.statusCode != 200) {
+  //       debugPrint("❌ HTTP Error: ${response.statusCode}");
+  //       debugPrint("❌ Response body: ${response.body}");
+  //       return [];
+  //     }
+
+  //     Map<String, dynamic> decoded;
+  //     try {
+  //       decoded = jsonDecode(response.body) as Map<String, dynamic>;
+  //     } catch (e) {
+  //       debugPrint("❌ Failed to decode JSON: $e");
+  //       debugPrint("❌ Raw response: ${response.body}");
+  //       return [];
+  //     }
+
+  //     if (decoded['status'] != 'success') {
+  //       debugPrint("⚠️ API returned non-success status: ${decoded['status']}");
+  //       return [];
+  //     }
+
+  //     final List ordersJson = decoded['data'];
+  //     if (ordersJson.isEmpty) {
+  //       debugPrint("📭 No orders found in response");
+  //       return [];
+  //     }
+
+  //     debugPrint("📦 Total orders from API: ${ordersJson.length}");
+
+  //     final List<OrderModel> orders = [];
+  //     int parseErrors = 0;
+
+  //     for (var orderJson in ordersJson) {
+  //       try {
+  //         final order = OrderModel.fromJson(orderJson);
+  //         orders.add(order);
+  //         debugPrint("✅ Order ${order.id} parsed successfully");
+  //         if (order.senderAddress != null) {
+  //           final lat = order.senderAddress!.latitude;
+  //           final lng = order.senderAddress!.longitude;
+  //           if (lat != null && lng != null) {
+  //             debugPrint("   📍 Has coordinates: ($lat, $lng)");
+  //           } else {
+  //             debugPrint("   ⚠️ Missing coordinates");
+  //           }
+  //         } else {
+  //           debugPrint("   ⚠️ No sender address");
+  //         }
+  //       } catch (e, stackTrace) {
+  //         parseErrors++;
+  //         debugPrint(
+  //           "⚠️ Failed to parse order ${orderJson['id'] ?? 'unknown'}: $e",
+  //         );
+  //         if (orderJson.containsKey('product_details')) {
+  //           debugPrint("   product_details: ${orderJson['product_details']}");
+  //         }
+  //         if (orderJson.containsKey('sender_address')) {
+  //           debugPrint("   sender_address: ${orderJson['sender_address']}");
+  //         }
+  //         if (parseErrors <= 3) {
+  //           debugPrint("   Stack trace: $stackTrace");
+  //         }
+
+  //         continue;
+  //       }
+  //     }
+  //     debugPrint(
+  //       "✅ Successfully parsed ${orders.length} out of ${ordersJson.length} orders",
+  //     );
+  //     if (parseErrors > 0) {
+  //       debugPrint("⚠️ Failed to parse $parseErrors orders");
+  //     }
+  //     return orders;
+  //   } catch (e) {
+  //     debugPrint("⛔ GET ORDERS ERROR => $e");
+  //     return [];
+  //   }
+  // }
+
   Future<LatLng?> getCarrierCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -1995,60 +2094,62 @@ class ApiService {
     return LatLng(position.latitude, position.longitude);
   }
 
-Future<Map<String, dynamic>?> createPickupRequest({
-  required int deliverymodeId,
-  required int productId,
-  required int senderAddressId,
-  required int receiverAddressId,
-}) async {
-  final url = Uri.parse("$baseurl/api/qdel/users/sent/request/");
+  Future<Map<String, dynamic>?> createPickupRequest({
+    required int deliverymodeId,
+    required int productId,
+    required int senderAddressId,
+    required int receiverAddressId,
+  }) async {
+    final url = Uri.parse("$baseurl/api/qdel/users/sent/request/");
 
-  final body = {
-    "delivery_mode": deliverymodeId,  
-    "product": productId,
-    "address": senderAddressId,
-    "receiver_address": receiverAddressId,
-  };
+    final body = {
+      "delivery_mode": deliverymodeId,
+      "product": productId,
+      "address": senderAddressId,
+      "receiver_address": receiverAddressId,
+    };
 
-  logger.i("CREATE PICKUP URL => $url");
-  logger.i("CREATE PICKUP BODY => $body");
+    logger.i("CREATE PICKUP URL => $url");
+    logger.i("CREATE PICKUP BODY => $body");
 
-  try {
-    final response = await http.post(
-      url,
-      headers: {
-        "Authorization": "Bearer ${ApiService.accessToken}",
-        "Content-Type": "application/json",
-      },
-      body: jsonEncode(body),
-    );
-    
-    logger.i("CREATE PICKUP STATUS => ${response.statusCode}");
-    logger.i("CREATE PICKUP RESPONSE => ${response.body}");
-    
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final Map<String, dynamic> responseData = jsonDecode(response.body);
-      
-      if (responseData.containsKey('data')) {
-        final data = responseData['data'];
-        logger.i("Delivery mode in response: ${data['delivery_mode']}");
-        if (data['delivery_mode'] == null) {
-          logger.w("⚠️ Delivery mode was not saved in the backend!");
-        } else {
-          logger.i("✅ Delivery mode saved successfully: ${data['delivery_mode']}");
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode(body),
+      );
+
+      logger.i("CREATE PICKUP STATUS => ${response.statusCode}");
+      logger.i("CREATE PICKUP RESPONSE => ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+        if (responseData.containsKey('data')) {
+          final data = responseData['data'];
+          logger.i("Delivery mode in response: ${data['delivery_mode']}");
+          if (data['delivery_mode'] == null) {
+            logger.w("⚠️ Delivery mode was not saved in the backend!");
+          } else {
+            logger.i(
+              "✅ Delivery mode saved successfully: ${data['delivery_mode']}",
+            );
+          }
         }
+
+        return responseData;
+      } else {
+        logger.e("CREATE PICKUP FAILED => ${response.body}");
+        return null;
       }
-      
-      return responseData;
-    } else {
-      logger.e("CREATE PICKUP FAILED => ${response.body}");
+    } catch (e) {
+      logger.e("CREATE PICKUP ERROR => $e");
       return null;
     }
-  } catch (e) {
-    logger.e("CREATE PICKUP ERROR => $e");
-    return null;
   }
-}
 
   int? lastAcceptedPickupCarrierId;
 
@@ -3651,11 +3752,9 @@ Future<Map<String, dynamic>?> createPickupRequest({
         },
         body: jsonEncode(body),
       );
-
       print("STATUS CODE: ${response.statusCode}");
       print("RESPONSE BODY: ${response.body}");
       print("========== API DEBUG END ==========");
-
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       print("❌ EXCEPTION: $e");
@@ -3672,7 +3771,6 @@ Future<Map<String, dynamic>?> createPickupRequest({
           "Content-Type": "application/json",
         },
       );
-
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
         return data['data'];
@@ -3695,10 +3793,8 @@ Future<Map<String, dynamic>?> createPickupRequest({
         'working_days': workingDays.map((d) => d.toJson()).toList(),
         'special_days': specialDays.map((d) => d.toJson()).toList(),
       };
-
       print('Creating shop timings with special days: ${specialDays.length}');
       print('Request body: ${json.encode(body)}');
-
       final response = await http.post(
         Uri.parse('$baseurl/api/qdel/shop/create/time/'),
         headers: {
@@ -3707,7 +3803,6 @@ Future<Map<String, dynamic>?> createPickupRequest({
         },
         body: json.encode(body),
       );
-
       print('Response status: ${response.statusCode}');
       print('Response body: ${response.body}');
 
@@ -3730,12 +3825,9 @@ Future<Map<String, dynamic>?> createPickupRequest({
         'working_days': workingDays.map((d) => d.toJson()).toList(),
         'special_days': specialDays.map((d) => d.toJson()).toList(),
       };
-
       print('Updating shop timings with special days: ${specialDays.length}');
       print('Request body: ${json.encode(body)}');
-
       final url = '$baseurl/api/qdel/shop/update/shop/time/';
-
       final response = await http.put(
         Uri.parse(url),
         headers: {
@@ -3744,10 +3836,8 @@ Future<Map<String, dynamic>?> createPickupRequest({
         },
         body: json.encode(body),
       );
-
       print('Response status: ${response.statusCode}');
       print('Response body: ${response.body}');
-
       return response.statusCode == 200;
     } catch (e) {
       print('Error updating shop timings: $e');
@@ -3764,7 +3854,6 @@ Future<Map<String, dynamic>?> createPickupRequest({
           "Content-Type": "application/json",
         },
       );
-
       print('Delete special day response status: ${response.statusCode}');
       print('Delete special day response body: ${response.body}');
 
@@ -3788,10 +3877,8 @@ Future<Map<String, dynamic>?> createPickupRequest({
             "Content-Type": "application/json",
           },
         );
-
         if (response.statusCode == 200) {
           final Map<String, dynamic> data = json.decode(response.body);
-
           List<dynamic> items = data['data'] ?? [];
           final modes = items
               .map((item) => DeliveryMode.fromJson(item))
@@ -3882,6 +3969,67 @@ Future<Map<String, dynamic>?> createPickupRequest({
     } catch (e) {
       print('Error deleting delivery mode: $e');
       return false;
+    }
+  }
+
+  Future<List<DropLocation>> getDropLocations() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseurl/api/qdel/user/shop/addresses/view/'),
+        headers: {
+          'Authorization': "Bearer ${ApiService.accessToken}",
+          'Content-Type': 'application/json',
+        },
+      );
+
+      debugPrint("💡 GET DROP LOCATIONS STATUS => ${response.statusCode}");
+
+      if (response.statusCode != 200) {
+        debugPrint("❌ HTTP Error: ${response.statusCode}");
+        debugPrint("❌ Response body: ${response.body}");
+        return [];
+      }
+
+      Map<String, dynamic> decoded;
+      try {
+        decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (e) {
+        debugPrint("❌ Failed to decode JSON: $e");
+        return [];
+      }
+
+      if (decoded['status'] != 'success') {
+        debugPrint("⚠️ API returned non-success status: ${decoded['status']}");
+        return [];
+      }
+
+      final List locationsJson = decoded['data'];
+      if (locationsJson.isEmpty) {
+        debugPrint("📭 No drop locations found");
+        return [];
+      }
+
+      debugPrint("📦 Total drop locations from API: ${locationsJson.length}");
+
+      final List<DropLocation> dropLocations = [];
+      for (var locationJson in locationsJson) {
+        try {
+          final location = DropLocation.fromJson(locationJson);
+          dropLocations.add(location);
+          debugPrint("✅ Drop location ${location.id} parsed successfully");
+        } catch (e) {
+          debugPrint("⚠️ Failed to parse drop location: $e");
+          continue;
+        }
+      }
+
+      debugPrint(
+        "✅ Successfully parsed ${dropLocations.length} drop locations",
+      );
+      return dropLocations;
+    } catch (e) {
+      debugPrint("⛔ GET DROP LOCATIONS ERROR => $e");
+      return [];
     }
   }
 }

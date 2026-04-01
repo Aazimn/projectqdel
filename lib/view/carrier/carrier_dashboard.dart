@@ -3,7 +3,7 @@ import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/view/Carrier/carrier_homescreen.dart';
 import 'package:projectqdel/view/Carrier/carrier_settings.dart';
 import 'package:projectqdel/view/Carrier/dashboard.dart';
-import 'package:projectqdel/view/Carrier/map_screen_pickup.dart';
+import 'package:projectqdel/view/Carrier/delivery_modesview.dart';
 
 class CarrierDashboard extends StatefulWidget {
   final int initialIndex;
@@ -30,7 +30,7 @@ class _CarrierDashboardState extends State<CarrierDashboard> {
           });
         },
       ),
-      const CarrierMapScreen(),
+      const DeliveryModesScreen(),
       const Dashboard(),
       const CarrierSettings(),
     ];

@@ -47,11 +47,6 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
 
-      // appBar: AppBar(
-      //   elevation: 0,
-      //   backgroundColor: Colors.red,
-      //   title: const Text("Shop Details"),
-      // ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : shop == null
@@ -59,7 +54,6 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
           : SingleChildScrollView(
               child: Column(
                 children: [
-                  /// 🔴 HEADER
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
@@ -119,7 +113,6 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
 
                   const SizedBox(height: 16),
 
-                  /// 👤 OWNER DETAILS
                   _infoCard(
                     title: "Owner Details",
                     children: [
@@ -133,7 +126,6 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
                     ],
                   ),
 
-                  /// 📍 ADDRESS
                   _infoCard(
                     title: "Addresses",
                     children: (shop!['shop_addresses'] as List).map<Widget>((
@@ -165,7 +157,6 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
                     }).toList(),
                   ),
 
-                  /// 🖼️ IMAGES
                   _infoCard(
                     title: "Documents & Images",
                     children: [
@@ -196,7 +187,6 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
     );
   }
 
-  /// 🔹 REUSABLE INFO CARD
   Widget _infoCard({required String title, required List<Widget> children}) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -248,7 +238,6 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
     );
   }
 
-  /// 🔹 INFO ROW
   Widget _infoRow(String label, String? value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -261,7 +250,6 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
     );
   }
 
-  /// 🔹 IMAGE CARD
   Widget _imageCard(String url, String title) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,7 +277,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
                   fit: BoxFit.cover,
                 ),
 
-                /// 🔍 overlay icon
+         
                 Positioned(
                   right: 10,
                   bottom: 10,

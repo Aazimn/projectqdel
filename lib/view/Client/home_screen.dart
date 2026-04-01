@@ -62,6 +62,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
       ]);
       setState(() {
         pendingCount = _extractCount(results[0]);
+        
         activeCount = _extractCount(results[1]);
         completedCount = _extractCount(results[2]);
         countsLoading = false;

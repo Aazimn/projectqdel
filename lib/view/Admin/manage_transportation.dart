@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:projectqdel/model/transportation_model.dart';
+import 'package:projectqdel/model/delivery_model.dart';
 import 'package:projectqdel/services/api_service.dart';
 
 class DeliveryModesAdmin extends StatefulWidget {

@@ -9,6 +9,7 @@ class CompletedOrder {
   final DateTime createdAt;
   final String? carrierTrackingNo;
   final String? pickupNumber;
+  final String? deliveryMode;
   
   final String? senderAddress;
   final String? senderLandmark;
@@ -42,6 +43,7 @@ class CompletedOrder {
     required this.createdAt,
     this.carrierTrackingNo,
     this.pickupNumber,
+    this.deliveryMode,
     this.senderAddress,
 
     this.senderLandmark,
@@ -83,6 +85,7 @@ class CompletedOrder {
       createdAt: DateTime.parse(data['created_at'] as String),
       carrierTrackingNo: data['carrier_tracking_no'] as String?,
       pickupNumber: data['pickup_number'] as String?,
+      deliveryMode: data['delivery_mode'] as String?,
  
       senderAddress: data['sender_address'] as String?,
       senderLandmark: data['sender_landmark'] as String?,

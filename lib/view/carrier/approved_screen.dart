@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Carrier/carrier_dashboard.dart';
-import 'package:projectqdel/view/shop/shop_home.dart'; // Make sure this import exists
+import 'package:projectqdel/view/Shop/shop_dashboard.dart';
 
 class AccountApprovedScreen extends StatefulWidget {
-  final String? userType; // Add userType parameter
+  final String? userType; 
 
   const AccountApprovedScreen({super.key, this.userType});
 
@@ -36,24 +36,19 @@ class _AccountApprovedScreenState extends State<AccountApprovedScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Call the server-side API to mark approval screen as seen
       final success = await _apiService.markApprovalScreenSeen();
 
       if (!mounted) return;
 
       if (success) {
-        // Successfully marked on server, navigate based on user type
         _navigateToDashboard();
       } else {
-        // Even if API fails, we should still proceed
-        // Cache locally as fallback
         await ApiService.setApprovalScreenSeen(true);
 
         if (!mounted) return;
 
         _navigateToDashboard();
 
-        // Show a non-blocking message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -67,7 +62,6 @@ class _AccountApprovedScreenState extends State<AccountApprovedScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      // Error occurred, but we should still let the user proceed
       await ApiService.setApprovalScreenSeen(true);
 
       _navigateToDashboard();
@@ -92,14 +86,12 @@ class _AccountApprovedScreenState extends State<AccountApprovedScreen> {
     final isShop = _userType == "shop";
     
     if (isShop) {
-      // Navigate to Shop Home
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const ShopHome()),
+        MaterialPageRoute(builder: (_) => const ShopDashboard()),
         (_) => false,
       );
     } else {
-      // Navigate to Carrier Dashboard
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const CarrierDashboard()),

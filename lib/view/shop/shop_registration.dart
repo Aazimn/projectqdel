@@ -489,7 +489,6 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
                     ),
                   ),
                   const SizedBox(height: 15),
-
                   TextField(
                     controller: addressController,
                     decoration: const InputDecoration(
@@ -500,7 +499,6 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
                     maxLines: 2,
                   ),
                   const SizedBox(height: 15),
-
                   TextField(
                     controller: landmarkController,
                     decoration: const InputDecoration(
