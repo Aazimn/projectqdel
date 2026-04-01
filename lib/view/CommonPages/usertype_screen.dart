@@ -29,13 +29,15 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          _header(context),
-          const SizedBox(height: 10),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+      body: CustomScrollView(
+        slivers: [
+          // Header Sliver
+          SliverToBoxAdapter(child: _header(context)),
+
+          // Content Sliver
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -83,8 +85,21 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
                     icon: Icons.store_outlined,
                   ),
 
-                  const Spacer(),
-                  SafeArea(
+                  const SizedBox(height: 30),
+                ],
+              ),
+            ),
+          ),
+
+          // Button Sliver
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
                     child: SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -117,10 +132,9 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 10),
-                ],
-              ),
+                ),
+                const SizedBox(height: 10),
+              ],
             ),
           ),
         ],
@@ -180,7 +194,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
 
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => SplashScreen()),
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
         (route) => false,
       );
     } catch (e) {
@@ -210,7 +224,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
 
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => SplashScreen()),
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
         (route) => false,
       );
     } catch (e) {
@@ -412,7 +426,10 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
       child: Container(
         height: 38,
         width: 38,
-        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
         child: Icon(icon, color: Colors.red, size: 18),
       ),
     );
