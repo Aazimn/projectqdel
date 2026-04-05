@@ -3,7 +3,7 @@ import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/CommonPages/usertype_screen.dart';
-
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,16 +14,21 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ApiService apiService = ApiService();
-  bool isCarrier = false;
-  bool switchingRole = false;
   UserModel? user;
 
   bool loading = true;
+  bool updating = false;
+
+  // Personal details controllers
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
 
-  bool updating = false;
+  // Shop details controllers
+  final _shopNameCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  final _landmarkCtrl = TextEditingController();
+  final _zipCodeCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -36,16 +41,109 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _firstNameCtrl.dispose();
     _lastNameCtrl.dispose();
     _emailCtrl.dispose();
+    _shopNameCtrl.dispose();
+    _addressCtrl.dispose();
+    _landmarkCtrl.dispose();
+    _zipCodeCtrl.dispose();
     super.dispose();
   }
 
   Future<void> loadProfile() async {
     final api = ApiService();
     user = await api.getMyProfile();
-
-    isCarrier = user?.userType == "carrier";
-
+    _populateControllers();
     setState(() => loading = false);
+  }
+
+  void _populateControllers() {
+    if (user == null) return;
+
+    // Personal details
+    _firstNameCtrl.text = user!.firstName;
+    _lastNameCtrl.text = user!.lastName;
+    _emailCtrl.text = user!.email;
+
+    if (user!.isShop) {
+      // Shop name
+      _shopNameCtrl.text = user!.shopName ?? '';
+
+      // Shop address
+      final address = user!.shopAddress;
+      if (address != null) {
+        _addressCtrl.text = address['address'] ?? '';
+        _landmarkCtrl.text = address['landmark'] ?? '';
+        _zipCodeCtrl.text = address['zip_code'] ?? '';
+      }
+    }
+  }
+
+  Future<void> _updateUserRegistration() async {
+    setState(() => updating = true);
+
+    bool personalUpdateSuccess = true;
+    bool shopUpdateSuccess = true;
+
+    // Update personal details using updateMyProfile API
+    if (_firstNameCtrl.text.trim() != user!.firstName ||
+        _lastNameCtrl.text.trim() != user!.lastName ||
+        _emailCtrl.text.trim() != user!.email) {
+      personalUpdateSuccess = await apiService.updateMyProfile(
+        firstName: _firstNameCtrl.text.trim(),
+        lastName: _lastNameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+      );
+    }
+
+    // Update shop details using updateUserrRegistration API
+    if (user!.isShop) {
+      shopUpdateSuccess = await apiService.updateUserrRegistration(
+        shopName: _shopNameCtrl.text.trim().isEmpty
+            ? null
+            : _shopNameCtrl.text.trim(),
+        address: _addressCtrl.text.trim().isEmpty
+            ? null
+            : _addressCtrl.text.trim(),
+        landmark: _landmarkCtrl.text.trim().isEmpty
+            ? null
+            : _landmarkCtrl.text.trim(),
+        zipCode: _zipCodeCtrl.text.trim().isEmpty
+            ? null
+            : _zipCodeCtrl.text.trim(),
+      );
+    }
+
+    setState(() => updating = false);
+
+    if (personalUpdateSuccess && shopUpdateSuccess) {
+      // Update local user data
+      setState(() {
+        user = user!.copyWith(
+          firstName: _firstNameCtrl.text.trim(),
+          lastName: _lastNameCtrl.text.trim(),
+          email: _emailCtrl.text.trim(),
+          shopName: _shopNameCtrl.text.trim(),
+        );
+        if (user!.shopAddress != null) {
+          user!.shopAddress!['address'] = _addressCtrl.text.trim();
+          user!.shopAddress!['landmark'] = _landmarkCtrl.text.trim();
+          user!.shopAddress!['zip_code'] = _zipCodeCtrl.text.trim();
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Profile updated successfully"),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Failed to update profile. Please try again."),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -66,7 +164,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _profileInfo(),
                   const SizedBox(height: 10),
                   _personalDetailsCard(),
-                  const SizedBox(height: 20),
+                  if (user?.isShop == true) ...[
+                    const SizedBox(height: 20),
+                    _shopAddressCard(),
+                  ],
                 ],
               ),
             ),
@@ -108,7 +209,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ),
-
         Positioned(
           top: 45,
           left: 16,
@@ -117,7 +217,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             () => Navigator.pop(context),
           ),
         ),
-
         Positioned(
           bottom: -50,
           left: 0,
@@ -131,9 +230,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 4),
-                    color: Colors.orange.shade100,
+                    color: user?.isShop == true
+                        ? Colors.blue.shade100
+                        : Colors.orange.shade100,
                   ),
-                  child: const Icon(Icons.person, size: 50),
+                  child: Icon(
+                    user?.isShop == true ? Icons.store : Icons.person,
+                    size: 50,
+                    color: user?.isShop == true
+                        ? Colors.blue.shade700
+                        : Colors.orange.shade700,
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: user?.isApproved == true
+                          ? Colors.green
+                          : Colors.orange,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: Icon(
+                      user?.isApproved == true ? Icons.check : Icons.pending,
+                      color: Colors.white,
+                      size: 12,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -156,9 +282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _profileInfo() {
-    final name = user != null
-        ? "${user!.firstName} ${user!.lastName}"
-        : "GUEST USER";
+    final name = user?.displayName ?? "GUEST USER";
 
     return Column(
       children: [
@@ -166,14 +290,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
           name.toUpperCase(),
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
-        if (user == null)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Text(
-              "Profile data not available",
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: user?.isShop == true
+                ? Colors.blue.shade50
+                : Colors.red.shade50,
+            borderRadius: BorderRadius.circular(20),
           ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                user?.isShop == true ? Icons.store : Icons.local_shipping,
+                size: 14,
+                color: user?.isShop == true
+                    ? Colors.blue.shade700
+                    : Colors.red.shade700,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                user?.userTypeDisplay ?? "USER",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: user?.isShop == true
+                      ? Colors.blue.shade700
+                      : Colors.red.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -187,22 +336,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _infoRow(
           Icons.badge,
           "FULL NAME",
-          user != null
-              ? "${user!.firstName} ${user!.lastName}".toUpperCase()
-              : "--",
+          user?.displayName.toUpperCase() ?? "--",
         ),
         _divider(),
         _infoRow(Icons.email, "EMAIL ADDRESS", user?.email ?? "--"),
         _divider(),
         _infoRow(Icons.phone, "PHONE NUMBER", user?.phone ?? "--"),
+        if (user?.locationDisplay != "Location not set") ...[
+          _divider(),
+          _infoRow(
+            Icons.location_on,
+            "LOCATION",
+            user?.locationDisplay ?? "--",
+          ),
+        ],
         const SizedBox(height: 12),
         _divider(),
-
-        if (user != null)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _actionBtn("Change User Type", ColorConstants.red, () async {
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _actionBtn("Change User Type", ColorConstants.red, () async {
+              if (user != null) {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -210,139 +364,443 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 );
                 loadProfile();
-              }),
-              const SizedBox(width: 20),
-              _actionBtn(
-                "Edit Profile",
-                ColorConstants.red,
-                _openEditProfileDialog,
-              ),
-            ],
-          )
-        else
-          const Text(
-            "Profile actions unavailable",
-            style: TextStyle(color: Colors.grey),
-          ),
+              }
+            }),
+            const SizedBox(width: 20),
+            _actionBtn("Edit Profile", ColorConstants.red, _openEditDialog),
+          ],
+        ),
       ],
     );
   }
 
-  Widget _textField(
-    String label,
-    TextEditingController controller, {
-    TextInputType keyboardType = TextInputType.text,
-  }) {
+  Widget _shopAddressCard() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      padding: const EdgeInsets.only(bottom: 20),
+      child: _card(
+        title: "Shop Information",
+        leading: const Icon(Icons.store, color: Colors.red),
+        children: [
+          _divider(),
+          _infoRow(Icons.storefront, "SHOP NAME", user?.shopName ?? "--"),
+          _divider(),
+          _infoRow(
+            Icons.location_city,
+            "ADDRESS",
+            user?.shopAddressDisplay ?? "--",
+          ),
+          if (user?.shopAddress != null) ...[
+            if (user!.shopAddress!['landmark'] != null &&
+                user!.shopAddress!['landmark'].toString().isNotEmpty)
+              _divider(),
+            if (user!.shopAddress!['landmark'] != null &&
+                user!.shopAddress!['landmark'].toString().isNotEmpty)
+              _infoRow(
+                Icons.landscape,
+                "LANDMARK",
+                user!.shopAddress!['landmark'].toString(),
+              ),
+            if (user!.shopAddress!['zip_code'] != null &&
+                user!.shopAddress!['zip_code'].toString().isNotEmpty)
+              _divider(),
+            if (user!.shopAddress!['zip_code'] != null &&
+                user!.shopAddress!['zip_code'].toString().isNotEmpty)
+              _infoRow(
+                Icons.pin_drop,
+                "ZIP CODE",
+                user!.shopAddress!['zip_code'].toString(),
+              ),
+            if (user!.shopAddress!['district'] != null &&
+                user!.shopAddress!['district'].toString().isNotEmpty)
+              _divider(),
+            if (user!.shopAddress!['district'] != null &&
+                user!.shopAddress!['district'].toString().isNotEmpty)
+              _infoRow(
+                Icons.map,
+                "DISTRICT",
+                user!.shopAddress!['district'].toString(),
+              ),
+            if (user!.shopAddress!['state'] != null &&
+                user!.shopAddress!['state'].toString().isNotEmpty)
+              _divider(),
+            if (user!.shopAddress!['state'] != null &&
+                user!.shopAddress!['state'].toString().isNotEmpty)
+              _infoRow(
+                Icons.location_city,
+                "STATE",
+                user!.shopAddress!['state'].toString(),
+              ),
+            if (user!.shopAddress!['country'] != null &&
+                user!.shopAddress!['country'].toString().isNotEmpty)
+              _divider(),
+            if (user!.shopAddress!['country'] != null &&
+                user!.shopAddress!['country'].toString().isNotEmpty)
+              _infoRow(
+                Icons.public,
+                "COUNTRY",
+                user!.shopAddress!['country'].toString(),
+              ),
+          ],
+        ],
       ),
     );
   }
 
-  void _openEditProfileDialog() {
+  void _openEditDialog() {
     if (user == null) return;
+
+    // Set values for editing
     _firstNameCtrl.text = user!.firstName;
     _lastNameCtrl.text = user!.lastName;
     _emailCtrl.text = user!.email;
 
+    if (user!.isShop) {
+      _shopNameCtrl.text = user!.shopName ?? '';
+      final address = user!.shopAddress;
+      if (address != null) {
+        _addressCtrl.text = address['address'] ?? '';
+        _landmarkCtrl.text = address['landmark'] ?? '';
+        _zipCodeCtrl.text = address['zip_code'] ?? '';
+      }
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 16,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            ),
-            child: SingleChildScrollView(
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Center(
-                    child: Text(
-                      "Edit Profile",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                  // Drag handle
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 50,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  // Header with gradient
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [ColorConstants.red, Color(0xffE53935)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(30),
+                        topRight: Radius.circular(30),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: const Icon(
+                            Icons.edit_note,
+                            color: ColorConstants.red,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Edit Profile",
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              "Update your personal information",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Form content
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.only(
+                        left: 20,
+                        right: 20,
+                        top: 20,
+                        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Personal Details Section
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: ColorConstants.red.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_outline,
+                                    color: ColorConstants.red,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  "Personal Details",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: ColorConstants.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _modernTextField(
+                            controller: _firstNameCtrl,
+                            label: "First Name",
+                            icon: Icons.person_outline,
+                          ),
+                          const SizedBox(height: 12),
+                          _modernTextField(
+                            controller: _lastNameCtrl,
+                            label: "Last Name",
+                            icon: Icons.person_outline,
+                          ),
+                          const SizedBox(height: 12),
+                          _modernTextField(
+                            controller: _emailCtrl,
+                            label: "Email Address",
+                            icon: Icons.email_outlined,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          if (user?.isShop == true) ...[
+                            const SizedBox(height: 24),
+                            // Shop Details Section
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.store_outlined,
+                                      color: Colors.blue,
+                                      size: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    "Shop Information",
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _modernTextField(
+                              controller: _shopNameCtrl,
+                              label: "Shop Name",
+                              icon: Icons.store_outlined,
+                            ),
+                            const SizedBox(height: 12),
+                            _modernTextField(
+                              controller: _addressCtrl,
+                              label: "Address",
+                              icon: Icons.location_on_outlined,
+                            ),
+                            const SizedBox(height: 12),
+                            _modernTextField(
+                              controller: _landmarkCtrl,
+                              label: "Landmark",
+                              icon: Icons.landslide,
+                            ),
+                            const SizedBox(height: 12),
+                            _modernTextField(
+                              controller: _zipCodeCtrl,
+                              label: "Zip Code",
+                              icon: Icons.pin_drop_outlined,
+                              keyboardType: TextInputType.number,
+                            ),
+                          ],
+                          const SizedBox(height: 32),
+                          // Action Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.grey.shade700,
+                                    side: BorderSide(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    "Cancel",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: updating
+                                      ? null
+                                      : () async {
+                                          Navigator.pop(context);
+                                          await _updateUserRegistration();
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: ColorConstants.red,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 2,
+                                  ),
+                                  child: updating
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.check_circle_outline,
+                                              size: 18,
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              "Save Changes",
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-
-                  _textField("First Name", _firstNameCtrl),
-                  _textField("Last Name", _lastNameCtrl),
-                  _textField(
-                    "Email",
-                    _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  updating
-                      ? const Center(child: CircularProgressIndicator())
-                      : _actionBtn(
-                          "Save Changes",
-                          Colors.green,
-                          _updateProfile,
-                        ),
                 ],
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  Future<void> _updateProfile() async {
-    setState(() => updating = true);
-
-    final success = await apiService.updateMyProfile(
-      firstName: _firstNameCtrl.text.trim(),
-      lastName: _lastNameCtrl.text.trim(),
-      email: _emailCtrl.text.trim(),
+  Widget _modernTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.grey.shade600),
+          prefixIcon: Icon(icon, color: ColorConstants.red, size: 20),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+        ),
+      ),
     );
-
-    setState(() => updating = false);
-
-    if (success) {
-      setState(() {
-        user = user!.copyWith(
-          firstName: _firstNameCtrl.text.trim(),
-          lastName: _lastNameCtrl.text.trim(),
-          email: _emailCtrl.text.trim(),
-        );
-      });
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Profile updated successfully")),
-      );
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Failed to update profile")));
-    }
   }
 
   Widget _card({
     required String title,
     Widget? leading,
-
     required List<Widget> children,
   }) {
     return Container(
@@ -351,7 +809,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: BoxBorder.all(color: ColorConstants.grey),
+        border: Border.all(color: ColorConstants.grey),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 12),
         ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/CommonPages/splash_screen.dart';
@@ -44,15 +45,15 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
                   const SizedBox(height: 10),
                   const Text(
                     "How will you use the app?",
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+                    style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 5),
                   const Text(
                     "Choose the role that best fits your needs.",
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
 
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 25),
 
                   _roleCard(
                     role: "client",
@@ -238,28 +239,150 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
   void _confirmClientSwitch() {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Change Account Type"),
-        content: const Text(
-          "Do you want to switch to Client account?\n\n"
-          "You will lose carrier/shop access and orders.",
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header with red accent
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  color: ColorConstants.red,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.warning_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        "Change Account Type",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Switch to Client Account?",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "You will lose carrier/shop access and orders.",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Actions
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: Colors.grey[200]!)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF4B5563),
+                          side: BorderSide(color: Colors.grey[300]!),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "Cancel",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _switchToClient();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          "Switch",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _switchToClient();
-            },
-            child: const Text(
-              "Yes, Switch",
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -343,7 +466,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: const TextStyle(
@@ -354,7 +477,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
                   const SizedBox(height: 6),
                   Text(
                     description,
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 ],
               ),
@@ -376,7 +499,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
       clipBehavior: Clip.none,
       children: [
         Container(
-          height: 150,
+          height: 100,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [Color(0xffE53935), Color(0xffF0625F)],
@@ -402,7 +525,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
           child: _circleButton(Icons.more_horiz, () {}),
         ),
         const Positioned(
-          top: 60,
+          top: 45,
           left: 0,
           right: 0,
           child: Center(
@@ -424,8 +547,8 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 38,
-        width: 38,
+        height: 33,
+        width: 33,
         decoration: const BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,

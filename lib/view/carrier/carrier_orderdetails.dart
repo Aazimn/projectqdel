@@ -187,7 +187,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   if (order.pickupNumber != null)
                     Text(
                       'Pickup: ${order.pickupNumber}',
-                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                     ),
                 ],
               ),
@@ -211,7 +211,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     Text(
                       'Delivered',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 10,
                         color: Colors.green,
                         fontWeight: FontWeight.w600,
                       ),
@@ -771,9 +771,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        // spacing: 20,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+          Text(
+            "$label :",
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
           if (isStatus)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -794,7 +798,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             Text(
               value,
               style: const TextStyle(
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
               ),

@@ -4,7 +4,6 @@ import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/CommonPages/profile_screen.dart';
 import 'package:projectqdel/view/Client/help_support.dart';
 import 'package:projectqdel/view/Client/notification_screen.dart';
-import 'package:projectqdel/view/Client/privacy_security.dart';
 import 'package:projectqdel/view/CommonPages/splash_screen.dart';
 
 class ShopSettings extends StatefulWidget {
@@ -202,22 +201,7 @@ class _ShopSettingsState extends State<ShopSettings> {
             iconColor: Colors.green,
             onTap: () {},
           ),
-          const SizedBox(height: 10),
-          _buildGradientTile(
-            icon: Icons.security,
-            title: "Privacy & Security",
-            subtitle: "Account security, privacy settings",
-            gradientColors: [Colors.white, Colors.white],
-            iconColor: Colors.indigo,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const PrivacySecurityScreen(),
-                ),
-              );
-            },
-          ),
+
           const SizedBox(height: 10),
           _buildGradientTile(
             icon: Icons.help_outline,

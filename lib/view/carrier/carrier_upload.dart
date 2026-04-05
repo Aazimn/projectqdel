@@ -17,6 +17,7 @@ class CarrierUploadScreen extends StatefulWidget {
 
 class _CarrierUploadScreenState extends State<CarrierUploadScreen> {
   File? document;
+  File? carrierImage;
   bool uploading = false;
 
   final picker = ImagePicker();
@@ -30,28 +31,27 @@ class _CarrierUploadScreenState extends State<CarrierUploadScreen> {
     _checkDocumentStatusFromServer();
   }
 
-  
-Future<void> _logFlagState() async {
-  final hasUploadedDocs = await ApiService.getHasUploadedDocs();
-  final isFirstTime = await ApiService.isFirstTime;
-  final approvalStatus = await ApiService.approvalStatus;
-  
-  logger.i("🔍 Flag State Check:");
-  logger.i("  hasUploadedDocs: $hasUploadedDocs");
-  logger.i("  isFirstTime: $isFirstTime");
-  logger.i("  approvalStatus: $approvalStatus");
-}
+  Future<void> _logFlagState() async {
+    final hasUploadedDocs = await ApiService.getHasUploadedDocs();
+    final isFirstTime = await ApiService.isFirstTime;
+    final approvalStatus = await ApiService.approvalStatus;
 
-Future<void> _checkDocumentStatusFromServer() async {
-  try {
-    if ( await ApiService.getHasUploadedDocs() == true) {
-      logger.w("⚠️ Flag mismatch! Clearing local flag");
-      await ApiService.setHasUploadedDocs(false);
-    }
-  } catch (e) {
-    logger.e("Error checking document status: $e");
+    logger.i("🔍 Flag State Check:");
+    logger.i("  hasUploadedDocs: $hasUploadedDocs");
+    logger.i("  isFirstTime: $isFirstTime");
+    logger.i("  approvalStatus: $approvalStatus");
   }
-}
+
+  Future<void> _checkDocumentStatusFromServer() async {
+    try {
+      if (await ApiService.getHasUploadedDocs() == true) {
+        logger.w("⚠️ Flag mismatch! Clearing local flag");
+        await ApiService.setHasUploadedDocs(false);
+      }
+    } catch (e) {
+      logger.e("Error checking document status: $e");
+    }
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -89,8 +89,19 @@ Future<void> _checkDocumentStatusFromServer() async {
       return;
     }
 
+    if (carrierImage == null) {
+      logger.w("❌ No carrier image selected");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please upload carrier image")),
+      );
+      return;
+    }
+
     logger.i("📄 Document ready for upload");
     logger.i("📂 Document path: ${document!.path}");
+    logger.i("🖼️ Carrier image ready for upload");
+    logger.i("📂 Carrier image path: ${carrierImage!.path}");
 
     logger.i("📊 REGISTRATION DATA");
     logger.i("📱 Phone: ${widget.registrationData.phone}");
@@ -109,7 +120,7 @@ Future<void> _checkDocumentStatusFromServer() async {
 
     try {
       if (!widget.registrationData.isExistingUser) {
-        logger.i("📝 Registering carrier (with document)...");
+        logger.i("📝 Registering carrier (with document and carrier image)...");
         success = await apiService.carrierRegistrationWithDocument(
           phone: widget.registrationData.phone,
           firstname: widget.registrationData.firstname,
@@ -119,6 +130,7 @@ Future<void> _checkDocumentStatusFromServer() async {
           stateId: widget.registrationData.stateId,
           districtId: widget.registrationData.districtId,
           document: document!,
+          carrierphoto: carrierImage!,
           parcelResponsibilityAccepted:
               widget.registrationData.parcelResponsibilityAccepted,
           damageLossAccepted: widget.registrationData.damageLossAccepted,
@@ -132,11 +144,9 @@ Future<void> _checkDocumentStatusFromServer() async {
       } else {
         logger.i("🌐 Calling uploadCarrierDocument API...");
 
-        success = await apiService.uploadCarrierDocument(
-          document: document!,
-          countryId: widget.registrationData.countryId,
-          stateId: widget.registrationData.stateId,
-          districtId: widget.registrationData.districtId,
+        success = await apiService.updateUserrRegistration(
+          document: document,
+          carrierPhoto: carrierImage,
         );
       }
 
@@ -150,7 +160,7 @@ Future<void> _checkDocumentStatusFromServer() async {
     setState(() => uploading = false);
 
     if (success) {
-      logger.i("✅ Document uploaded successfully");
+      logger.i("✅ Documents uploaded successfully");
       await ApiService.setFirstTime(false);
 
       logger.i("➡️ Navigating to StatusPending screen");
@@ -158,7 +168,10 @@ Future<void> _checkDocumentStatusFromServer() async {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (_) => StatusPending(phone: widget.registrationData.phone,userType: "carrier",),
+          builder: (_) => StatusPending(
+            phone: widget.registrationData.phone,
+            userType: "carrier",
+          ),
         ),
         (_) => false,
       );
@@ -169,6 +182,67 @@ Future<void> _checkDocumentStatusFromServer() async {
         context,
       ).showSnackBar(const SnackBar(content: Text("Document upload failed")));
     }
+  }
+
+  Future<void> _pickCarrierImage(ImageSource source) async {
+    try {
+      logger.i("📸 Opening image picker for carrier image: $source");
+
+      final picked = await picker.pickImage(source: source, imageQuality: 70);
+
+      if (picked != null) {
+        final file = File(picked.path);
+
+        logger.i("✅ Carrier image selected");
+        logger.i("📂 File path: ${picked.path}");
+        logger.i("📦 File size: ${await file.length()} bytes");
+
+        setState(() {
+          carrierImage = file;
+        });
+      } else {
+        logger.w("⚠️ User cancelled carrier image selection");
+      }
+    } catch (e) {
+      logger.e("❌ Error picking carrier image: $e");
+    }
+  }
+
+  void _showCarrierImageSourceSheet() {
+    logger.i("📂 Showing carrier image source options");
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text("Camera"),
+                onTap: () {
+                  Navigator.pop(context);
+                  logger.i("📷 Camera selected for carrier image");
+                  _pickCarrierImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text("Gallery"),
+                onTap: () {
+                  Navigator.pop(context);
+                  logger.i("🖼 Gallery selected for carrier image");
+                  _pickCarrierImage(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showImageSourceSheet() {
@@ -282,10 +356,11 @@ Future<void> _checkDocumentStatusFromServer() async {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
+                  // Document upload section
                   GestureDetector(
                     onTap: _showImageSourceSheet,
                     child: Container(
-                      height: 180,
+                      height: 150,
                       width: double.infinity,
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.red, width: 2),
@@ -294,6 +369,26 @@ Future<void> _checkDocumentStatusFromServer() async {
                       child: document == null
                           ? const Center(child: Text("Tap to upload document"))
                           : Image.file(document!, fit: BoxFit.cover),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Carrier image upload section
+                  GestureDetector(
+                    onTap: _showCarrierImageSourceSheet,
+                    child: Container(
+                      height: 150,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.red, width: 2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: carrierImage == null
+                          ? const Center(
+                              child: Text("Tap to upload carrier photo"),
+                            )
+                          : Image.file(carrierImage!, fit: BoxFit.cover),
                     ),
                   ),
 

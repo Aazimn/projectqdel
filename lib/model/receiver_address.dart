@@ -26,16 +26,31 @@ class ReceiverAddress {
   });
 
   factory ReceiverAddress.fromJson(Map<String, dynamic> json) {
+    String phone = '';
+    if (json['phone_number'] != null && json['phone_number'].toString().isNotEmpty) {
+      phone = json['phone_number'].toString();
+    } else if (json['receiver_phone'] != null && json['receiver_phone'].toString().isNotEmpty) {
+      phone = json['receiver_phone'].toString();
+    } else if (json['phone'] != null && json['phone'].toString().isNotEmpty) {
+      phone = json['phone'].toString();
+    }
+    String addressText = '';
+    if (json['address'] != null && json['address'].toString().isNotEmpty) {
+      addressText = json['address'].toString();
+    } else if (json['address_text'] != null && json['address_text'].toString().isNotEmpty) {
+      addressText = json['address_text'].toString();
+    }
+    
     return ReceiverAddress(
-      id: json['id'],
+      id: json['id'] ?? 0,
       receiverName: json['receiver_name'] ?? '',
-      phoneNumber: json['phone_number'] ?? '',
-      address: json['address'] ?? '',
+      phoneNumber: phone,
+      address: addressText,
       landmark: json['landmark'] ?? '',
       district: json['district'] ?? '',
       state: json['state'] ?? '',
       country: json['country'] ?? '',
-      zipCode: json['zip_code'] ?? '',
+      zipCode: json['zip_code']?.toString() ?? '',
       latitude: json['latitude'] != null
           ? double.tryParse(json['latitude'].toString())
           : null,
@@ -44,6 +59,7 @@ class ReceiverAddress {
           : null,
     );
   }
+  
   Map<String, dynamic> toJson() {
     return {
       'id': id,

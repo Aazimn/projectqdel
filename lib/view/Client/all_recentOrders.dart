@@ -971,23 +971,23 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                orderId,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
               const SizedBox(height: 4),
               Text(
-                title,
+                title.toUpperCase(),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              Text(
+                orderId,
+                style: const TextStyle(fontSize: 10, color: Colors.grey),
+              ),
             ],
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: statusColor.withOpacity(0.2),
             borderRadius: BorderRadius.circular(20),
@@ -996,7 +996,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             status,
             style: TextStyle(
               color: statusColor,
-              fontSize: 12,
+              fontSize: 10,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1029,6 +1029,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                 Text(
                   value,
                   style: const TextStyle(
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     height: 1.4,
                   ),

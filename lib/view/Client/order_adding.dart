@@ -1675,7 +1675,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+
                   Text(
                     mode.name,
                     style: TextStyle(
@@ -1689,19 +1689,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    mode.discription,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected
-                          ? Colors.white
-                          : AddressColors.textPrimary,
-                      height: 1.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+
                   if (description.isNotEmpty)
                     Text(
                       description,
@@ -2944,7 +2932,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.only(left: 20, right: 20, top: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2964,13 +2952,45 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          name.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: primaryColor,
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              name.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: primaryColor,
+                              ),
+                            ),
+                            // TextButton(
+                            //   onPressed: onEdit,
+
+                            //   // icon: Icon(
+                            //   //   Icons.edit,
+                            //   //   color: primaryColor,
+                            //   //   size: 14,
+                            //   // ),
+                            //   style: TextButton.styleFrom(
+                            //     backgroundColor: Colors.black.withOpacity(0.1),
+                            //     padding: const EdgeInsets.symmetric(
+                            //       horizontal: 10,
+                            //       vertical: 10,
+                            //     ),
+                            //     shape: RoundedRectangleBorder(
+                            //       borderRadius: BorderRadius.circular(30),
+                            //     ),
+                            //   ),
+                            //   child: Text(
+                            //     "Edit Address",
+                            //     style: TextStyle(
+                            //       fontSize: 12,
+                            //       color: primaryColor,
+                            //       fontWeight: FontWeight.w600,
+                            //     ),
+                            //   ),
+                            // ),
+                          ],
                         ),
                       ),
                     ],
@@ -2981,65 +3001,25 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                   if (landmark.isNotEmpty)
                     _buildInfoRow(Icons.landscape, landmark, primaryColor),
                   _buildInfoRow(Icons.pin_drop, zip, primaryColor),
-                  const Divider(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildInfoRow(
-                          Icons.map,
-                          "$district, $state, $country",
-                          primaryColor,
-                          isBold: true,
-                        ),
-                        if (locationName != null && locationName.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: _buildInfoRow(
-                              Icons.location_pin,
-                              locationName,
-                              primaryColor,
-                            ),
-                          ),
-                        if (lat != null &&
-                            lng != null &&
-                            (locationName == null || locationName.isEmpty))
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: _buildInfoRow(
-                              Icons.pin_drop,
-                              "Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}",
-                              primaryColor,
-                            ),
-                          ),
-                      ],
-                    ),
+                  _buildInfoRow(
+                    Icons.map,
+                    "$district, $state, $country",
+                    primaryColor,
+                    isBold: true,
                   ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: onEdit,
-                      icon: Icon(Icons.edit, color: primaryColor),
-                      label: Text(
-                        "Edit Address",
-                        style: TextStyle(
-                          color: primaryColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.black.withOpacity(0.1),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: InkWell(
+                        onTap: onEdit,
+                        child: Text(
+                          "Edit Address",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
@@ -3060,7 +3040,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     bool isBold = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

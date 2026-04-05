@@ -14,11 +14,7 @@ import 'package:projectqdel/view/Carrier/accepted_screen.dart';
 class CarrierMapScreen extends StatefulWidget {
   final DeliveryMode? selectedDeliveryMode;
 
-  const CarrierMapScreen({
-    super.key,
-    this.selectedDeliveryMode,
-  });
-//ggg
+  const CarrierMapScreen({super.key, this.selectedDeliveryMode});
   @override
   State<CarrierMapScreen> createState() => _CarrierMapScreenState();
 }
@@ -35,37 +31,38 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
   Future<void> _startLiveLocation() async {
     _locationStream?.cancel();
 
-    _locationStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 50,
-      ),
-    ).listen((position) async {
-      setState(() {
-        carrierLocation = LatLng(position.latitude, position.longitude);
-      });
+    _locationStream =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 50,
+          ),
+        ).listen((position) async {
+          setState(() {
+            carrierLocation = LatLng(position.latitude, position.longitude);
+          });
 
-      try {
-        int? pickupCarrierId = await ApiService.getPickupCarrierId();
+          try {
+            int? pickupCarrierId = await ApiService.getPickupCarrierId();
 
-        if (pickupCarrierId == null) {
-          logger.w("⚠️ pickupCarrierId not available yet");
-          return;
-        }
+            if (pickupCarrierId == null) {
+              logger.w("⚠️ pickupCarrierId not available yet");
+              return;
+            }
 
-        await ApiService().updateCarrierLocation(
-          pickupCarrierId: pickupCarrierId,
-          latitude: position.latitude,
-          longitude: position.longitude,
-        );
+            await ApiService().updateCarrierLocation(
+              pickupCarrierId: pickupCarrierId,
+              latitude: position.latitude,
+              longitude: position.longitude,
+            );
 
-        logger.i(
-          "📍 Location Updated -> ${position.latitude}, ${position.longitude} | ID: $pickupCarrierId",
-        );
-      } catch (e) {
-        logger.e("❌ Live location update error: $e");
-      }
-    });
+            logger.i(
+              "📍 Location Updated -> ${position.latitude}, ${position.longitude} | ID: $pickupCarrierId",
+            );
+          } catch (e) {
+            logger.e("❌ Live location update error: $e");
+          }
+        });
   }
 
   bool _isWithinRadius(OrderModel order) {
@@ -145,61 +142,49 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
   // Method to show exit confirmation dialog
   Future<bool> _onWillPop() async {
     return await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Row(
-          children: [
-            Icon(
-              Icons.exit_to_app,
-              color: Colors.red.shade700,
-              size: 28,
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(width: 12),
-            const Text(
-              'Exit Confirmation',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+            title: Row(
+              children: [
+                Icon(Icons.exit_to_app, color: Colors.red.shade700, size: 28),
+                const SizedBox(width: 12),
+                const Text(
+                  'Exit Confirmation',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
-          ],
-        ),
-        content: const Text(
-          'Are you sure you want to exit?',
-          style: TextStyle(fontSize: 16),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.grey.shade700,
-            ),
-            child: const Text(
-              'Cancel',
+            content: const Text(
+              'Are you sure you want to exit?',
               style: TextStyle(fontSize: 16),
             ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey.shade700,
+                ),
+                child: const Text('Cancel', style: TextStyle(fontSize: 16)),
               ),
-            ),
-            child: const Text(
-              'Exit',
-              style: TextStyle(fontSize: 16),
-            ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('Exit', style: TextStyle(fontSize: 16)),
+              ),
+            ],
           ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   @override
@@ -241,8 +226,8 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                 ),
             ],
           ),
-          centerTitle: true, 
-          automaticallyImplyLeading: false, 
+          centerTitle: true,
+          automaticallyImplyLeading: false,
         ),
         body: isCheckingLocation
             ? const Center(child: CircularProgressIndicator())
@@ -500,188 +485,397 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         bool isAcceptingLocally = false;
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: const EdgeInsets.all(14),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: const Color.fromARGB(255, 187, 185, 185),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(15),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade400,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Order #${order.id}",
-                            style: const TextStyle(
-                              fontSize: 25,
-                              fontWeight: FontWeight.bold,
-                              color: ColorConstants.black,
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.chat_bubble_outline),
-                                onPressed: () {},
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.call_outlined),
-                                onPressed: () {},
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Column(
-                            children: [
-                              const Icon(
-                                Icons.circle,
-                                size: 10,
-                                color: Colors.black,
-                              ),
-                              Container(
-                                width: 2,
-                                height: 100,
-                                color: const Color.fromARGB(255, 96, 95, 95),
-                              ),
-                              const Icon(
-                                Icons.circle,
-                                size: 10,
-                                color: Colors.orange,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  "Pickup",
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: Color.fromARGB(255, 95, 95, 95),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 5),
-                                Text(
-                                  order.senderAddress!.senderName.toUpperCase(),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  order.senderAddress != null
-                                      ? order.senderAddress!.address
-                                      : "Pickup address not available",
-                                  style: const TextStyle(color: Colors.black54),
-                                ),
-                                const SizedBox(height: 50),
-                                const Text(
-                                  "Deliver To",
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: Color.fromARGB(255, 95, 95, 95),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 5),
-                                Text(
-                                  order.receiverAddress?.receiverName
-                                          .toUpperCase() ??
-                                      "Receiver",
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  order.receiverAddress != null
-                                      ? "${order.receiverAddress!.address}, "
-                                            "${order.receiverAddress!.district}, "
-                                            "${order.receiverAddress!.state}, "
-                                            "${order.receiverAddress!.country}"
-                                      : "Delivery address not available",
-                                  style: const TextStyle(color: Colors.black54),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: isAcceptingLocally
-                              ? null
-                              : () async {
-                                  setModalState(() {
-                                    isAcceptingLocally = true;
-                                  });
-                                  await _acceptOrder(order);
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: ColorConstants.green,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: isAcceptingLocally
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text(
-                                  "Accept order",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: ColorConstants.white,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ],
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drag handle
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 50,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
+
+                  // Header with order ID and status
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Icon(
+                                Icons.local_shipping,
+                                color: Colors.red.shade700,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Order #${order.id}",
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Product details section
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade100),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.inventory_2_outlined,
+                              size: 18,
+                              color: Colors.red.shade700,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              "Product Details",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _buildDetailRow(
+                          "Weight",
+                          order.productDetails?.actualWeight.toString() ??
+                              "Not specified",
+                          "kg",
+                          Icons.fitness_center,
+                        ),
+                        _buildDetailRow(
+                          "Volume",
+                          order.productDetails?.volume ?? "Not specified",
+                          "cm³",
+                          Icons.crop_free,
+                        ),
+                        _buildDetailRow(
+                          "Description",
+                          order.productDetails?.description ?? "No description",
+                          "",
+                          Icons.description,
+                          isLongText: true,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Journey timeline
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade100),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.route_outlined,
+                              size: 18,
+                              color: Colors.red.shade700,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              "Delivery Journey",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        _buildTimelineItem(
+                          isFirst: true,
+                          isLast: false,
+                          icon: Icons.location_on,
+                          iconColor: Colors.red.shade700,
+                          title: "PICKUP LOCATION",
+                          name:
+                              order.senderAddress?.senderName.toUpperCase() ??
+                              "Sender",
+                          address:
+                              order.senderAddress?.address ??
+                              "Pickup address not available",
+                        ),
+                        _buildTimelineItem(
+                          isFirst: false,
+                          isLast: true,
+                          icon: Icons.location_on,
+                          iconColor: Colors.green,
+                          title: "DELIVERY LOCATION",
+                          name:
+                              order.receiverAddress?.receiverName
+                                  .toUpperCase() ??
+                              "Receiver",
+                          address: order.receiverAddress != null
+                              ? "${order.receiverAddress!.address}, ${order.receiverAddress!.district}, ${order.receiverAddress!.state}, ${order.receiverAddress!.country}"
+                              : "Delivery address not available",
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Action buttons
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
+                    child: Row(
+                      children: [
+                        // Cancel button
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red.shade700,
+                              side: BorderSide(color: Colors.red.shade300),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                            ),
+                            child: const Text(
+                              "Cancel",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Accept button
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: isAcceptingLocally
+                                ? null
+                                : () async {
+                                    setModalState(() {
+                                      isAcceptingLocally = true;
+                                    });
+                                    await _acceptOrder(order);
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade700,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                            ),
+                            child: isAcceptingLocally
+                                ? SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle_outline,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        "Accept Order",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             );
           },
         );
       },
+    );
+  }
+
+  // Helper widget for detail rows
+  Widget _buildDetailRow(
+    String label,
+    String value,
+    String? unit,
+    IconData icon, {
+    bool isLongText = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: Colors.grey.shade600),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "$value $unit".trim(),
+
+                  style: TextStyle(
+                    fontSize: isLongText ? 13 : 14,
+                    fontWeight: isLongText
+                        ? FontWeight.normal
+                        : FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                  maxLines: isLongText ? 3 : 1,
+                  overflow: isLongText ? TextOverflow.ellipsis : null,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper widget for timeline items
+  Widget _buildTimelineItem({
+    required bool isFirst,
+    required bool isLast,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String name,
+    required String address,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 40,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 20, color: iconColor),
+              ),
+              if (!isLast)
+                Container(width: 2, height: 60, color: Colors.grey.shade300),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: isLast ? 0 : 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  address,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

@@ -6,10 +6,8 @@ import 'package:projectqdel/view/Client/client_dashboard.dart';
 import 'package:projectqdel/view/CommonPages/profile_screen.dart';
 import 'package:projectqdel/view/Client/help_support.dart';
 import 'package:projectqdel/view/Client/notification_screen.dart';
-import 'package:projectqdel/view/Client/privacy_security.dart';
 import 'package:projectqdel/view/Client/saved_address.dart';
 import 'package:projectqdel/view/CommonPages/splash_screen.dart';
-
 
 class ClientSettings extends StatefulWidget {
   const ClientSettings({super.key});
@@ -263,22 +261,7 @@ class _ClientSettingsState extends State<ClientSettings> {
             iconColor: Colors.green,
             onTap: () {},
           ),
-          const SizedBox(height: 10),
-          _buildGradientTile(
-            icon: Icons.security,
-            title: "Privacy & Security",
-            subtitle: "Account security, privacy settings",
-            gradientColors: [Colors.white, Colors.white],
-            iconColor: Colors.indigo,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const PrivacySecurityScreen(),
-                ),
-              );
-            },
-          ),
+
           const SizedBox(height: 10),
           _buildGradientTile(
             icon: Icons.help_outline,

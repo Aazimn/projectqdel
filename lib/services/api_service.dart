@@ -18,8 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl =
-      "https://sector-mattress-hypothesis-therefore.trycloudflare.com";
+  final String baseurl = "https://lil-anna-theorem-wants.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -464,6 +463,7 @@ class ApiService {
     required int? stateId,
     required int? districtId,
     required File document,
+    required File carrierphoto,
   }) async {
     final url = Uri.parse("$baseurl/api/qdel/register/");
     final request = http.MultipartRequest("POST", url);
@@ -488,6 +488,10 @@ class ApiService {
 
     request.files.add(
       await http.MultipartFile.fromPath("document", document.path),
+    );
+
+    request.files.add(
+      await http.MultipartFile.fromPath("carrier_photo", carrierphoto.path),
     );
 
     final response = await request.send();
@@ -1447,31 +1451,45 @@ class ApiService {
     required String description,
     required String actualWeight,
     required String volume,
+    File? productImage,
   }) async {
-    final url = Uri.parse(
-      "$baseurl/api/qdel/users/products/detail/view/update/$productId/",
-    );
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/users/products/detail/view/update/$productId/",
+      );
 
-    final body = jsonEncode({
-      "name": name,
-      "description": description,
-      "actual_weight": actualWeight,
-      "volume": volume,
-    });
+      var request = http.MultipartRequest('PUT', url);
 
-    final response = await http.put(
-      url,
-      headers: {
+      request.headers.addAll({
         "Authorization": "Bearer ${ApiService.accessToken}",
-        "Content-Type": "application/json",
-      },
-      body: body,
-    );
+      });
 
-    logger.i("UPDATE PRODUCT STATUS :: ${response.statusCode}");
-    logger.i("UPDATE PRODUCT BODY :: ${response.body}");
+      request.fields['name'] = name;
+      request.fields['description'] = description;
+      request.fields['actual_weight'] = actualWeight;
+      request.fields['volume'] = volume;
 
-    return response.statusCode == 200 || response.statusCode == 202;
+      if (productImage != null) {
+        final multipartFile = await http.MultipartFile.fromPath(
+          'image',
+          productImage.path,
+        );
+        request.files.add(multipartFile);
+        logger.i("📸 Image added to request: ${productImage.path}");
+      }
+
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      logger.i("UPDATE PRODUCT STATUS :: ${streamedResponse.statusCode}");
+      logger.i("UPDATE PRODUCT BODY :: $responseBody");
+
+      return streamedResponse.statusCode == 200 ||
+          streamedResponse.statusCode == 202;
+    } catch (e, stackTrace) {
+      logger.e("Error updating product: $e", stackTrace: stackTrace);
+      return false;
+    }
   }
 
   Future<List<dynamic>> getProducts() async {
@@ -2467,7 +2485,7 @@ class ApiService {
       logger.i("🚚 MARK ARRIVED URL => $url");
       logger.i("📤 MARK ARRIVED HEADERS => $headers");
 
-      final response = await http.post(url, headers: headers);
+      final response = await http.patch(url, headers: headers);
 
       logger.i("📥 MARK ARRIVED STATUS => ${response.statusCode}");
       logger.i("📥 MARK ARRIVED RESPONSE => ${response.body}");
@@ -2688,7 +2706,8 @@ class ApiService {
       logger.i("📍 URL: $url");
       logger.i("🔑 Headers: $headers");
 
-      final response = await http.post(url, headers: headers);
+      final response = await http.patch
+      (url, headers: headers);
 
       logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
       logger.i("📥 RESPONSE BODY: ${response.body}");
@@ -3642,65 +3661,113 @@ class ApiService {
     }
   }
 
-  Future<bool> registerShopHandler({
-    required String shopName,
-    required int shopCategory,
+  Future<bool> updateUserrRegistration({
+    String? shopName,
+    int? shopCategories,
 
-    required String address,
-    required String landmark,
-    required int district,
-    required int state,
-    required int country,
-    required String zipCode,
-    required double? latitude,
-    required double? longitude,
+    File? document,
+    File? carrierPhoto,
+    File? shopPhoto,
+    File? ownerShopPhoto,
+    File? shopDocument,
 
-    required File shopPhoto,
-    required File ownerPhoto,
-    required File shopDocument,
+    String? address,
+    String? landmark,
+    String? zipCode,
+    double? latitude,
+    double? longitude,
+
+    int? shopDistrictId,
+    int? shopStateId,
+    int? shopCountryId,
   }) async {
-    final url = Uri.parse("$baseurl/api/qdel/user/register/shop/");
-    final request = http.MultipartRequest("POST", url);
+    try {
+      logger.i("🔄 Updating carrier registration with PUT request");
 
-    request.headers.addAll({
-      "Authorization": "Bearer ${ApiService.accessToken}",
-    });
+      var request = http.MultipartRequest(
+        'PUT',
+        Uri.parse('$baseurl/api/qdel/register/update/view/'),
+      );
 
-    request.fields.addAll({
-      "shop_name": shopName,
-      "shop_categories": shopCategory.toString(),
+      request.headers.addAll({
+        'Authorization': "Bearer ${ApiService.accessToken}",
+        'Accept': 'application/json',
+      });
 
-      "address": address,
-      "landmark": landmark,
-      "district": district.toString(),
-      "state": state.toString(),
-      "country": country.toString(),
-      "zip_code": zipCode,
-      "latitude": latitude.toString(),
-      "longitude": longitude.toString(),
-    });
+      if (shopName != null) request.fields['shop_name'] = shopName;
+      if (shopCategories != null) {
+        request.fields['shop_categories'] = shopCategories.toString();
+      }
+      if (address != null) request.fields['address'] = address;
+      if (landmark != null) request.fields['landmark'] = landmark;
+      if (zipCode != null) request.fields['zip_code'] = zipCode;
+      if (latitude != null) request.fields['latitude'] = latitude.toString();
+      if (longitude != null) request.fields['longitude'] = longitude.toString();
+      if (shopDistrictId != null) {
+        request.fields['shop_district_id'] = shopDistrictId.toString();
+      }
+      if (shopStateId != null) {
+        request.fields['shop_state_id'] = shopStateId.toString();
+      }
+      if (shopCountryId != null) {
+        request.fields['shop_country_id'] = shopCountryId.toString();
+      }
 
-    request.files.add(
-      await http.MultipartFile.fromPath("shop_photo", shopPhoto.path),
-    );
+      if (document != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath('document', document.path),
+        );
+      }
 
-    request.files.add(
-      await http.MultipartFile.fromPath("owner_shop_photo", ownerPhoto.path),
-    );
+      if (carrierPhoto != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath('carrier_photo', carrierPhoto.path),
+        );
+      }
 
-    request.files.add(
-      await http.MultipartFile.fromPath("shop_document", shopDocument.path),
-    );
+      if (shopPhoto != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath('shop_photo', shopPhoto.path),
+        );
+      }
 
-    final response = await request.send();
-    final responseBody = await response.stream.bytesToString();
+      if (ownerShopPhoto != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'owner_shop_photo',
+            ownerShopPhoto.path,
+          ),
+        );
+      }
 
-    logger.i("STATUS :: ${response.statusCode}");
-    logger.i("BODY :: $responseBody");
+      if (shopDocument != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath('shop_document', shopDocument.path),
+        );
+      }
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return true;
-    } else {
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      logger.i("📡 Response status code: ${response.statusCode}");
+      logger.i("📡 Response body: $responseBody");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // final Map<String, dynamic> responseData = json.decode(responseBody);
+        logger.i("✅ User updated successfully");
+        return true;
+      } else {
+        logger.e(
+          "❌ Failed to update carrier registration. Status: ${response.statusCode}",
+        );
+        return false;
+      }
+    } catch (e, stackTrace) {
+      logger.e(
+        "❌ Error updating carrier registration",
+        error: e,
+        stackTrace: stackTrace,
+      );
       return false;
     }
   }

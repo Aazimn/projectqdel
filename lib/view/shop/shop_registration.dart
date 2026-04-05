@@ -71,7 +71,6 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
 
   Future<void> _pickImage(ImageSource source, String type) async {
     try {
-
       final picked = await picker.pickImage(source: source, imageQuality: 70);
 
       if (picked != null) {
@@ -233,9 +232,9 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
       } else {
         logger.i("🔁 Existing user → registerShopHandler");
 
-        success = await apiService.registerShopHandler(
+        success = await apiService.updateUserrRegistration(
           shopName: shopNameController.text,
-          shopCategory: selectedCategoryId!,
+          shopCategories: selectedCategoryId!,
           address: addressController.text,
           landmark: landmarkController.text,
           zipCode: zipCodeController.text,
@@ -245,12 +244,12 @@ class _ShopRegistrationScreenState extends State<ShopRegistrationScreen> {
           longitude: longitudeController.text.isNotEmpty
               ? double.tryParse(longitudeController.text)
               : null,
-          country: selectedCountryId!,
-          state: selectedStateId!,
-          district: selectedDistrictId!,
+          shopCountryId: selectedCountryId!,
+          shopStateId: selectedStateId!,
+          shopDistrictId: selectedDistrictId!,
           shopPhoto: shopPhoto!,
           shopDocument: shopDocument!,
-          ownerPhoto: ownerPhoto!,
+          ownerShopPhoto: ownerPhoto!,
         );
       }
 

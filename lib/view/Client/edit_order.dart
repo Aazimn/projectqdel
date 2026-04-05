@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Client/client_dashboard.dart';
@@ -807,6 +810,11 @@ class _EditOrderState extends State<EditOrder> {
     _startFlow();
   }
 
+  File? editProductImage;
+  final ImagePicker _imagePicker = ImagePicker();
+
+
+
   Future<void> _loadReceiverStates(int countryId) async {
     setState(() => isReceiverStateLoading = true);
     try {
@@ -1564,87 +1572,273 @@ class _EditOrderState extends State<EditOrder> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 16,
-            right: 16,
-            top: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Edit Product",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 20,
               ),
-              const SizedBox(height: 16),
-              _textField("Product Name", nameCtrl),
-              _textField("Description", descCtrl),
-              _textField("Weight (kg)", weightCtrl, isNumber: true),
-              _textField("Volume (cm³)", volumeCtrl, isNumber: true),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _updateProduct,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  "Update Product",
-                  style: TextStyle(color: ColorConstants.white),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    const Text(
+                      "Edit Product",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Product Image Section
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Icon(Icons.image, color: Colors.red, size: 20),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  "Product Image",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () async {
+                              // Show image picker options
+                              final picked = await _showImagePickerOptions();
+                              if (picked != null) {
+                                setModalState(() {
+                                  editProductImage = picked;
+                                });
+                              }
+                            },
+                            child: Container(
+                              height: 150,
+                              margin: const EdgeInsets.all(12),
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.red.shade200,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: editProductImage != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.file(
+                                        editProductImage!,
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
+                                      ),
+                                    )
+                                  : (product?['images'] != null &&
+                                            product!['images'].isNotEmpty
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            child: Image.network(
+                                              "${apiService.baseurl}${product!['images'][0]['image']}",
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                    return const Center(
+                                                      child: Column(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          Icon(
+                                                            Icons.broken_image,
+                                                            size: 40,
+                                                            color: Colors.grey,
+                                                          ),
+                                                          SizedBox(height: 8),
+                                                          Text(
+                                                            "Tap to change image",
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors.grey,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  },
+                                            ),
+                                          )
+                                        : const Center(
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.add_photo_alternate,
+                                                  size: 40,
+                                                  color: Colors.grey,
+                                                ),
+                                                SizedBox(height: 8),
+                                                Text(
+                                                  "Tap to add product image",
+                                                  style: TextStyle(
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          )),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Product Details Fields
+                    _textField("Product Name", nameCtrl),
+                    const SizedBox(height: 12),
+                    _textField("Description", descCtrl, maxLines: 3),
+                    const SizedBox(height: 12),
+                    _textField("Weight (kg)", weightCtrl, isNumber: true),
+                    const SizedBox(height: 12),
+                    _textField("Volume (cm³)", volumeCtrl, isNumber: true),
+
+                    const SizedBox(height: 24),
+
+                    // Update Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await _updateProductWithImage();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "Update Product",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _textField(
-    String label,
-    TextEditingController controller, {
-    bool isNumber = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
-      child: TextField(
-        controller: controller,
-        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.red.shade300),
-          ),
+  Future<File?> _showImagePickerOptions() async {
+    final completer = Completer<File?>();
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.red),
+              title: const Text("Take Photo"),
+              onTap: () async {
+                Navigator.pop(context);
+                final picked = await _imagePicker.pickImage(
+                  source: ImageSource.camera,
+                  imageQuality: 70,
+                );
+                if (picked != null) {
+                  completer.complete(File(picked.path));
+                } else {
+                  completer.complete(null);
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.red),
+              title: const Text("Choose from Gallery"),
+              onTap: () async {
+                Navigator.pop(context);
+                final picked = await _imagePicker.pickImage(
+                  source: ImageSource.gallery,
+                  imageQuality: 70,
+                );
+                if (picked != null) {
+                  completer.complete(File(picked.path));
+                } else {
+                  completer.complete(null);
+                }
+              },
+            ),
+          ],
         ),
       ),
     );
+
+    return completer.future;
   }
 
-  Future<void> _updateProduct() async {
-    Navigator.pop(context);
-
+  Future<void> _updateProductWithImage() async {
     final success = await apiService.updateProduct(
       productId: widget.productId,
       name: nameCtrl.text.trim(),
       description: descCtrl.text.trim(),
       actualWeight: weightCtrl.text.trim(),
       volume: volumeCtrl.text.trim(),
+      productImage: editProductImage,
     );
+
     if (!mounted) return;
+
     if (success) {
+      // Reset the image after successful upload
+      setState(() {
+        editProductImage = null;
+      });
       await _loadProduct();
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           const SnackBar(
             content: Text("Product updated successfully"),
+            backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1652,10 +1846,47 @@ class _EditOrderState extends State<EditOrder> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(content: Text("Failed to update product")),
+          const SnackBar(
+            content: Text("Failed to update product"),
+            backgroundColor: Colors.red,
+          ),
         );
     }
   }
+
+  Widget _textField(
+    String label,
+    TextEditingController controller, {
+    bool isNumber = false,
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.grey),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.red.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.red, width: 2),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+      ),
+    );
+  }
+
 
   Widget _detailsCard({
     required String title,

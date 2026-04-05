@@ -143,7 +143,7 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
           print('⚠️ Breaking pagination loop - too many pages');
           break;
         }
-      // ignore: unnecessary_null_comparison
+        // ignore: unnecessary_null_comparison
       } while (nextUrl != null && nextUrl.isNotEmpty);
 
       print('🎯 FINAL: Loaded ${allOrders.length} orders');
@@ -466,194 +466,169 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
       body: RefreshIndicator(
         onRefresh: _refreshData,
         color: Colors.red,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(25),
-                      bottomRight: Radius.circular(25),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                "Hello",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              const Text(
-                                "👋",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 5),
-                          const Text(
-                            "Welcome back, Carrier 🚚",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ],
-                      ),
-                      InkWell(
-                        onTap: () {
-                          if (widget.onNavigateToIndex != null) {
-                            widget.onNavigateToIndex!(3);
-                          }
-                        },
-                        child: const CircleAvatar(
-                          radius: 22,
-                          backgroundColor: Colors.white,
-                          child: Icon(Icons.person, color: Colors.red),
-                        ),
-                      ),
-                    ],
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(25),
+                    bottomRight: Radius.circular(25),
                   ),
                 ),
-
-                const SizedBox(height: 20),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _infoCard(
-                          "Today's Deliveries",
-                          _isLoadingCounts ? null : _todayCompleted.toString(),
-                          Icons.local_shipping,
-                          isLoading: _isLoadingCounts,
-                          error: _countsError,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _infoCard(
-                          "Total Completed",
-                          _isLoadingCounts ? null : _totalCompleted.toString(),
-                          Icons.check_circle,
-                          isLoading: _isLoadingCounts,
-                          error: _countsError,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.red.shade700, Colors.red.shade400],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.red.withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        SizedBox(height: 25),
+                        Row(
                           children: [
-                            Text(
-                              "Today's Earnings",
-                              style: TextStyle(color: Colors.white70),
-                            ),
-                            SizedBox(height: 5),
-                            Text(
-                              "₹1,250",
+                            const Text(
+                              "Hello",
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 22,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            const Text(
+                              "👋",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
-                        Icon(
-                          Icons.account_balance_wallet,
-                          color: Colors.white,
-                          size: 30,
+                        const SizedBox(height: 5),
+                        const Text(
+                          "Welcome back, Carrier 🚚",
+                          style: TextStyle(color: Colors.white),
                         ),
                       ],
                     ),
-                  ),
+                    InkWell(
+                      onTap: () {
+                        if (widget.onNavigateToIndex != null) {
+                          widget.onNavigateToIndex!(3);
+                        }
+                      },
+                      child: const CircleAvatar(
+                        radius: 22,
+                        backgroundColor: Colors.white,
+                        child: Icon(Icons.person, color: Colors.red),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
 
-                const SizedBox(height: 25),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 20),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _infoCard(
+                        "Today's Deliveries",
+                        _isLoadingCounts ? null : _todayCompleted.toString(),
+                        Icons.local_shipping,
+                        isLoading: _isLoadingCounts,
+                        error: _countsError,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _infoCard(
+                        "Total Completed",
+                        _isLoadingCounts ? null : _totalCompleted.toString(),
+                        Icons.check_circle,
+                        isLoading: _isLoadingCounts,
+                        error: _countsError,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.red.shade700, Colors.red.shade400],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildChartTitle(),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              spreadRadius: 1,
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Today's Earnings",
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                          SizedBox(height: 5),
+                          Text(
+                            "₹1,250",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
                             ),
-                          ],
-                        ),
-                        child: _buildLineChart(),
+                          ),
+                        ],
+                      ),
+                      Icon(
+                        Icons.account_balance_wallet,
+                        color: Colors.white,
+                        size: 30,
                       ),
                     ],
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 20),
-
-                if (_completedOrders.isNotEmpty && !_isLoadingChart)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Container(
+              const SizedBox(height: 25),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildChartTitle(),
+                    const SizedBox(height: 16),
+                    Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -667,96 +642,119 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                           ),
                         ],
                       ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildStatItem(
-                                  'Total Orders',
-                                  _completedOrders.length.toString(),
-                                  Icons.shopping_bag,
-                                ),
-                              ),
-                              Container(
-                                height: 30,
-                                width: 1,
-                                color: Colors.red.withOpacity(0.2),
-                              ),
-                              Expanded(
-                                child: _buildStatItem(
-                                  'Avg/Day',
-                                  _calculateAveragePerDay().toStringAsFixed(1),
-                                  Icons.trending_up,
-                                ),
-                              ),
-                              Container(
-                                height: 30,
-                                width: 1,
-                                color: Colors.red.withOpacity(0.2),
-                              ),
+                      child: _buildLineChart(),
+                    ),
+                  ],
+                ),
+              ),
 
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    const Icon(
-                                      Icons.emoji_events,
+              const SizedBox(height: 20),
+
+              if (_completedOrders.isNotEmpty && !_isLoadingChart)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatItem(
+                                'Total Orders',
+                                _completedOrders.length.toString(),
+                                Icons.shopping_bag,
+                              ),
+                            ),
+                            Container(
+                              height: 30,
+                              width: 1,
+                              color: Colors.red.withOpacity(0.2),
+                            ),
+                            Expanded(
+                              child: _buildStatItem(
+                                'Avg/Day',
+                                _calculateAveragePerDay().toStringAsFixed(1),
+                                Icons.trending_up,
+                              ),
+                            ),
+                            Container(
+                              height: 30,
+                              width: 1,
+                              color: Colors.red.withOpacity(0.2),
+                            ),
+
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  const Icon(
+                                    Icons.emoji_events,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _getPeakDayText(),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
                                       color: Colors.red,
-                                      size: 20,
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _getPeakDayText(),
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.red,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 2,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                  ),
+                                  const Text(
+                                    'Peak Day',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey,
                                     ),
-                                    const Text(
-                                      'Peak Day',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
 
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              _getDateRangeText(),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.red.shade700,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
                           ),
-                        ],
-                      ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            _getDateRangeText(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ),
 
-                const SizedBox(height: 20),
-              ],
-            ),
+              const SizedBox(height: 20),
+            ],
           ),
         ),
       ),
