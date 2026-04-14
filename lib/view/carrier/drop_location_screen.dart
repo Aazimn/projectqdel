@@ -1,4 +1,3 @@
-// lib/view/Carrier/drop_location_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -8,10 +7,14 @@ import 'package:logger/web.dart';
 import 'package:lottie/lottie.dart' hide Marker;
 import 'package:projectqdel/core/constants/color_constants.dart';
 import 'package:projectqdel/model/drop_location.dart';
+import 'package:projectqdel/model/order_model.dart';
 import 'package:projectqdel/services/api_service.dart';
 
 class DropLocationScreen extends StatefulWidget {
-  const DropLocationScreen({super.key});
+  final int orderId;
+  final OrderModel? order;
+
+  const DropLocationScreen({super.key, required this.orderId, this.order});
 
   @override
   State<DropLocationScreen> createState() => _DropLocationScreenState();
@@ -408,15 +411,27 @@ class _DropLocationScreenState extends State<DropLocationScreen> {
   }
 
   void _showLocationDetails(DropLocation location) {
+    print("🔍 SELECTED SHOP DETAILS:");
+    print("   Drop Location ID: ${location.id}");
+    print("   Shop Name: ${location.userDetails.shopName}");
+
+    final dropLocationId = location.id;
+    final shopUserId = location.userDetails.id;
+    print("✅ DropLocation ID to send: $dropLocationId");
+
+    final screenContext = context;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) {
+      builder: (bottomSheetContext) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            bool isAccepting = false;
+
             return Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -427,7 +442,6 @@ class _DropLocationScreenState extends State<DropLocationScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Handle Bar
                   Container(
                     margin: const EdgeInsets.only(top: 12),
                     width: 50,
@@ -439,7 +453,6 @@ class _DropLocationScreenState extends State<DropLocationScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Shop Icon
                   Container(
                     width: 80,
                     height: 80,
@@ -455,7 +468,6 @@ class _DropLocationScreenState extends State<DropLocationScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Shop Name
                   Text(
                     location.userDetails.shopName.toUpperCase(),
                     style: const TextStyle(
@@ -466,7 +478,6 @@ class _DropLocationScreenState extends State<DropLocationScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Shop Category
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -487,13 +498,13 @@ class _DropLocationScreenState extends State<DropLocationScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Divider
                   Container(
                     height: 1,
                     margin: const EdgeInsets.symmetric(horizontal: 24),
                     color: Colors.grey.shade200,
                   ),
                   const SizedBox(height: 16),
+
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
@@ -522,7 +533,7 @@ class _DropLocationScreenState extends State<DropLocationScreen> {
                         const SizedBox(height: 16),
 
                         const Text(
-                          "Address Details",
+                          "Shop Address",
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -574,30 +585,87 @@ class _DropLocationScreenState extends State<DropLocationScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Action Button
                   Padding(
                     padding: const EdgeInsets.all(24),
                     child: SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Selected drop location: ${location.userDetails.shopName}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              backgroundColor: Colors.green,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: isAccepting
+                            // ignore: dead_code
+                            ? null
+                            : () async {
+                                setModalState(() {
+                                  isAccepting = true;
+                                });
+
+                                try {
+                                  int? pickupCarrierId =
+                                      await ApiService.getPickupCarrierId();
+
+                                  if (pickupCarrierId == null) {
+                                    ScaffoldMessenger.of(
+                                      screenContext,
+                                    ).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Unable to get carrier ID',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                    setModalState(() => isAccepting = false);
+                                    return;
+                                  }
+
+                                  final apiService = ApiService();
+                                  final response = await apiService.acceptShop(
+                                    pickupCarrierId,
+                                    shopUserId,
+                                  );
+
+                                  setModalState(() => isAccepting = false);
+
+                                  if (response != null &&
+                                      response['id'] != null) {
+                                    final pickupCarrierDropId = response['id'];
+                                    print(
+                                      "✅ New pickup_carrier_drop ID created: $pickupCarrierDropId",
+                                    );
+
+                                      await ApiService.saveActiveDropId(pickupCarrierDropId);
+
+                                    Navigator.of(bottomSheetContext).pop();
+
+                                    if (mounted) {
+                                      Navigator.of(
+                                        screenContext,
+                                      ).pop(pickupCarrierDropId);
+                                    }
+                                  } else {
+                                    ScaffoldMessenger.of(
+                                      screenContext,
+                                    ).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Failed to accept shop. Please try again.',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  print("Error accepting shop: $e");
+                                  setModalState(() => isAccepting = false);
+                                  ScaffoldMessenger.of(
+                                    screenContext,
+                                  ).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red.shade700,
                           foregroundColor: Colors.white,
@@ -607,17 +675,27 @@ class _DropLocationScreenState extends State<DropLocationScreen> {
                           ),
                           elevation: 3,
                         ),
-                        child: const Text(
-                          'Select This Location',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        child: isAccepting
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                            : const Text(
+                                'Select This Location',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
                 ],
               ),
             );

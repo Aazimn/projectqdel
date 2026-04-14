@@ -43,33 +43,84 @@ class _ShopHomeState extends State<ShopHome> {
     fetchShopData();
   }
 
-  Future<void> fetchShopData() async {
-    setState(() => isLoading = true);
-    try {
-      final data = await apiService.getShopTimings();
-      if (data != null &&
-          data['working_days'] != null &&
-          (data['working_days'] as List).isNotEmpty) {
+Future<void> fetchShopData() async {
+  setState(() => isLoading = true);
+
+  try {
+    final response = await apiService.getShopTimings();
+
+    if (response != null) {
+      dynamic shopData;
+      
+      // ignore: unnecessary_type_check
+      if (response is Map && response.containsKey('data')) {
+        shopData = response['data'];
+      } else {
+        shopData = response;
+      }
+      
+      if (shopData is List && shopData.isNotEmpty) {
+        final firstShop = shopData[0];
+        
         setState(() {
-          shopId = data['id'];
-          isManuallyClosed = data['is_manually_closed'] ?? false;
-          workingDays = (data['working_days'] as List)
+          shopId = firstShop['id'];
+          isManuallyClosed = firstShop['is_manually_closed'] ?? false;
+          
+          workingDays = (firstShop['working_days'] as List)
               .map((day) => WorkingDay.fromJson(day))
               .toList();
-          specialDays = (data['special_days'] as List)
+          
+          specialDays = (firstShop['special_days'] as List)
               .map((day) => SpecialDay.fromJson(day))
               .toList();
+          
+          bool isOpenNow = firstShop['is_open_now'] ?? false;
+          if (!isOpenNow) {
+            print("🚫 Shop is currently CLOSED");
+          } else {
+            print("✅ Shop is OPEN");
+          }
+          
           isLoading = false;
           isRegistering = false;
         });
-      } else {
+      } 
+    
+      else if (shopData is Map && shopData.isNotEmpty) {
+        setState(() {
+          shopId = shopData['id'];
+          isManuallyClosed = shopData['is_manually_closed'] ?? false;
+          
+          workingDays = (shopData['working_days'] as List)
+              .map((day) => WorkingDay.fromJson(day))
+              .toList();
+          
+          specialDays = (shopData['special_days'] as List)
+              .map((day) => SpecialDay.fromJson(day))
+              .toList();
+          
+          bool isOpenNow = shopData['is_open_now'] ?? false;
+          if (!isOpenNow) {
+            print("🚫 Shop is currently CLOSED");
+          } else {
+            print("✅ Shop is OPEN");
+          }
+          
+          isLoading = false;
+          isRegistering = false;
+        });
+      } 
+      else {
         startRegistration();
       }
-    } catch (e) {
-      print('Error fetching data: $e');
+    } else {
       startRegistration();
     }
+  } catch (e) {
+    print('Error fetching data: $e');
+    startRegistration();
   }
+}
 
   void startRegistration() {
     setState(() {
@@ -1037,7 +1088,6 @@ class _ShopHomeState extends State<ShopHome> {
                   onPressed: () => _showRedSpecialDayDialog(),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text("Add Special Day"),
-
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
                     shape: RoundedRectangleBorder(
@@ -1061,7 +1111,6 @@ class _ShopHomeState extends State<ShopHome> {
           itemBuilder: (context, index) {
             final day = displaySpecialDays[index];
             final isEditing = isEditMode && editingSpecialDayIndex == index;
-
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(

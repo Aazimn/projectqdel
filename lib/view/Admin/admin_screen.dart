@@ -6,6 +6,7 @@ import 'package:projectqdel/model/user_models.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/view/Admin/admin_profile.dart';
 import 'package:projectqdel/view/Admin/manage_transportation.dart';
+import 'package:projectqdel/view/Admin/rate_management.dart';
 import 'package:projectqdel/view/Admin/shop_categoryview.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -495,6 +496,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (_) => const ShopCategoriesScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        _dashboardCard(
+                          icon: Icons.store,
+                          title: "Payment Form",
+                          subtitle: "Manage payment",
+                          iconColor: Colors.red,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AdminRateManagement(),
                               ),
                             );
                           },

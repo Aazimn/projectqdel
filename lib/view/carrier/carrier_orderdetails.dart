@@ -1,4 +1,3 @@
-// lib/view/Carrier/order_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
@@ -7,7 +6,7 @@ import 'package:projectqdel/services/api_service.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final CompletedOrder order;
-  final int orderId; // Add this to fetch fresh data
+  final int orderId; 
 
   const OrderDetailScreen({
     super.key,
@@ -48,7 +47,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           _detailedOrder = orderDetail;
         } else {
           _errorMessage = 'Failed to load order details';
-          // Fallback to the passed order if API fails
           _detailedOrder = widget.order;
         }
       });
@@ -56,7 +54,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       setState(() {
         _isLoading = false;
         _errorMessage = 'Error: $e';
-        _detailedOrder = widget.order; // Fallback
+        _detailedOrder = widget.order;
       });
     }
   }
@@ -127,23 +125,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Order Status Card
                   _buildOrderStatusCard(order),
                   const SizedBox(height: 16),
 
-                  // Sender Information Card with Address
                   _buildSenderInfoCard(order),
                   const SizedBox(height: 16),
 
-                  // Receiver Information Card with Address
                   if (order.receiverName != null) _buildReceiverInfoCard(order),
                   if (order.receiverName != null) const SizedBox(height: 16),
 
-                  // Timeline Card
                   _buildTimelineCard(order),
                   const SizedBox(height: 16),
 
-                  // Additional Information Card
                   _buildAdditionalInfoCard(order),
                 ],
               ),

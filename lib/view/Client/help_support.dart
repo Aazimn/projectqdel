@@ -828,20 +828,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  _buildCategoryChip('All', true),
-                  _buildCategoryChip('Orders', false),
-                  _buildCategoryChip('Payments', false),
-                  _buildCategoryChip('Account', false),
-                  _buildCategoryChip('Technical', false),
-                ],
-              ),
-            ),
+
             const SizedBox(height: 12),
             _filteredFaqs.isEmpty
                 ? Center(
@@ -940,30 +927,6 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryChip(String label, bool isSelected) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (selected) {},
-        backgroundColor: Colors.grey.shade100,
-        selectedColor: ColorConstants.red.withOpacity(0.2),
-        checkmarkColor: ColorConstants.red,
-        labelStyle: TextStyle(
-          color: isSelected ? ColorConstants.red : Colors.grey.shade700,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: isSelected ? ColorConstants.red : Colors.grey.shade300,
-          ),
         ),
       ),
     );

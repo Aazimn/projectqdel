@@ -18,7 +18,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl = "https://lil-anna-theorem-wants.trycloudflare.com";
+  final String baseurl =
+      "https://girls-ppc-sides-series.trycloudflare.com";
   Logger logger = Logger();
 
   static bool? isFirstTime;
@@ -150,11 +151,8 @@ class ApiService {
 
   Future<bool> login({required String phone}) async {
     Uri url = Uri.parse("$baseurl/api/qdel/request/otp/");
-
     var headers = {"Content-Type": "application/json"};
-
     var body = jsonEncode({"phone": phone});
-
     logger.i("URL :: $url");
     logger.i("HEADERS :: $headers");
     logger.i("BODY :: $body");
@@ -1910,7 +1908,6 @@ class ApiService {
 
   Future<List<OrderModel>> getAllOrders({int? deliveryModeId}) async {
     try {
-      // Build URL with query parameters
       Uri uri;
       if (deliveryModeId != null) {
         uri = Uri.parse(
@@ -2006,91 +2003,6 @@ class ApiService {
     }
   }
 
-  // Future<List<OrderModel>> getAllOrders() async {
-  //   try {
-  //     final response = await http.get(
-  //       Uri.parse('$baseurl/api/qdel/user/view/all/orders/'),
-  //       headers: {'Authorization': "Bearer ${ApiService.accessToken}"},
-  //     );
-  //     debugPrint("💡 GET ORDERS STATUS => ${response.statusCode}");
-  //     if (response.statusCode != 200) {
-  //       debugPrint("❌ HTTP Error: ${response.statusCode}");
-  //       debugPrint("❌ Response body: ${response.body}");
-  //       return [];
-  //     }
-
-  //     Map<String, dynamic> decoded;
-  //     try {
-  //       decoded = jsonDecode(response.body) as Map<String, dynamic>;
-  //     } catch (e) {
-  //       debugPrint("❌ Failed to decode JSON: $e");
-  //       debugPrint("❌ Raw response: ${response.body}");
-  //       return [];
-  //     }
-
-  //     if (decoded['status'] != 'success') {
-  //       debugPrint("⚠️ API returned non-success status: ${decoded['status']}");
-  //       return [];
-  //     }
-
-  //     final List ordersJson = decoded['data'];
-  //     if (ordersJson.isEmpty) {
-  //       debugPrint("📭 No orders found in response");
-  //       return [];
-  //     }
-
-  //     debugPrint("📦 Total orders from API: ${ordersJson.length}");
-
-  //     final List<OrderModel> orders = [];
-  //     int parseErrors = 0;
-
-  //     for (var orderJson in ordersJson) {
-  //       try {
-  //         final order = OrderModel.fromJson(orderJson);
-  //         orders.add(order);
-  //         debugPrint("✅ Order ${order.id} parsed successfully");
-  //         if (order.senderAddress != null) {
-  //           final lat = order.senderAddress!.latitude;
-  //           final lng = order.senderAddress!.longitude;
-  //           if (lat != null && lng != null) {
-  //             debugPrint("   📍 Has coordinates: ($lat, $lng)");
-  //           } else {
-  //             debugPrint("   ⚠️ Missing coordinates");
-  //           }
-  //         } else {
-  //           debugPrint("   ⚠️ No sender address");
-  //         }
-  //       } catch (e, stackTrace) {
-  //         parseErrors++;
-  //         debugPrint(
-  //           "⚠️ Failed to parse order ${orderJson['id'] ?? 'unknown'}: $e",
-  //         );
-  //         if (orderJson.containsKey('product_details')) {
-  //           debugPrint("   product_details: ${orderJson['product_details']}");
-  //         }
-  //         if (orderJson.containsKey('sender_address')) {
-  //           debugPrint("   sender_address: ${orderJson['sender_address']}");
-  //         }
-  //         if (parseErrors <= 3) {
-  //           debugPrint("   Stack trace: $stackTrace");
-  //         }
-
-  //         continue;
-  //       }
-  //     }
-  //     debugPrint(
-  //       "✅ Successfully parsed ${orders.length} out of ${ordersJson.length} orders",
-  //     );
-  //     if (parseErrors > 0) {
-  //       debugPrint("⚠️ Failed to parse $parseErrors orders");
-  //     }
-  //     return orders;
-  //   } catch (e) {
-  //     debugPrint("⛔ GET ORDERS ERROR => $e");
-  //     return [];
-  //   }
-  // }
-
   Future<LatLng?> getCarrierCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -2126,10 +2038,8 @@ class ApiService {
       "address": senderAddressId,
       "receiver_address": receiverAddressId,
     };
-
     logger.i("CREATE PICKUP URL => $url");
     logger.i("CREATE PICKUP BODY => $body");
-
     try {
       final response = await http.post(
         url,
@@ -2139,13 +2049,10 @@ class ApiService {
         },
         body: jsonEncode(body),
       );
-
       logger.i("CREATE PICKUP STATUS => ${response.statusCode}");
       logger.i("CREATE PICKUP RESPONSE => ${response.body}");
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
-
         if (responseData.containsKey('data')) {
           final data = responseData['data'];
           logger.i("Delivery mode in response: ${data['delivery_mode']}");
@@ -2157,7 +2064,6 @@ class ApiService {
             );
           }
         }
-
         return responseData;
       } else {
         logger.e("CREATE PICKUP FAILED => ${response.body}");
@@ -2172,48 +2078,82 @@ class ApiService {
   int? lastAcceptedPickupCarrierId;
 
   Future<Map<String, dynamic>?> acceptOrder({
-    required int pickupId,
-    required double latitude,
-    required double longitude,
-  }) async {
-    Uri uri = Uri.parse("$baseurl/api/qdel/users/pickups/carrier/request/");
-
-    final headers = {
-      "Authorization": "Bearer ${ApiService.accessToken}",
-      "Content-Type": "application/json",
-    };
-
-    final body = jsonEncode({
-      "pickup": pickupId,
-      "latitude": latitude,
-      "longitude": longitude,
-    });
-
-    try {
-      final response = await http.post(uri, headers: headers, body: body);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = jsonDecode(response.body);
-
-        if (responseData['data'] != null &&
-            responseData['data']['id'] != null) {
-          lastAcceptedPickupCarrierId = responseData['data']['id'];
-          logger.i(
-            "✅ Captured pickup_carrier_id: $lastAcceptedPickupCarrierId",
-          );
-          await savePickupCarrierId(lastAcceptedPickupCarrierId!);
-        }
-
-        return responseData;
-      } else {
-        logger.e("❌ ACCEPT ORDER FAILED => ${response.body}");
-        return null;
+  required int pickupId,
+  required double latitude,
+  required double longitude,
+}) async {
+  Uri uri = Uri.parse("$baseurl/api/qdel/users/pickups/carrier/request/");
+  final headers = {
+    "Authorization": "Bearer ${ApiService.accessToken}",
+    "Content-Type": "application/json",
+  };
+  final body = jsonEncode({
+    "pickup": pickupId,
+    "latitude": latitude,
+    "longitude": longitude,
+  });
+  try {
+    final response = await http.post(uri, headers: headers, body: body);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final responseData = jsonDecode(response.body);
+      if (responseData['data'] != null && responseData['data']['id'] != null) {
+        lastAcceptedPickupCarrierId = responseData['data']['id'];
+        // Always clear stale ID before saving fresh one
+        await clearPickupCarrierId();
+        await savePickupCarrierId(lastAcceptedPickupCarrierId!);
+        logger.i("✅ Saved fresh pickup_carrier_id: $lastAcceptedPickupCarrierId");
       }
-    } catch (e) {
-      logger.e("❌ ACCEPT ORDER ERROR => $e");
+      return responseData;
+    } else {
+      logger.e("❌ ACCEPT ORDER FAILED => ${response.body}");
       return null;
     }
+  } catch (e) {
+    logger.e("❌ ACCEPT ORDER ERROR => $e");
+    return null;
   }
+}
+
+  // Future<Map<String, dynamic>?> acceptOrder({
+  //   required int pickupId,
+  //   required double latitude,
+  //   required double longitude,
+  // }) async {
+  //   Uri uri = Uri.parse("$baseurl/api/qdel/users/pickups/carrier/request/");
+  //   final headers = {
+  //     "Authorization": "Bearer ${ApiService.accessToken}",
+  //     "Content-Type": "application/json",
+  //   };
+  //   final body = jsonEncode({
+  //     "pickup": pickupId,
+  //     "latitude": latitude,
+  //     "longitude": longitude,
+  //   });
+  //   try {
+  //     final response = await http.post(uri, headers: headers, body: body);
+
+  //     if (response.statusCode == 200 || response.statusCode == 201) {
+  //       final responseData = jsonDecode(response.body);
+
+  //       if (responseData['data'] != null &&
+  //           responseData['data']['id'] != null) {
+  //         lastAcceptedPickupCarrierId = responseData['data']['id'];
+  //         logger.i(
+  //           "✅ Captured pickup_carrier_id: $lastAcceptedPickupCarrierId",
+  //         );
+  //         await savePickupCarrierId(lastAcceptedPickupCarrierId!);
+  //       }
+
+  //       return responseData;
+  //     } else {
+  //       logger.e("❌ ACCEPT ORDER FAILED => ${response.body}");
+  //       return null;
+  //     }
+  //   } catch (e) {
+  //     logger.e("❌ ACCEPT ORDER ERROR => $e");
+  //     return null;
+  //   }
+  // }
 
   static Future<void> savePickupCarrierId(int id) async {
     final prefs = await SharedPreferences.getInstance();
@@ -2313,7 +2253,6 @@ class ApiService {
     final url = Uri.parse(
       "$baseurl/api/qdel/user/sender/product/details/$pickupId/",
     );
-
     try {
       final res = await http.get(url, headers: _headers());
       if (res.statusCode == 200) {
@@ -2325,11 +2264,15 @@ class ApiService {
     return null;
   }
 
+  static Future<int?> getCurrentUserId() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getInt('user_id');
+}
+
   Future<Map<String, dynamic>?> getShipmentStatus(int pickupId) async {
     final url = Uri.parse(
       "$baseurl/api/qdel/sender/shipment-status/$pickupId/",
     );
-
     try {
       final res = await http.get(url, headers: _headers());
       if (res.statusCode == 200) {
@@ -2350,7 +2293,7 @@ class ApiService {
     final url = Uri.parse("$baseurl/api/qdel/sender/cancel/pickup/$pickupId/");
 
     try {
-      final response = await http.post(url, headers: _headers());
+      final response = await http.patch(url, headers: _headers());
 
       logger.i("CANCEL ORDER URL :: $url");
       logger.i("CANCEL ORDER STATUS :: ${response.statusCode}");
@@ -2399,6 +2342,23 @@ class ApiService {
   static Future<void> clearActiveOrder() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("active_order_id");
+  }
+
+  static Future<void> saveActiveDropId(int dropId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt("active_drop_id", dropId);
+    debugPrint("✅ Saved active drop ID: $dropId");
+  }
+
+  static Future<int?> getActiveDropId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("active_drop_id");
+  }
+
+  static Future<void> clearActiveDropId() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("active_drop_id");
+    debugPrint("🗑️ Cleared active drop ID");
   }
 
   Future<OrderModel?> fetchOrderById(int orderId) async {
@@ -2706,8 +2666,7 @@ class ApiService {
       logger.i("📍 URL: $url");
       logger.i("🔑 Headers: $headers");
 
-      final response = await http.patch
-      (url, headers: headers);
+      final response = await http.patch(url, headers: headers);
 
       logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
       logger.i("📥 RESPONSE BODY: ${response.body}");
@@ -3557,7 +3516,7 @@ class ApiService {
         "Content-Type": "application/json",
       };
 
-      final response = await http.post(url, headers: headers);
+      final response = await http.patch(url, headers: headers);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final Map<String, dynamic> responseData = json.decode(response.body);
@@ -3606,7 +3565,7 @@ class ApiService {
   }
 
   Future<bool> addCategory(String name) async {
-    final url = Uri.parse("$baseurl/api/qdel/user/add/shop/category/");
+    final url = Uri.parse("$baseurl/api/qdel/user/view/shop/categories/");
 
     try {
       final response = await http.post(
@@ -3838,10 +3797,13 @@ class ApiService {
           "Content-Type": "application/json",
         },
       );
+
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        return data['data'];
+        final decoded = json.decode(response.body);
+
+        return decoded;
       }
+
       return null;
     } catch (e) {
       print('Error fetching shop timings: $e');
@@ -4099,4 +4061,705 @@ class ApiService {
       return [];
     }
   }
+
+  Future<Map<String, dynamic>?> getShopDropAddress(int shopDropId) async {
+    final url = Uri.parse("$baseurl/api/qdel/shop/drop/address/$shopDropId/");
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${ApiService.accessToken}",
+        },
+      );
+
+      print("GET SHOP DROP ADDRESS STATUS: ${response.statusCode}");
+      print("GET SHOP DROP ADDRESS RESPONSE: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        return decoded;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print("ERROR in getShopDropAddress: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> acceptShop(
+    int pickupCarrierId,
+    int shopDropId,
+  ) async {
+    final url = Uri.parse(
+      "$baseurl/api/qdel/carrier/accept/drop/$pickupCarrierId/",
+    );
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${ApiService.accessToken}",
+        },
+        body: jsonEncode({"shop": shopDropId}),
+      );
+
+      print("ACCEPT SHOP STATUS: ${response.statusCode}");
+      print("ACCEPT SHOP RESPONSE: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final decoded = json.decode(response.body);
+        return decoded;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print("ERROR in acceptShop: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> confirmShopDropArrival(
+    int pickupCarrierDropId,
+  ) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/carrier/shop/$pickupCarrierDropId/arrive/",
+      );
+
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      logger.i("=" * 80);
+      logger.i("CONFIRM SHOP DROP ARRIVAL DEBUG");
+      logger.i("=" * 80);
+      logger.i("📍 URL: $url");
+      logger.i("🔑 Headers: $headers");
+      logger.i("📦 Body: {} (no fields required)");
+
+      final response = await http.patch(url, headers: headers);
+
+      logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+      logger.i("📥 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        logger.i("✅ Shop drop arrival confirmed successfully: $responseData");
+        return {
+          "success": true,
+          "data": responseData,
+          "statusCode": response.statusCode,
+        };
+      } else {
+        logger.e(
+          "❌ CONFIRM SHOP DROP ARRIVAL FAILED with status ${response.statusCode}",
+        );
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['detail'] ??
+                errorData['message'] ??
+                "Failed to confirm arrival",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error":
+                "Failed to confirm arrival with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
+      }
+    } catch (e) {
+      logger.e("❌ CONFIRM SHOP DROP ARRIVAL EXCEPTION: $e");
+      return {"success": false, "error": "Exception: $e"};
+    } finally {
+      logger.i("=" * 80);
+    }
+  }
+
+  Future<Map<String, dynamic>?> uploadShopDropImage({
+    required int shopDropId,
+    required File image,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/carrier/shop-drop/upload/image/$shopDropId/",
+      );
+
+      var request = http.MultipartRequest('PUT', url);
+
+      request.headers.addAll({
+        "Authorization": "Bearer ${ApiService.accessToken}",
+      });
+
+      request.files.add(await http.MultipartFile.fromPath('image', image.path));
+      logger.i("=" * 80);
+      logger.i("UPLOAD SHOP DROP IMAGE DEBUG");
+      logger.i("=" * 80);
+      logger.i("📍 URL: $url");
+      logger.i("🔑 Headers: ${request.headers}");
+      logger.i("📦 File: ${image.path}");
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+      logger.i("📥 RESPONSE STATUS: ${streamedResponse.statusCode}");
+      logger.i("📥 RESPONSE BODY: $responseBody");
+
+      if (streamedResponse.statusCode == 200 ||
+          streamedResponse.statusCode == 201) {
+        final responseData = jsonDecode(responseBody);
+        logger.i("✅ Image uploaded successfully: $responseData");
+        return {
+          "success": true,
+          "data": responseData,
+          "statusCode": streamedResponse.statusCode,
+        };
+      } else {
+        logger.e(
+          "❌ UPLOAD IMAGE FAILED with status ${streamedResponse.statusCode}",
+        );
+        return {
+          "success": false,
+          "error": "Failed to upload image",
+          "statusCode": streamedResponse.statusCode,
+        };
+      }
+    } catch (e) {
+      logger.e("❌ UPLOAD IMAGE EXCEPTION: $e");
+      return {"success": false, "error": "Exception: $e"};
+    } finally {
+      logger.i("=" * 80);
+    }
+  }
+
+  Future<Map<String, dynamic>?> sendShopDropOtp({
+    required int shopDropId,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/shop/drop/generate/otp/$shopDropId/",
+      );
+
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      logger.i("=" * 80);
+      logger.i("SEND SHOP DROP OTP DEBUG");
+      logger.i("=" * 80);
+      logger.i("📍 URL: $url");
+      logger.i("🔑 Headers: $headers");
+      logger.i("📦 Body: {} (no fields required)");
+
+      final response = await http.post(url, headers: headers);
+
+      logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+      logger.i("📥 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        logger.i("✅ Shop drop OTP sent successfully: $responseData");
+        return {
+          "success": true,
+          "data": responseData,
+          "statusCode": response.statusCode,
+        };
+      } else {
+        logger.e(
+          "❌ SEND SHOP DROP OTP FAILED with status ${response.statusCode}",
+        );
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['detail'] ??
+                errorData['message'] ??
+                "Failed to send OTP",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error": "Failed to send OTP with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
+      }
+    } catch (e) {
+      logger.e("❌ SEND SHOP DROP OTP EXCEPTION: $e");
+      return {"success": false, "error": "Exception: $e"};
+    } finally {
+      logger.i("=" * 80);
+    }
+  }
+
+  Future<Map<String, dynamic>?> verifyShopDropOtp({
+    required int shopDropId,
+    required String otp,
+  }) async {
+    try {
+      final url = Uri.parse(
+        "$baseurl/api/qdel/shop/drop/verify/otp/$shopDropId/",
+      );
+
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      final body = jsonEncode({"otp": otp});
+
+      logger.i("=" * 80);
+      logger.i("VERIFY SHOP DROP OTP DEBUG");
+      logger.i("=" * 80);
+      logger.i("📍 URL: $url");
+      logger.i("🔑 Headers: $headers");
+      logger.i("📦 Body: $body");
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      logger.i("📥 RESPONSE STATUS: ${response.statusCode}");
+      logger.i("📥 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        logger.i("✅ Shop drop OTP verified successfully: $responseData");
+        return {
+          "success": true,
+          "data": responseData,
+          "statusCode": response.statusCode,
+        };
+      } else {
+        logger.e(
+          "❌ VERIFY SHOP DROP OTP FAILED with status ${response.statusCode}",
+        );
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            "success": false,
+            "error":
+                errorData['detail'] ??
+                errorData['message'] ??
+                "Failed to verify OTP",
+            "statusCode": response.statusCode,
+          };
+        } catch (_) {
+          return {
+            "success": false,
+            "error": "Failed to verify OTP with status ${response.statusCode}",
+            "statusCode": response.statusCode,
+          };
+        }
+      }
+    } catch (e) {
+      logger.e("❌ VERIFY SHOP DROP OTP EXCEPTION: $e");
+      return {"success": false, "error": "Exception: $e"};
+    } finally {
+      logger.i("=" * 80);
+    }
+  }
+
+  static Future<void> saveShopDropArrivalStatus(int orderId, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("shop_drop_arrived_$orderId", value);
+  }
+
+  static Future<bool?> getShopDropArrivalStatus(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool("shop_drop_arrived_$orderId");
+  }
+
+  static Future<void> saveShopDropImageStatus(int orderId, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("shop_drop_image_$orderId", value);
+  }
+
+  static Future<bool?> getShopDropImageStatus(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool("shop_drop_image_$orderId");
+  }
+
+  static Future<void> saveShopDropOtpSentStatus(int orderId, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("shop_drop_otp_sent_$orderId", value);
+  }
+
+  static Future<bool?> getShopDropOtpSentStatus(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool("shop_drop_otp_sent_$orderId");
+  }
+
+  static Future<void> clearshopDropOrderStatus(int orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("shop_drop_arrived_$orderId");
+    await prefs.remove("shop_drop_image_$orderId");
+    await prefs.remove("shop_drop_otp_sent_$orderId");
+  }
+
+  Future<Map<String, dynamic>> getShopDropOrders({
+    String? search,
+    int page = 1,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? statusFilter,
+  }) async {
+    try {
+      String urlString = "$baseurl/api/qdel/shop/orders/view/";
+      final List<String> queryParams = [];
+
+      // DEBUG: Print incoming dates
+      print("🔍 RECEIVED DATES:");
+      print("   startDate: $startDate");
+      print("   endDate: $endDate");
+
+      if (search != null && search.isNotEmpty) {
+        queryParams.add("search=$search");
+      }
+      if (page > 0) {
+        queryParams.add("page=$page");
+      }
+      if (startDate != null) {
+        // Force date to UTC midnight
+        final cleanDate = DateTime.utc(
+          startDate.year,
+          startDate.month,
+          startDate.day,
+        );
+        final formattedDate = DateFormat('yyyy-MM-dd').format(cleanDate);
+        print("🔍 CLEAN DATE: $cleanDate -> $formattedDate");
+        queryParams.add("start_date=$formattedDate");
+      }
+      if (endDate != null) {
+        final cleanDate = DateTime.utc(
+          endDate.year,
+          endDate.month,
+          endDate.day,
+        );
+        final formattedDate = DateFormat('yyyy-MM-dd').format(cleanDate);
+        print("🔍 CLEAN DATE: $cleanDate -> $formattedDate");
+        queryParams.add("end_date=$formattedDate");
+      }
+      if (statusFilter != null && statusFilter.isNotEmpty) {
+        queryParams.add("status_filter=$statusFilter");
+      }
+
+      if (queryParams.isNotEmpty) {
+        urlString += "?" + queryParams.join("&");
+      }
+
+      // DEBUG: Print final URL
+      print("🔍 FINAL URL: $urlString");
+
+      // Optional: Test this URL in Postman manually
+
+      final uri = Uri.parse(urlString);
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
+
+      final response = await http.get(uri, headers: headers);
+
+      print("📦 STATUS CODE: ${response.statusCode}");
+      print("📦 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 401) {
+        print("❌ UNAUTHORIZED - Token may be invalid or expired");
+        return {
+          'success': false,
+          'error': 'Authentication failed. Please login again.',
+          'data': {'count': 0, 'results': []},
+        };
+      }
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        print("✅ Successfully parsed response");
+
+        if (jsonResponse.containsKey('results') ||
+            jsonResponse.containsKey('count')) {
+          return {'success': true, 'data': jsonResponse};
+        } else {
+          if (jsonResponse is List) {
+            return {
+              'success': true,
+              'data': {
+                'count': jsonResponse.length,
+                'results': jsonResponse,
+                'next': null,
+                'previous': null,
+              },
+            };
+          }
+          return {
+            'success': true,
+            'data': {'count': 0, 'results': [], 'next': null, 'previous': null},
+          };
+        }
+      } else if (response.statusCode == 404) {
+        print("⚠️ 404 - No orders found");
+        return {
+          'success': true,
+          'data': {'count': 0, 'results': [], 'next': null, 'previous': null},
+        };
+      } else {
+        print("❌ Error ${response.statusCode}: ${response.body}");
+        return {
+          'success': false,
+          'error': 'Failed to fetch orders: ${response.statusCode}',
+          'data': {'count': 0, 'results': []},
+        };
+      }
+    } catch (e) {
+      print("🔥 EXCEPTION: $e");
+      print("🔥 Stack trace: ${StackTrace.current}");
+      return {
+        'success': false,
+        'error': 'Exception: $e',
+        'data': {'count': 0, 'results': []},
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> getShopDropOrderDetail(int id) async {
+    try {
+      final url = Uri.parse('$baseurl/api/qdel/shop/orders/detail/$id/');
+
+      logger.i('🔵 API CALL: getShopDropOrderDetail');
+      logger.d('📡 URL: $url');
+      logger.d('🔑 Token exists: ${ApiService.accessToken != null}');
+      logger.d('🔑 Token length: ${ApiService.accessToken?.length ?? 0}');
+
+      final response = await http.get(
+        url,
+        headers: {
+          "Authorization": "Bearer ${ApiService.accessToken}",
+          "Content-Type": "application/json",
+        },
+      );
+
+      logger.i('📥 Response received');
+      logger.d('📊 Status code: ${response.statusCode}');
+      logger.d('📦 Response body length: ${response.body.length}');
+      logger.d(
+        '📦 Response body preview: ${response.body.substring(0, response.body.length > 500 ? 500 : response.body.length)}...',
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        logger.i('✅ API call successful');
+        logger.d('📋 Response structure: ${data.keys}');
+        logger.d('📋 Data keys: ${data['data']?.keys ?? 'No data field'}');
+        return {'success': true, 'data': data['data'] ?? data};
+      } else {
+        logger.e('❌ API call failed with status: ${response.statusCode}');
+        logger.e('❌ Response body: ${response.body}');
+        return {
+          'success': false,
+          'error':
+              'Failed to load order details (Status: ${response.statusCode})',
+        };
+      }
+    } catch (e, stackTrace) {
+      logger.e('❌ Exception in getShopDropOrderDetail: $e');
+      logger.e('📚 Stack trace: $stackTrace');
+      return {'success': false, 'error': 'Network error: $e'};
+    }
+  }
+
+  // Add this method to your ApiService class
+Future<Map<String, dynamic>> createRateCard({
+  String? name,
+  required double minDistanceKm,
+  required double maxDistanceKm,
+  required double minWeightKg,
+  required double maxWeightKg,
+  required double baseCharge,
+  required double ratePerKm,
+  required double ratePerKg,
+  required double minimumCharge,
+  required double carrierPercentage,
+  required double shopPercentage,
+  required double adminPercentage,
+  required bool isActive,
+  required int priority,
+}) async {
+  try {
+    final url = Uri.parse("$baseurl/api/qdel/admin/rate/card/create/");
+    
+    final Map<String, dynamic> requestBody = {};
+    
+    // Handle nullable name
+    if (name != null && name.isNotEmpty) {
+      requestBody['name'] = name;
+    } else {
+      requestBody['name'] = null;
+    }
+    
+    requestBody['min_distance_km'] = minDistanceKm;
+    requestBody['max_distance_km'] = maxDistanceKm;
+    requestBody['min_weight_kg'] = minWeightKg;
+    requestBody['max_weight_kg'] = maxWeightKg;
+    requestBody['base_charge'] = baseCharge;
+    requestBody['rate_per_km'] = ratePerKm;
+    requestBody['rate_per_kg'] = ratePerKg;
+    requestBody['minimum_charge'] = minimumCharge;
+    requestBody['carrier_percentage'] = carrierPercentage;
+    requestBody['shop_percentage'] = shopPercentage;
+    requestBody['admin_percentage'] = adminPercentage;
+    requestBody['is_active'] = isActive;
+    requestBody['priority'] = priority;
+    
+    final headers = {
+      "Authorization": "Bearer $accessToken",
+      "Content-Type": "application/json",
+    };
+    
+    logger.i("📡 POST RATE CARD - URL: $url");
+    logger.i("📦 Request Body: $requestBody");
+    
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: jsonEncode(requestBody),
+    );
+    
+    logger.i("📥 Response Status: ${response.statusCode}");
+    logger.i("📥 Response Body: ${response.body}");
+    
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return {
+        'success': true,
+        'data': jsonDecode(response.body),
+      };
+    } else {
+      return {
+        'success': false,
+        'error': 'Failed to create rate card',
+        'data': null,
+      };
+    }
+  } catch (e) {
+    logger.e("🔥 RATE CARD ERROR => $e");
+    return {
+      'success': false,
+      'error': 'Exception: $e',
+      'data': null,
+    };
+  }
+}
+
+//   Future<Map<String, dynamic>> createRateCard({
+//   String? name,
+//   required double minDistanceKm,
+//   required double maxDistanceKm,
+//   required double minWeightKg,
+//   required double maxWeightKg,
+//   required double baseCharge,
+//   required double ratePerKm,
+//   required double ratePerKg,
+//   required double minimumCharge,
+//   required double carrierPercentage,
+//   required double shopPercentage,
+//   required double adminPercentage,
+//   required bool isActive,
+//   required int priority,
+// }) async {
+//   try {
+//     final url = Uri.parse("$baseurl/api/qdel/admin/rate/card/create/");
+    
+//     final Map<String, dynamic> requestBody = {};
+    
+//     // Handle nullable name
+//     if (name != null && name.isNotEmpty) {
+//       requestBody['name'] = name;
+//     } else {
+//       requestBody['name'] = null;
+//     }
+    
+//     requestBody['min_distance_km'] = minDistanceKm;
+//     requestBody['max_distance_km'] = maxDistanceKm;
+//     requestBody['min_weight_kg'] = minWeightKg;
+//     requestBody['max_weight_kg'] = maxWeightKg;
+//     requestBody['base_charge'] = baseCharge;
+//     requestBody['rate_per_km'] = ratePerKm;
+//     requestBody['rate_per_kg'] = ratePerKg;
+//     requestBody['minimum_charge'] = minimumCharge;
+//     requestBody['carrier_percentage'] = carrierPercentage;
+//     requestBody['shop_percentage'] = shopPercentage;
+//     requestBody['admin_percentage'] = adminPercentage;
+//     requestBody['is_active'] = isActive;
+//     requestBody['priority'] = priority;
+    
+//     final headers = {
+//       "Authorization": "Bearer ${ApiService.accessToken}",
+//       "Content-Type": "application/json",
+//     };
+    
+//     logger.i("📡 POST RATE CARD - URL: $url");
+//     logger.i("📦 Request Body: $requestBody");
+    
+//     final response = await http.post(
+//       url,
+//       headers: headers,
+//       body: jsonEncode(requestBody),
+//     );
+    
+//     logger.i("📥 Response Status: ${response.statusCode}");
+//     logger.i("📥 Response Body: ${response.body}");
+    
+//     if (response.statusCode == 201 || response.statusCode == 200) {
+//       return {
+//         'success': true,
+//         'data': jsonDecode(response.body),
+//       };
+//     } else {
+//       return {
+//         'success': false,
+//         'error': 'Failed to create rate card',
+//         'data': null,
+//       };
+//     }
+//   } catch (e) {
+//     logger.e("🔥 RATE CARD ERROR => $e");
+//     return {
+//       'success': false,
+//       'error': 'Exception: $e',
+//       'data': null,
+//     };
+//   }
+// }
+// Add these to ApiService class
+static Future<void> saveShopPickupDetails(Map<String, dynamic> details) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('shop_pickup_details', jsonEncode(details));
+}
+
+static Future<Map<String, dynamic>?> getShopPickupDetails() async {
+  final prefs = await SharedPreferences.getInstance();
+  final String? data = prefs.getString('shop_pickup_details');
+  if (data != null) {
+    return jsonDecode(data);
+  }
+  return null;
+}
+
+static Future<void> clearShopPickupDetails() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove('shop_pickup_details');
+}
+
 }

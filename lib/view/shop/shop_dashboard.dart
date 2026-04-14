@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:projectqdel/core/constants/color_constants.dart';
+import 'package:projectqdel/view/Shop/shop_drop_orders.dart';
 import 'package:projectqdel/view/Shop/shop_home.dart';
 import 'package:projectqdel/view/Shop/shop_settings.dart';
 
@@ -19,7 +20,11 @@ class _ShopDashboardState extends State<ShopDashboard> {
   void initState() {
     super.initState();
     _currentIndex = 0;
-    _pages = [const ShopHome(), const ShopSettings()];
+    _pages = [
+      const ShopHome(),
+      const ShopDropOrdersScreen(),
+      const ShopSettings(),
+    ];
   }
 
   @override
@@ -40,6 +45,7 @@ class _ShopDashboardState extends State<ShopDashboard> {
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Drop Orders'),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Settings',

@@ -10,6 +10,7 @@ import 'package:projectqdel/model/delivery_model.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/model/order_model.dart';
 import 'package:projectqdel/view/Carrier/accepted_screen.dart';
+import 'package:projectqdel/view/Carrier/drop_location_screen.dart';
 
 class CarrierMapScreen extends StatefulWidget {
   final DeliveryMode? selectedDeliveryMode;
@@ -27,6 +28,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
   Future<List<OrderModel>>? ordersFuture;
   static const double radiusMeters = 5000;
   StreamSubscription<Position>? _locationStream;
+  int? selectedShopDropId;
 
   Future<void> _startLiveLocation() async {
     _locationStream?.cancel();
@@ -139,7 +141,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
     super.dispose();
   }
 
-  // Method to show exit confirmation dialog
   Future<bool> _onWillPop() async {
     return await showDialog(
           context: context,
@@ -275,6 +276,24 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _selectShopDropLocation(OrderModel order) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            DropLocationScreen(orderId: order.id, order: order),
+      ),
+    );
+
+    if (result != null && result is int) {
+      setState(() {
+        selectedShopDropId = result;
+      });
+      // Now accept the order with the selected shop
+      // await _acceptOrderWithShop(order, result);
+    }
   }
 
   Widget _mapWithOrders() {
@@ -913,6 +932,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
         );
         return;
       }
+      await ApiService.clearPickupCarrierId();
 
       final response = await ApiService().acceptOrder(
         pickupId: order.id,
@@ -960,11 +980,15 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
           debugPrint("⚠️ No pickup_carrier_id captured from response");
         }
 
+        // Pass selectedShopDropId (null if not selected)
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                AcceptedOrderScreen(orderId: order.id, order: order),
+            builder: (context) => AcceptedOrderScreen(
+              orderId: order.id,
+              order: order,
+              selectedShopDropId: selectedShopDropId, // Now defined
+            ),
           ),
         );
 

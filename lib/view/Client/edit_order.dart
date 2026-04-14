@@ -897,7 +897,6 @@ class _EditOrderState extends State<EditOrder> {
 
       List<dynamic> data;
       bool hasNext = false;
-
       if (response is List) {
         data = response;
         hasNext = false;
@@ -910,9 +909,7 @@ class _EditOrderState extends State<EditOrder> {
       } else {
         throw Exception('Unexpected countries response type');
       }
-
       logger.i("✅ Countries loaded: ${data.length}, hasNext=$hasNext");
-
       setState(() {
         if (page == 1) {
           countries = data;
@@ -933,6 +930,7 @@ class _EditOrderState extends State<EditOrder> {
         if (page == 1) countries = [];
         _countryHasNext = false;
       });
+      
     } finally {
       setState(() => isCountryLoading = false);
     }

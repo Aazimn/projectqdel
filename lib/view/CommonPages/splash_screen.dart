@@ -89,7 +89,7 @@ class _SplashScreenState extends State<SplashScreen> {
         }
 
         final hasDocs = profile.hasUploadedDocs;
-        
+
         final storedHasDocs = await ApiService.getHasUploadedDocs() ?? false;
         final finalHasDocs = hasDocs || storedHasDocs;
         String status = profile.approvalStatus.trim().toLowerCase();
@@ -101,19 +101,23 @@ class _SplashScreenState extends State<SplashScreen> {
           }
         }
 
-        logger.i("📊 Carrier - HasDocs: $finalHasDocs, HasCarrierDocument: ${profile.carrierDocument != null}, Status: $status");
+        logger.i(
+          "📊 Carrier - HasDocs: $finalHasDocs, HasCarrierDocument: ${profile.carrierDocument != null}, Status: $status",
+        );
 
         if (status == "approved" && !finalHasDocs) {
-          if (profile.carrierDocument != null && profile.carrierDocument!.hasCarrierDocument) {
+          if (profile.carrierDocument != null &&
+              profile.carrierDocument!.hasCarrierDocument) {
             logger.i("✅ Approved carrier has carrier_document - setting flag");
             await ApiService.setHasUploadedDocs(true);
-            final finalDocsCheck = hasDocs || (await ApiService.getHasUploadedDocs() ?? false);
-            if (finalDocsCheck) {
-            }
+            final finalDocsCheck =
+                hasDocs || (await ApiService.getHasUploadedDocs() ?? false);
+            if (finalDocsCheck) {}
           }
         }
 
-        final finalDocs = hasDocs || (await ApiService.getHasUploadedDocs() ?? false);
+        final finalDocs =
+            hasDocs || (await ApiService.getHasUploadedDocs() ?? false);
 
         if (!finalDocs && status != "approved") {
           go(
@@ -139,9 +143,21 @@ class _SplashScreenState extends State<SplashScreen> {
 
         final activeOrderId = await ApiService.getActiveOrder();
         final cachedOrder = await ApiService.getActiveOrderDetails();
+        final activeDropId =
+            await ApiService.getActiveDropId(); // ← fetch drop ID first
 
         if (cachedOrder != null && cachedOrder.id == activeOrderId) {
-          go(AcceptedOrderScreen(orderId: activeOrderId!, order: cachedOrder));
+          logger.i(
+            "✅ Resuming order flow - OrderId: $activeOrderId, DropId: $activeDropId",
+          );
+          go(
+            AcceptedOrderScreen(
+              orderId: activeOrderId!,
+              order: cachedOrder,
+              selectedShopDropId:
+                  activeDropId, // ← always pass it (null if not set)
+            ),
+          );
           return;
         }
 
@@ -171,6 +187,7 @@ class _SplashScreenState extends State<SplashScreen> {
         } else {
           go(const CarrierDashboard());
         }
+
         break;
     }
   }
@@ -209,7 +226,7 @@ class _SplashScreenState extends State<SplashScreen> {
       }
 
       final profileHasDocs = profile.hasShopDocuments;
-      final hasDocs = profileHasDocs ;
+      final hasDocs = profileHasDocs;
 
       String status = profile.shopApprovalStatus?.trim().toLowerCase() ?? "";
 
@@ -302,7 +319,7 @@ class _SplashScreenState extends State<SplashScreen> {
         go(const RejectedScreen(userType: "shop"));
         return;
       }
-      
+
       if (hasDocs) {
         go(const ShopDashboard());
       } else {
