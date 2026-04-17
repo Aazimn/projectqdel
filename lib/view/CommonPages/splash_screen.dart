@@ -144,7 +144,7 @@ class _SplashScreenState extends State<SplashScreen> {
         final activeOrderId = await ApiService.getActiveOrder();
         final cachedOrder = await ApiService.getActiveOrderDetails();
         final activeDropId =
-            await ApiService.getActiveDropId(); // ← fetch drop ID first
+            await ApiService.getActiveDropId(); 
 
         if (cachedOrder != null && cachedOrder.id == activeOrderId) {
           logger.i(
@@ -155,7 +155,7 @@ class _SplashScreenState extends State<SplashScreen> {
               orderId: activeOrderId!,
               order: cachedOrder,
               selectedShopDropId:
-                  activeDropId, // ← always pass it (null if not set)
+                  activeDropId, 
             ),
           );
           return;

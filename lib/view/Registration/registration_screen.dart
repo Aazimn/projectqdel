@@ -1414,7 +1414,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
               const SizedBox(height: 15),
 
-              /// 1️⃣ Parcel Responsibility
               _modernCheckbox(
                 value: parcelResponsibilityAccepted,
                 onChanged: (val) {
@@ -1427,7 +1426,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
               const SizedBox(height: 10),
 
-              /// 2️⃣ Damage / Loss
+             
               _modernCheckbox(
                 value: damageLossAccepted,
                 onChanged: (val) {
@@ -1440,7 +1439,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
               const SizedBox(height: 10),
 
-              /// 3️⃣ Payout Terms
+             
               _modernCheckbox(
                 value: payoutTermsAccepted,
                 onChanged: (val) {

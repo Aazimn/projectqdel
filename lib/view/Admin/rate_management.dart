@@ -17,7 +17,6 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
   final GlobalKey<ScaffoldMessengerState> _scaffoldKey =
       GlobalKey<ScaffoldMessengerState>();
 
-  // Form controllers
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _minDistanceController = TextEditingController();
   final TextEditingController _maxDistanceController = TextEditingController();
@@ -171,7 +170,6 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
               child: IntrinsicHeight(
                 child: Column(
                   children: [
-                    // Create Rate Card Form Section
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -222,7 +220,6 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
                               key: _formKey,
                               child: Column(
                                 children: [
-                                  // Name Field with null option
                                   Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -293,7 +290,6 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Distance Range
                                   Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -363,7 +359,6 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Weight Range
                                   Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -431,7 +426,6 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Charges Row
                                   Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -499,7 +493,6 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Rate per kg and Minimum charge
                                   Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -568,7 +561,6 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Percentages Row
                                   Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -638,7 +630,6 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Admin percentage and Priority
                                   Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -707,7 +698,6 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Active Status Switch
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
@@ -768,14 +758,13 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
                                   ),
                                   const SizedBox(height: 24),
 
-                                  // Submit Button
                                   SizedBox(
                                     width: double.infinity,
                                     height: 56,
                                     child: ElevatedButton(
                                       onPressed: _isLoading
                                           ? null
-                                          : _createRateCard, // This now works correctly
+                                          : _createRateCard, 
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.red.shade700,
                                         foregroundColor: Colors.white,
@@ -871,44 +860,5 @@ class _AdminRateManagementState extends State<AdminRateManagement> {
     return null;
   }
 
-  Widget _buildInfoChip({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: Colors.red.shade700),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 }

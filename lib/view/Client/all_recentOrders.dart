@@ -21,7 +21,6 @@ class MyOrdersScreen extends StatefulWidget {
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
   final Logger logger = Logger();
   final ApiService apiService = ApiService();
-
   late int _selectedTab;
   static const int itemsPerPage = 10;
 
@@ -162,65 +161,53 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     completedController.dispose();
     super.dispose();
   }
+Future<void> _fetchOngoing({required int page, String? search}) async {
+  setState(() => isLoadingOngoing = true);
+  try {
+    final response = await apiService.getAcceptedOrders(
+      page: page,
+      search: (search != null && search.isNotEmpty) ? search : null,
+      status: 'active',
+    );
 
-  Future<void> _fetchOngoing({required int page, String? search}) async {
-    setState(() => isLoadingOngoing = true);
-    try {
-      final response = await apiService.getAcceptedOrders(
-        page: page,
-        search: (search != null && search.isNotEmpty) ? search : null,
-        status: 'active', // API will return active/ongoing orders
-      );
-      final (orders, totalCount, totalPages) = _parseResponse(response);
+    final (orders, totalCount, totalPages) = _parseResponse(response);
 
-      // Filter out delivered/completed orders if any
-      final filteredOrders = orders.where((order) {
-        final shipment = order['shipment_status'];
-        if (shipment == null) return false;
-        final status = shipment['status']?.toString().toLowerCase() ?? '';
-        return ![
-          'delivered',
-          'cancelled',
-          'returned',
-          'failed',
-        ].contains(status);
-      }).toList();
-
-      setState(() {
-        ongoingOrders = filteredOrders;
-        ongoingTotalCount = totalCount;
-        ongoingTotalPages = totalPages;
-        ongoingCurrentPage = page;
-        isLoadingOngoing = false;
-      });
-    } catch (e) {
-      logger.e('❌ Ongoing fetch error: $e');
-      setState(() {
-        ongoingOrders = [];
-        ongoingTotalCount = 0;
-        ongoingTotalPages = 1;
-        isLoadingOngoing = false;
-      });
-    }
+    setState(() {
+      ongoingOrders = orders;  
+      ongoingTotalCount = totalCount;
+      ongoingTotalPages = totalPages;
+      ongoingCurrentPage = page;
+      isLoadingOngoing = false;
+    });
+  } catch (e) {
+    logger.e('❌ Ongoing fetch error: $e');
+    setState(() {
+      ongoingOrders = [];
+      ongoingTotalCount = 0;
+      ongoingTotalPages = 1;
+      isLoadingOngoing = false;
+    });
   }
-
-  // Also update _fetchSearching and _fetchCompleted similarly
+}
   Future<void> _fetchSearching({required int page, String? search}) async {
     setState(() => isLoadingSearching = true);
     try {
       final response = await apiService.getAcceptedOrders(
         page: page,
         search: (search != null && search.isNotEmpty) ? search : null,
-        status: 'pending', // API will return orders with pending status
+        status: 'pending',
       );
+
       final (orders, totalCount, totalPages) = _parseResponse(response);
 
-      // Further filter for truly searching orders (no carrier assigned yet)
       final filteredOrders = orders.where((order) {
         final shipment = order['shipment_status'];
         if (shipment == null) return true;
         final trackingNo = shipment['carrier_tracking_no'];
-        return trackingNo == null || trackingNo.toString().isEmpty;
+        final status = shipment['status']?.toString().toLowerCase() ?? '';
+        return (trackingNo == null || trackingNo.toString().isEmpty) &&
+            status != 'delivered' &&
+            status != 'cancelled';
       }).toList();
 
       setState(() {
@@ -245,7 +232,10 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     final shipment = order['shipment_status'];
     if (shipment == null) return true;
     final trackingNo = shipment['carrier_tracking_no'];
-    return trackingNo == null || trackingNo.toString().isEmpty;
+    final status = shipment['status']?.toString().toLowerCase() ?? '';
+    return (trackingNo == null || trackingNo.toString().isEmpty) &&
+        status != 'delivered' &&
+        status != 'cancelled';
   }
 
   Future<void> _fetchCompleted({required int page, String? search}) async {
@@ -256,6 +246,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         search: (search != null && search.isNotEmpty) ? search : null,
         status: 'completed',
       );
+
       final (orders, totalCount, totalPages) = _parseResponse(response);
 
       setState(() {
@@ -347,6 +338,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           );
         }
         break;
+
       case 2:
         if (completedCurrentPage > 1) {
           await _fetchCompleted(
@@ -403,43 +395,111 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     }
   }
 
-  // Update the resolveOrderState method
-  String resolveOrderState(Map<String, dynamic> order) {
-    final shipment = order['shipment_status'];
-    if (shipment == null) return 'searching';
+String resolveOrderState(Map<String, dynamic> order) {
+  final shipment = order['shipment_status'];
+  final shopDetails = order['shop_details'];
+  final orderId = order['id'];
+  final pickupNo = order['pickup_no'];
 
-    final status = shipment['status']?.toString().toLowerCase() ?? 'unknown';
+  print('🔍 [$pickupNo | id:$orderId] =============================');
+  print('   shipment_status.status  : ${shipment?['status']}');
+  print('   shipment_status.stage   : ${shipment?['stage']}');
+  print('   shop_details.shop_status: ${shopDetails?['shop_status']}');
+  print('   shipment is null        : ${shipment == null}');
+  print('   shop_details is null    : ${shopDetails == null}');
 
-    switch (status) {
-      case 'pending':
-        // Check if it's truly searching (no carrier assigned yet)
-        if (_isSearchingState(order)) {
-          return 'searching';
-        }
-        return 'pending';
-      case 'drop_started':
+  if (shipment == null) {
+    print('   ✅ RESOLVED → searching (no shipment)');
+    return 'searching';
+  }
+
+  final shopStatus = shopDetails?['shop_status']?.toString().toLowerCase() ?? '';
+  print('   shopStatus (lowercase)  : "$shopStatus"');
+
+  if (shopDetails != null && shopStatus.isNotEmpty) {
+    switch (shopStatus) {
+      case 'drop_assigned':
+        print('   ✅ RESOLVED → drop_assigned (via shop_status)');
         return 'drop_assigned';
-      case 'picked_up':
-        return 'picked_up';
-      case 'arrived_at_drop':
-        return 'arrived_at_drop';
-      case 'delivered':
-        return 'delivered';
-      default:
-        return status;
+      case 'arrived_at_shop':
+        print('   ✅ RESOLVED → arrived_at_shop (via shop_status)');
+        return 'arrived_at_shop';
+      case 'dropped_at_shop':
+        print('   ✅ RESOLVED → dropped_at_shop (via shop_status)');
+        return 'dropped_at_shop';
     }
   }
 
-  (List<dynamic>, int, int) _parseResponse(dynamic response) {
+  final status = shipment['status']?.toString().toLowerCase() ?? 'unknown';
+  print('   shipment status (lower) : "$status"');
+
+  String resolved;
+  switch (status) {
+    case 'pending':
+      resolved = _isSearchingState(order) ? 'searching' : 'pending';
+      break;
+    case 'arrived':
+      resolved = 'arrived';
+      break;
+    case 'picked_up':
+      resolved = 'picked_up';
+      break;
+    case 'drop_started':
+      resolved = 'drop_assigned';
+      break;
+    case 'arrived_at_shop':
+      resolved = 'arrived_at_shop';
+      break;
+    case 'dropped_at_shop':
+      resolved = 'dropped_at_shop';
+      break;
+    case 'arrived_at_drop':
+      resolved = 'arrived_at_drop';
+      break;
+    case 'out_for_delivery':
+      resolved = 'out_for_delivery';
+      break;
+    case 'in_transit':
+      resolved = 'in_transit';
+      break;
+    case 'delivered':
+      resolved = 'delivered';
+      break;
+    case 'cancelled':
+      resolved = 'cancelled';
+      break;
+    case 'returned':
+      resolved = 'returned';
+      break;
+    case 'failed':
+      resolved = 'failed';
+      break;
+    default:
+      resolved = status;
+  }
+
+  print('   ✅ RESOLVED → $resolved (via shipment status)');
+  print('===============================================');
+
+  return resolved;
+}
+
+
+  (List<dynamic>, int, int) _parseResponse(Map<String, dynamic> response) {
     List<dynamic> orders = [];
     int totalCount = 0;
-    if (response is Map) {
-      orders = (response['data'] as List?) ?? [];
-      final c = response['count'];
-      if (c != null) totalCount = c is int ? c : (c as num).toInt();
-    } else if (response is List) {
-      orders = response;
-      totalCount = response.length;
+
+    if (response.containsKey('results')) {
+      final results = response['results'];
+      if (results is List) {
+        orders = results;
+      } else {
+        orders = [];
+      }
+      totalCount = response['count'] ?? 0;
+    } else {
+      orders = [];
+      totalCount = 0;
     }
     final totalPages = totalCount > 0 ? (totalCount / itemsPerPage).ceil() : 1;
     return (orders, totalCount, totalPages);
@@ -472,7 +532,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                 ]),
               ),
             ),
-
             _isLoadingCurrent && _currentOrders.isEmpty
                 ? const SliverFillRemaining(
                     child: Center(
@@ -569,10 +628,10 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           if (_selectedTab != index) {
             setState(() => _selectedTab = index);
             switch (index) {
-              case 0: 
+              case 0:
                 await _fetchSearching(page: 1, search: searchingSearch);
                 break;
-              case 1: 
+              case 1:
                 await _fetchOngoing(page: 1, search: ongoingSearch);
                 break;
               case 2:
@@ -795,6 +854,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         statusText = 'DROPPED AT SHOP';
         statusColor = Colors.teal;
         break;
+
       case 'arrived_at_drop':
         statusText = 'ARRIVED AT DROP';
         statusColor = Colors.lightGreen;
@@ -1156,7 +1216,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: BoxBorder.all(color: ColorConstants.grey),
+        border: Border.all(color: ColorConstants.grey),
         borderRadius: BorderRadius.circular(20),
       ),
       child: child,

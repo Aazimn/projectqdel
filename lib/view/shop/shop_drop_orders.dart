@@ -128,12 +128,12 @@ class _ShopDropOrdersScreenState extends State<ShopDropOrdersScreen>
         page: currentPage,
         startDate: _startDate,
         endDate: _endDate,
-        statusFilter: null, 
+        statusFilter: null,
       );
 
       if (response['success'] == true) {
         final data = response['data'];
-        final int totalCount = data['count'] ?? 0; 
+        final int totalCount = data['count'] ?? 0;
         final bool hasNext = data['next'] != null;
 
         final rawResults = data['results'];
@@ -158,9 +158,12 @@ class _ShopDropOrdersScreenState extends State<ShopDropOrdersScreen>
           return section?['count'] ?? 0;
         }
 
+       
         final newIncoming = extractItems('coming_to_shop');
         final newInShop = extractItems('dropped_at_shop');
-        final newOutgoing = extractItems('dispatched_from_shop');
+        final newOutgoing = extractItems(
+          'gone_from_shop',
+        ); 
 
         setState(() {
           if (loadMore) {
@@ -169,14 +172,14 @@ class _ShopDropOrdersScreenState extends State<ShopDropOrdersScreen>
             outgoingOrders = [...outgoingOrders, ...newOutgoing];
             totalCountIncoming += extractCount('coming_to_shop');
             totalCountInShop += extractCount('dropped_at_shop');
-            totalCountOutgoing += extractCount('dispatched_from_shop');
+            totalCountOutgoing += extractCount('gone_from_shop');
           } else {
             incomingOrders = newIncoming;
             inShopOrders = newInShop;
             outgoingOrders = newOutgoing;
             totalCountIncoming = extractCount('coming_to_shop');
             totalCountInShop = extractCount('dropped_at_shop');
-            totalCountOutgoing = extractCount('dispatched_from_shop');
+            totalCountOutgoing = extractCount('gone_from_shop');
           }
 
           hasMoreIncoming = hasMoreInShop = hasMoreOutgoing = hasNext;
@@ -266,49 +269,49 @@ class _ShopDropOrdersScreenState extends State<ShopDropOrdersScreen>
     });
   }
 
-Future<void> _selectStartDate() async {
-  _searchFocusNode.unfocus();
-  final picked = await showDatePicker(
-    context: context,
-    initialDate: _startDate ?? DateTime.now(),
-    firstDate: DateTime(2020),
-    lastDate: DateTime.now(),
-    builder: (context, child) => Theme(
-      data: ThemeData.light().copyWith(
-        primaryColor: const Color(0xFFE63946),
-        colorScheme: const ColorScheme.light(primary: Color(0xFFE63946)),
+  Future<void> _selectStartDate() async {
+    _searchFocusNode.unfocus();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: ThemeData.light().copyWith(
+          primaryColor: const Color(0xFFE63946),
+          colorScheme: const ColorScheme.light(primary: Color(0xFFE63946)),
+        ),
+        child: child!,
       ),
-      child: child!,
-    ),
-  );
-  if (picked != null) {
-    final dateOnly = DateTime(picked.year, picked.month, picked.day);
-    setState(() => _startDate = dateOnly);
-    _applyFilters();
+    );
+    if (picked != null) {
+      final dateOnly = DateTime(picked.year, picked.month, picked.day);
+      setState(() => _startDate = dateOnly);
+      _applyFilters();
+    }
   }
-}
 
-Future<void> _selectEndDate() async {
-  _searchFocusNode.unfocus();
-  final picked = await showDatePicker(
-    context: context,
-    initialDate: _endDate ?? DateTime.now(),
-    firstDate: _startDate ?? DateTime(2020),
-    lastDate: DateTime.now(),
-    builder: (context, child) => Theme(
-      data: ThemeData.light().copyWith(
-        primaryColor: const Color(0xFFE63946),
-        colorScheme: const ColorScheme.light(primary: Color(0xFFE63946)),
+  Future<void> _selectEndDate() async {
+    _searchFocusNode.unfocus();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? DateTime.now(),
+      firstDate: _startDate ?? DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: ThemeData.light().copyWith(
+          primaryColor: const Color(0xFFE63946),
+          colorScheme: const ColorScheme.light(primary: Color(0xFFE63946)),
+        ),
+        child: child!,
       ),
-      child: child!,
-    ),
-  );
-  if (picked != null) {
-    final dateOnly = DateTime(picked.year, picked.month, picked.day);
-    setState(() => _endDate = dateOnly);
-    _applyFilters();
+    );
+    if (picked != null) {
+      final dateOnly = DateTime(picked.year, picked.month, picked.day);
+      setState(() => _endDate = dateOnly);
+      _applyFilters();
+    }
   }
-}
 
   void _clearDateFilter() {
     _searchFocusNode.unfocus();
@@ -342,31 +345,27 @@ Future<void> _selectEndDate() async {
   }
 
   String _formatShortDateFromString(String dateString) {
+    if (dateString.isEmpty) return 'N/A';
     try {
-      return _formatShortDate(DateTime.parse(dateString));
+      return _formatShortDate(
+        DateFormat('dd MMM yyyy, hh:mm a').parse(dateString),
+      );
     } catch (_) {
       try {
-        return _formatShortDate(
-          DateFormat('dd MMM yyyy, hh:mm a').parse(dateString),
-        );
+        return _formatShortDate(DateTime.parse(dateString));
       } catch (_) {
-        try {
-          return _formatShortDate(DateFormat('dd MMM yyyy').parse(dateString));
-        } catch (_) {
-          return dateString;
-        }
+        return dateString;
       }
     }
   }
 
   String _formatTimeFromString(String dateString) {
+    if (dateString.isEmpty) return '';
     try {
-      return _formatTime(DateTime.parse(dateString));
+      return _formatTime(DateFormat('dd MMM yyyy, hh:mm a').parse(dateString));
     } catch (_) {
       try {
-        return _formatTime(
-          DateFormat('dd MMM yyyy, hh:mm a').parse(dateString),
-        );
+        return _formatTime(DateTime.parse(dateString));
       } catch (_) {
         return '';
       }
@@ -379,7 +378,7 @@ Future<void> _selectEndDate() async {
         return Colors.orange;
       case 'dropped_at_shop':
         return Colors.blue;
-      case 'dispatched_from_shop':
+      case 'gone_from_shop':
         return Colors.green;
       default:
         return Colors.grey;
@@ -392,13 +391,12 @@ Future<void> _selectEndDate() async {
         return 'Incoming';
       case 'dropped_at_shop':
         return 'In Shop';
-      case 'dispatched_from_shop':
-        return 'Dispatched';
+      case 'gone_from_shop':
+        return 'Gone';
       default:
         return status;
     }
   }
-
 
   Widget _buildTabBar() {
     return Container(
@@ -417,12 +415,7 @@ Future<void> _selectEndDate() async {
             totalCountIncoming,
           ),
           _buildExpandedTab(1, Icons.store, 'In Shop', totalCountInShop),
-          _buildExpandedTab(
-            2,
-            Icons.arrow_upward,
-            'Outgoing',
-            totalCountOutgoing,
-          ),
+          _buildExpandedTab(2, Icons.arrow_upward, 'Gone', totalCountOutgoing),
         ],
       ),
     );
@@ -752,10 +745,7 @@ Future<void> _selectEndDate() async {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ShopDropOrderDetailScreen(
-              orderId: order.id,
-              
-            ),
+            builder: (context) => ShopDropOrderDetailScreen(orderId: order.id),
           ),
         ).then((_) => _refreshCurrentTab());
       },
@@ -877,7 +867,7 @@ Future<void> _selectEndDate() async {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                order.status == 'dispatched_from_shop'
+                                order.status == 'gone_from_shop'
                                     ? Icons.check_circle
                                     : Icons.pending,
                                 size: 12,
@@ -965,7 +955,7 @@ Future<void> _selectEndDate() async {
                             Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: order.arrivedAtShopAt != null
+                                color: order.arrivedAtShopAt.isNotEmpty
                                     ? Colors.orange.withOpacity(0.1)
                                     : Colors.grey.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
@@ -973,7 +963,7 @@ Future<void> _selectEndDate() async {
                               child: Icon(
                                 Icons.check_circle_outline,
                                 size: 14,
-                                color: order.arrivedAtShopAt != null
+                                color: order.arrivedAtShopAt.isNotEmpty
                                     ? Colors.orange
                                     : Colors.grey,
                               ),
@@ -991,10 +981,10 @@ Future<void> _selectEndDate() async {
                                     ),
                                   ),
                                   const SizedBox(height: 2),
-                                  if (order.arrivedAtShopAt != null) ...[
+                                  if (order.arrivedAtShopAt.isNotEmpty) ...[
                                     Text(
                                       _formatShortDateFromString(
-                                        order.arrivedAtShopAt!,
+                                        order.arrivedAtShopAt,
                                       ),
                                       style: const TextStyle(
                                         fontSize: 11,
@@ -1005,7 +995,7 @@ Future<void> _selectEndDate() async {
                                     ),
                                     Text(
                                       _formatTimeFromString(
-                                        order.arrivedAtShopAt!,
+                                        order.arrivedAtShopAt,
                                       ),
                                       style: const TextStyle(
                                         fontSize: 10,
@@ -1037,7 +1027,7 @@ Future<void> _selectEndDate() async {
                             Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: order.droppedAtShopAt != null
+                                color: order.droppedAtShopAt.isNotEmpty
                                     ? Colors.green.withOpacity(0.1)
                                     : Colors.grey.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
@@ -1045,7 +1035,7 @@ Future<void> _selectEndDate() async {
                               child: Icon(
                                 Icons.check_circle,
                                 size: 14,
-                                color: order.droppedAtShopAt != null
+                                color: order.droppedAtShopAt.isNotEmpty
                                     ? Colors.green
                                     : Colors.grey,
                               ),
@@ -1063,10 +1053,10 @@ Future<void> _selectEndDate() async {
                                     ),
                                   ),
                                   const SizedBox(height: 2),
-                                  if (order.droppedAtShopAt != null) ...[
+                                  if (order.droppedAtShopAt.isNotEmpty) ...[
                                     Text(
                                       _formatShortDateFromString(
-                                        order.droppedAtShopAt!,
+                                        order.droppedAtShopAt,
                                       ),
                                       style: const TextStyle(
                                         fontSize: 11,
@@ -1077,7 +1067,7 @@ Future<void> _selectEndDate() async {
                                     ),
                                     Text(
                                       _formatTimeFromString(
-                                        order.droppedAtShopAt!,
+                                        order.droppedAtShopAt,
                                       ),
                                       style: const TextStyle(
                                         fontSize: 10,

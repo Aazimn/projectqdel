@@ -161,6 +161,17 @@ class _DashboardState extends State<Dashboard> {
     });
   }
 
+  void _clearAllFilters() {
+    setState(() {
+      _searchController.clear();
+      _startDate = null;
+      _endDate = null;
+      _currentPage = 1;
+    });
+    _searchFocusNode.unfocus();
+    _refreshOrders();
+  }
+
   Future<void> _selectStartDate(BuildContext context) async {
     _searchFocusNode.unfocus();
     final DateTime? picked = await showDatePicker(
@@ -229,6 +240,13 @@ class _DashboardState extends State<Dashboard> {
   String _formatTime(DateTime? date) {
     if (date == null) return 'N/A';
     return DateFormat('hh:mm a').format(date);
+  }
+
+  String _getStatusDisplayText(String? status) {
+    if (status == 'Dropped at Shop') {
+      return 'Drop';
+    }
+    return status ?? 'Unknown';
   }
 
   Widget _buildModernPaginationControls() {
@@ -453,6 +471,7 @@ class _DashboardState extends State<Dashboard> {
                     ),
 
                     const SizedBox(height: 15),
+
                     Row(
                       children: [
                         Expanded(
@@ -566,15 +585,17 @@ class _DashboardState extends State<Dashboard> {
                             ),
                           ),
                         ),
-                        if (_startDate != null || _endDate != null)
+                        if (_startDate != null ||
+                            _endDate != null ||
+                            _searchController.text.isNotEmpty)
                           IconButton(
-                            onPressed: _clearDateFilter,
+                            onPressed: _clearAllFilters,
                             icon: const Icon(
-                              Icons.close,
+                              Icons.clear_all,
                               color: Colors.white,
                               size: 20,
                             ),
-                            tooltip: 'Clear date filter',
+                            tooltip: 'Clear all filters',
                           ),
                       ],
                     ),
@@ -720,10 +741,10 @@ class _DashboardState extends State<Dashboard> {
             ),
             const SizedBox(height: 20),
             Text(
-              _searchController.text.isNotEmpty
-                  ? 'No orders match your search'
-                  : (_startDate != null || _endDate != null)
-                  ? 'No orders in selected date range'
+              _searchController.text.isNotEmpty ||
+                      _startDate != null ||
+                      _endDate != null
+                  ? 'No orders match your filters'
                   : 'No completed deliveries yet',
               style: const TextStyle(
                 fontSize: 18,
@@ -737,11 +758,7 @@ class _DashboardState extends State<Dashboard> {
                 _startDate != null ||
                 _endDate != null)
               TextButton(
-                onPressed: () {
-                  _searchController.clear();
-                  _searchFocusNode.unfocus();
-                  _clearDateFilter();
-                },
+                onPressed: _clearAllFilters,
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
                 child: const Text('Clear all filters'),
               ),
@@ -780,6 +797,8 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Widget _buildOrderCard(CompletedOrder order) {
+    final isDropOrder = order.status == 'Dropped at Shop';
+
     return GestureDetector(
       onTap: () {
         _searchFocusNode.unfocus();
@@ -815,8 +834,7 @@ class _DashboardState extends State<Dashboard> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-
-                colors: [Colors.white, Colors.red.withOpacity(0.5)],
+                colors: [Colors.white, Colors.red.withOpacity(0.05)],
               ),
             ),
             child: Padding(
@@ -863,53 +881,71 @@ class _DashboardState extends State<Dashboard> {
                       ),
                       Column(
                         children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.location_city,
-                                size: 14,
-                                color: Colors.blue,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.blue.withOpacity(0.3),
+                                width: 1,
                               ),
-                              SizedBox(width: 4),
-                              Text(
-                                "${order.deliveryMode}",
-                                style: TextStyle(
-                                  fontSize: 12,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.local_shipping,
+                                  size: 12,
                                   color: Colors.blue,
-                                  fontWeight: FontWeight.w600,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Text(
+                                  order.deliveryMode ?? "N/A",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          SizedBox(height: 6),
+                          const SizedBox(height: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 5,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.1),
+                              color: _getStatusColor(
+                                order.status,
+                              ).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: Colors.green.withOpacity(0.3),
+                                color: _getStatusColor(
+                                  order.status,
+                                ).withOpacity(0.3),
                                 width: 1,
                               ),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.check_circle,
+                                  _getStatusIcon(order.status),
                                   size: 14,
-                                  color: Colors.green,
+                                  color: _getStatusColor(order.status),
                                 ),
-                                SizedBox(width: 4),
+                                const SizedBox(width: 4),
                                 Text(
-                                  'Delivered',
+                                  _getStatusDisplayText(order.status),
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.green,
+                                    color: _getStatusColor(order.status),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1054,66 +1090,131 @@ class _DashboardState extends State<Dashboard> {
                           color: Colors.black54,
                         ),
                       ),
+
                       Expanded(
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: order.deliveredAt != null
-                                    ? Colors.green.withOpacity(0.1)
-                                    : Colors.black54.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.check_circle,
-                                size: 16,
-                                color: order.deliveredAt != null
-                                    ? Colors.green
-                                    : Colors.black54,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        child: isDropOrder
+                            ? Row(
                                 children: [
-                                  const Text(
-                                    'Delivered',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.black54,
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: order.droppedAtShopAt != null
+                                          ? Colors.purple.withOpacity(0.1)
+                                          : Colors.black54.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      Icons.store,
+                                      size: 16,
+                                      color: order.droppedAtShopAt != null
+                                          ? Colors.purple
+                                          : Colors.black54,
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
-                                  if (order.deliveredAt != null) ...[
-                                    Text(
-                                      _formatShortDate(order.deliveredAt),
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Drop',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        if (order.droppedAtShopAt != null) ...[
+                                          Text(
+                                            _formatShortDate(
+                                              order.droppedAtShopAt,
+                                            ),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Text(
+                                            _formatTime(order.droppedAtShopAt),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                        ] else
+                                          const Text(
+                                            'Not dropped',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                      ],
                                     ),
-                                    Text(
-                                      _formatTime(order.deliveredAt),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.black54,
-                                      ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: order.deliveredAt != null
+                                          ? Colors.green.withOpacity(0.1)
+                                          : Colors.black54.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                  ] else
-                                    const Text(
-                                      'Not delivered',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.black54,
-                                      ),
+                                    child: Icon(
+                                      Icons.check_circle,
+                                      size: 16,
+                                      color: order.deliveredAt != null
+                                          ? Colors.green
+                                          : Colors.black54,
                                     ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Delivered',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        if (order.deliveredAt != null) ...[
+                                          Text(
+                                            _formatShortDate(order.deliveredAt),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Text(
+                                            _formatTime(order.deliveredAt),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                        ] else
+                                          const Text(
+                                            'Not delivered',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ),
-                          ],
-                        ),
                       ),
                     ],
                   ),
@@ -1138,5 +1239,35 @@ class _DashboardState extends State<Dashboard> {
         ),
       ),
     );
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status) {
+      case 'Delivered':
+        return Colors.green;
+      case 'Dropped at Shop':
+        return Colors.orange;
+      case 'Pending':
+        return Colors.orange;
+      case 'Cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String? status) {
+    switch (status) {
+      case 'Delivered':
+        return Icons.check_circle;
+      case 'Dropped at Shop':
+        return Icons.store;
+      case 'Pending':
+        return Icons.pending;
+      case 'Cancelled':
+        return Icons.cancel;
+      default:
+        return Icons.info;
+    }
   }
 }

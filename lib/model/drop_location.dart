@@ -1,4 +1,3 @@
-// lib/model/drop_location_model.dart
 class DropLocation {
   final int id;
   final String address;

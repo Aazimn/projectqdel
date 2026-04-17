@@ -356,7 +356,7 @@ class _CarrierUploadScreenState extends State<CarrierUploadScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // Document upload section
+              
                   GestureDetector(
                     onTap: _showImageSourceSheet,
                     child: Container(
@@ -374,7 +374,6 @@ class _CarrierUploadScreenState extends State<CarrierUploadScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Carrier image upload section
                   GestureDetector(
                     onTap: _showCarrierImageSourceSheet,
                     child: Container(

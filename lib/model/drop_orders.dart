@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ShopDropOrder {
-  final int? shopdropId;
+  final int shopdropId;
   final String shopStatus;
   final String shopStatusDisplay;
   final String? image;
@@ -15,7 +15,7 @@ class ShopDropOrder {
   final String? nextCarrierTrackingNo;
   final String? nextCarrierStatus;
   final String? nextCarrierStatusDisplay;
-  final int? pickupId;
+  final int pickupId;
   final String pickupNo;
   final String senderName;
   final String senderPhone;
@@ -23,14 +23,13 @@ class ShopDropOrder {
   final String receiverPhone;
   final String receiverAddress;
   final String productName;
-  final String? dropAssignedAt;
-  final String? arrivedAtShopAt;
-  final String? droppedAtShopAt;
-  final String? dispatchedFromShopAt;
+  final String dropAssignedAt;
+  final String arrivedAtShopAt;
+  final String droppedAtShopAt;
   final String createdAt;
 
   ShopDropOrder({
-    this.shopdropId,
+    required this.shopdropId,
     required this.shopStatus,
     required this.shopStatusDisplay,
     this.image,
@@ -44,7 +43,7 @@ class ShopDropOrder {
     this.nextCarrierTrackingNo,
     this.nextCarrierStatus,
     this.nextCarrierStatusDisplay,
-    this.pickupId,
+    required this.pickupId,
     required this.pickupNo,
     required this.senderName,
     required this.senderPhone,
@@ -52,47 +51,44 @@ class ShopDropOrder {
     required this.receiverPhone,
     required this.receiverAddress,
     required this.productName,
-    this.dropAssignedAt,
-    this.arrivedAtShopAt,
-    this.droppedAtShopAt,
-    this.dispatchedFromShopAt,
+    required this.dropAssignedAt,
+    required this.arrivedAtShopAt,
+    required this.droppedAtShopAt,
     required this.createdAt,
   });
 
   factory ShopDropOrder.fromJson(Map<String, dynamic> json) {
     return ShopDropOrder(
-      shopdropId: json['shopdrop_id'] as int?,
-      shopStatus: json['shop_status'] as String? ?? '',
-      shopStatusDisplay: json['shop_status_display'] as String? ?? '',
-      image: json['image'] as String?,
-      dropCarrierName: json['drop_carrier_name'] as String? ?? '',
-      dropCarrierPhone: json['drop_carrier_phone'] as String? ?? '',
-      dropCarrierTrackingNo: json['drop_carrier_tracking_no'] as String? ?? '',
-      dropCarrierStatus: json['drop_carrier_status'] as String? ?? '',
-      dropCarrierStatusDisplay: json['drop_carrier_status_display'] as String? ?? '',
-      nextCarrierName: json['next_carrier_name'] as String?,
-      nextCarrierPhone: json['next_carrier_phone'] as String?,
-      nextCarrierTrackingNo: json['next_carrier_tracking_no'] as String?,
-      nextCarrierStatus: json['next_carrier_status'] as String?,
-      nextCarrierStatusDisplay: json['next_carrier_status_display'] as String?,
-      pickupId: json['pickup_id'] as int?,
-      pickupNo: json['pickup_no'] as String? ?? '',
-      senderName: json['sender_name'] as String? ?? '',
-      senderPhone: json['sender_phone'] as String? ?? '',
-      receiverName: json['receiver_name'] as String? ?? '',
-      receiverPhone: json['receiver_phone'] as String? ?? '',
-      receiverAddress: json['receiver_address'] as String? ?? '',
-      productName: json['product_name'] as String? ?? '',
-      dropAssignedAt: json['drop_assigned_at'] as String?,
-      arrivedAtShopAt: json['arrived_at_shop_at'] as String?,
-      droppedAtShopAt: json['dropped_at_shop_at'] as String?,
-      dispatchedFromShopAt: json['dispatched_from_shop_at'] as String?,
-      createdAt: json['created_at'] as String? ?? '',
+      shopdropId: json['shopdrop_id'] ?? 0,
+      shopStatus: json['shop_status'] ?? '',
+      shopStatusDisplay: json['shop_status_display'] ?? '',
+      image: json['image'],
+      dropCarrierName: json['drop_carrier_name'] ?? '',
+      dropCarrierPhone: json['drop_carrier_phone'] ?? '',
+      dropCarrierTrackingNo: json['drop_carrier_tracking_no'] ?? '',
+      dropCarrierStatus: json['drop_carrier_status'] ?? '',
+      dropCarrierStatusDisplay: json['drop_carrier_status_display'] ?? '',
+      nextCarrierName: json['next_carrier_name'],
+      nextCarrierPhone: json['next_carrier_phone'],
+      nextCarrierTrackingNo: json['next_carrier_tracking_no'],
+      nextCarrierStatus: json['next_carrier_status'],
+      nextCarrierStatusDisplay: json['next_carrier_status_display'],
+      pickupId: json['pickup_id'] ?? 0,
+      pickupNo: json['pickup_no'] ?? '',
+      senderName: json['sender_name'] ?? '',
+      senderPhone: json['sender_phone'] ?? '',
+      receiverName: json['receiver_name'] ?? '',
+      receiverPhone: json['receiver_phone'] ?? '',
+      receiverAddress: json['receiver_address'] ?? '',
+      productName: json['product_name'] ?? '',
+      dropAssignedAt: json['drop_assigned_at'] ?? '',
+      arrivedAtShopAt: json['arrived_at_shop_at'] ?? '',
+      droppedAtShopAt: json['dropped_at_shop_at'] ?? '',
+      createdAt: json['created_at'] ?? '',
     );
   }
 
-  
-  int get id => shopdropId ?? 0;
+  String get id => shopdropId.toString();
   String get status => shopStatus;
   String get carrierName => dropCarrierName;
   String get carrierPhone => dropCarrierPhone;
@@ -106,14 +102,14 @@ class ShopDropOrder {
         return 'Coming to Shop';
       case 'dropped_at_shop':
         return 'In Shop';
-      case 'dispatched_from_shop':
-        return 'Dispatched';
+      case 'gone_from_shop':
+        return 'Gone from Shop';
       case 'drop_assigned':
         return 'Drop Assigned';
       case 'arrived_at_shop':
         return 'Arrived at Shop';
       default:
-        return shopStatus.toUpperCase();
+        return shopStatusDisplay.isNotEmpty ? shopStatusDisplay : shopStatus.toUpperCase();
     }
   }
 
@@ -125,7 +121,7 @@ class ShopDropOrder {
         return Colors.orange;
       case 'dropped_at_shop':
         return Colors.blue;
-      case 'dispatched_from_shop':
+      case 'gone_from_shop':
         return Colors.green;
       default:
         return Colors.grey;

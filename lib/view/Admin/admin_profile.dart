@@ -123,13 +123,13 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
           color: ColorConstants.red,
           child: CustomScrollView(
             slivers: [
-              // Profile Header Section
+             
               SliverToBoxAdapter(
                 child: Transform.translate(
                   offset: const Offset(0, -20),
                   child: Column(
                     children: [
-                      // Profile Image
+                    
                       Container(
                         width: 120,
                         height: 170,
@@ -175,7 +175,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                       ),
                       const SizedBox(height: 0),
 
-                      // Admin Name
                       Text(
                         _admin != null
                             ? '${_admin!.firstName} ${_admin!.lastName}'
@@ -190,7 +189,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                       ),
                       const SizedBox(height: 8),
 
-                      // Admin Badge
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -229,7 +227,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                 ),
               ),
 
-              // Stats Cards
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
                 sliver: SliverGrid(

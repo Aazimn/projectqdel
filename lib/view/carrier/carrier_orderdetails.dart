@@ -64,6 +64,43 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return DateFormat('dd MMM yyyy • hh:mm:ss a').format(date);
   }
 
+  String _getStatusDisplayText(String? status) {
+    if (status == 'Dropped at Shop') {
+      return 'Drop';
+    }
+    return status ?? 'Unknown';
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status) {
+      case 'Delivered':
+        return Colors.green;
+      case 'Dropped at Shop':
+        return Colors.orange;
+      case 'Pending':
+        return Colors.orange;
+      case 'Cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String? status) {
+    switch (status) {
+      case 'Delivered':
+        return Icons.check_circle;
+      case 'Dropped at Shop':
+        return Icons.store;
+      case 'Pending':
+        return Icons.pending;
+      case 'Cancelled':
+        return Icons.cancel;
+      default:
+        return Icons.info;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -134,6 +171,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   if (order.receiverName != null) _buildReceiverInfoCard(order),
                   if (order.receiverName != null) const SizedBox(height: 16),
 
+                  if (order.shopName != null || order.shopOwnerName != null || order.shopCategory != null)
+                    _buildShopInfoCard(order),
+                  if (order.shopName != null || order.shopOwnerName != null || order.shopCategory != null)
+                    const SizedBox(height: 16),
+
                   _buildTimelineCard(order),
                   const SizedBox(height: 16),
 
@@ -180,37 +222,81 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   if (order.pickupNumber != null)
                     Text(
                       'Pickup: ${order.pickupNumber}',
-                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(
-                    color: Colors.green.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.check_circle, size: 16, color: Colors.green),
-                    SizedBox(width: 6),
-                    Text(
-                      'Delivered',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.green,
-                        fontWeight: FontWeight.w600,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.blue.withOpacity(0.3),
+                        width: 1,
                       ),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.local_shipping,
+                          size: 14,
+                          color: Colors.blue,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          order.deliveryMode ?? "N/A",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(order.status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: _getStatusColor(order.status).withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _getStatusIcon(order.status),
+                          size: 16,
+                          color: _getStatusColor(order.status),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _getStatusDisplayText(order.status),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: _getStatusColor(order.status),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -271,11 +357,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildSenderInfoCard(CompletedOrder order) {
-    // Debug print to check values
-    print('Sender Address: ${order.senderAddress}');
-    print('Sender Landmark: ${order.senderLandmark}');
-    print('Sender District: ${order.senderDistrict}');
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -351,7 +432,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     value: order.senderLandmark!,
                   ),
                 ],
-                // Always show location if any field exists
                 if ((order.senderDistrict != null &&
                         order.senderDistrict!.isNotEmpty) ||
                     (order.senderState != null &&
@@ -480,6 +560,120 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  Widget _buildShopInfoCard(CompletedOrder order) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.store, color: Colors.red, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Shop Information',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                if (order.shopName != null && order.shopName!.isNotEmpty)
+                  _buildInfoRowWithIcon(
+                    icon: Icons.storefront,
+                    iconColor: Colors.purple,
+                    label: 'Shop Name',
+                    value: order.shopName!,
+                  ),
+                if (order.shopOwnerName != null && order.shopOwnerName!.isNotEmpty) ...[
+                  if (order.shopName != null && order.shopName!.isNotEmpty)
+                    const SizedBox(height: 12),
+                  _buildInfoRowWithIcon(
+                    icon: Icons.person,
+                    iconColor: Colors.blue,
+                    label: 'Shop Owner',
+                    value: order.shopOwnerName!,
+                  ),
+                ],
+                if (order.shopCategory != null && order.shopCategory!.isNotEmpty) ...[
+                  if ((order.shopName != null && order.shopName!.isNotEmpty) ||
+                      (order.shopOwnerName != null && order.shopOwnerName!.isNotEmpty))
+                    const SizedBox(height: 12),
+                  _buildInfoRowWithIcon(
+                    icon: Icons.category,
+                    iconColor: Colors.orange,
+                    label: 'Category',
+                    value: order.shopCategory!,
+                  ),
+                ],
+                if (order.shopAddress != null) ...[
+                  const SizedBox(height: 12),
+                  _buildInfoRowWithIcon(
+                    icon: Icons.location_on,
+                    iconColor: Colors.red,
+                    label: 'Shop Address',
+                    value: order.shopAddress!['address'] ?? 'Not Available',
+                    isMultiLine: true,
+                  ),
+                  if (order.shopAddress!['landmark'] != null &&
+                      order.shopAddress!['landmark'].toString().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _buildInfoRowWithIcon(
+                      icon: Icons.place,
+                      iconColor: Colors.orange,
+                      label: 'Shop Landmark',
+                      value: order.shopAddress!['landmark'].toString(),
+                    ),
+                  ],
+                  if ((order.shopAddress!['district'] != null &&
+                          order.shopAddress!['district'].toString().isNotEmpty) ||
+                      (order.shopAddress!['state'] != null &&
+                          order.shopAddress!['state'].toString().isNotEmpty) ||
+                      (order.shopAddress!['country'] != null &&
+                          order.shopAddress!['country'].toString().isNotEmpty) ||
+                      (order.shopAddress!['zip_code'] != null &&
+                          order.shopAddress!['zip_code'].toString().isNotEmpty)) ...[
+                    const SizedBox(height: 8),
+                    _buildLocationRow(
+                      district: order.shopAddress!['district']?.toString(),
+                      state: order.shopAddress!['state']?.toString(),
+                      country: order.shopAddress!['country']?.toString(),
+                      zipCode: order.shopAddress!['zip_code']?.toString(),
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInfoRowWithIcon({
     required IconData icon,
     required Color iconColor,
@@ -582,6 +776,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildTimelineCard(CompletedOrder order) {
+    final isDropOrder = order.status == 'Dropped at Shop';
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -634,16 +830,27 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 : 'Not picked yet',
           ),
 
-          _buildTimelineItem(
-            icon: Icons.check_circle,
-            iconColor: Colors.green,
-            title: 'Delivered',
-            date: order.deliveredAt,
-            subtitle: order.deliveredAt != null
-                ? 'Successfully delivered to receiver'
-                : 'Not delivered yet',
-            isLast: true,
-          ),
+          if (isDropOrder && order.droppedAtShopAt != null)
+            _buildTimelineItem(
+              icon: Icons.store,
+              iconColor: Colors.purple,
+              title: 'Dropped at Shop',
+              date: order.droppedAtShopAt,
+              subtitle: 'Package dropped at shop for collection',
+              isLast: true,
+            ),
+
+          if (!isDropOrder)
+            _buildTimelineItem(
+              icon: Icons.check_circle,
+              iconColor: Colors.green,
+              title: 'Delivered',
+              date: order.deliveredAt,
+              subtitle: order.deliveredAt != null
+                  ? 'Successfully delivered to receiver'
+                  : 'Not delivered yet',
+              isLast: true,
+            ),
         ],
       ),
     );
@@ -749,7 +956,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             _buildInfoRow('Pickup Number', order.pickupNumber!),
           if (order.carrierTrackingNo != null)
             _buildInfoRow('Tracking Number', order.carrierTrackingNo!),
-          _buildInfoRow('Status', 'Delivered', isStatus: true),
+          _buildInfoRow('Delivery Mode', order.deliveryMode ?? 'N/A'),
+          _buildInfoRow('Status', _getStatusDisplayText(order.status), isStatus: true),
           if (order.latitude != null && order.longitude != null)
             _buildInfoRow(
               'Coordinates',
@@ -764,7 +972,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        // spacing: 20,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
@@ -775,14 +982,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: _getStatusColor(value == 'Drop' ? 'Dropped at Shop' : value).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: Colors.green,
+                  color: _getStatusColor(value == 'Drop' ? 'Dropped at Shop' : value),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -791,7 +998,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             Text(
               value,
               style: const TextStyle(
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
               ),

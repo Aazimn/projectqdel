@@ -108,7 +108,7 @@ class _ShopCategoriesScreenState extends State<ShopCategoriesScreen> {
 
       body: Column(
         children: [
-          // 🔍 Search Bar
+       
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
@@ -133,7 +133,7 @@ class _ShopCategoriesScreenState extends State<ShopCategoriesScreen> {
             ),
           ),
 
-          // 📦 List
+       
           Expanded(
             child: FutureBuilder<List>(
               future: categoriesFuture,

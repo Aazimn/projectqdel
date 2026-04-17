@@ -589,7 +589,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Address line
+               
                 _buildAddressDetail(
                   icon: Icons.location_on_outlined,
                   label: 'Address',
@@ -598,7 +598,6 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 ),
                 const SizedBox(height: 8),
 
-                // Landmark
                 if (address['landmark'] != null &&
                     address['landmark'].isNotEmpty)
                   _buildAddressDetail(

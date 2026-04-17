@@ -9,26 +9,21 @@ class NotificationSettingsScreen extends StatefulWidget {
 }
 
 class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
-  // Notification preferences
   bool _pushEnabled = true;
   bool _emailEnabled = true;
   bool _smsEnabled = false;
   
-  // Order notifications
   bool _orderUpdates = true;
   bool _orderStatus = true;
   bool _deliveryUpdates = true;
   bool _cancellations = true;
   
-  // Promotional notifications
   bool _offersAndPromos = false;
   bool _newsletter = false;
   
-  // Sound and vibration
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
   
-  // Quiet hours
   bool _quietHoursEnabled = false;
   TimeOfDay _quietStart = const TimeOfDay(hour: 22, minute: 0);
   TimeOfDay _quietEnd = const TimeOfDay(hour: 8, minute: 0);
@@ -84,7 +79,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with illustration
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -146,7 +140,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
             const SizedBox(height: 20),
 
-            // Notification Channels Section
             _buildSectionHeader(
               title: 'Notification Channels',
               icon: Icons.notifications_outlined,
@@ -178,7 +171,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
             const SizedBox(height: 16),
 
-            // Order Updates Section
             _buildSectionHeader(
               title: 'Order Updates',
               icon: Icons.shopping_bag_outlined,
@@ -218,7 +210,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
             const SizedBox(height: 16),
 
-            // Promotional Section
             _buildSectionHeader(
               title: 'Promotions & Updates',
               icon: Icons.local_offer_outlined,
@@ -242,7 +233,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
             const SizedBox(height: 16),
 
-            // Sound & Vibration Section
             _buildSectionHeader(
               title: 'Sound & Vibration',
               icon: Icons.volume_up_outlined,
@@ -266,7 +256,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
             const SizedBox(height: 16),
 
-            // Quiet Hours Section
             _buildSectionHeader(
               title: 'Quiet Hours',
               icon: Icons.nightlight_round,
@@ -326,7 +315,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
             const SizedBox(height: 30),
 
-            // Save Button
             Padding(
               padding: const EdgeInsets.all(16),
               child: Container(
@@ -349,7 +337,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 ),
                 child: ElevatedButton(
                   onPressed: () {
-                    // Save settings
+                 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Notification settings saved!'),

@@ -4,7 +4,7 @@ import 'package:projectqdel/services/api_service.dart';
 import 'package:logger/logger.dart';
 
 class ShopDropOrderDetailScreen extends StatefulWidget {
-  final int orderId;
+  final String orderId;
 
   const ShopDropOrderDetailScreen({super.key, required this.orderId});
 
@@ -35,7 +35,7 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
       _errorMessage = null;
     });
 
-    final result = await _apiService.getShopDropOrderDetail(widget.orderId);
+    final result = await _apiService.getShopDropOrderDetail(int.parse(widget.orderId));
 
     if (result['success'] == true) {
       setState(() {
@@ -50,42 +50,42 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
     }
   }
 
-
+  
   // int get _shopdropId => _orderData?['shopdrop_id'] ?? 0;
   String get _shopStatus => _orderData?['shop_status'] ?? '';
-  // String get _shopStatusDisplay => _orderData?['shop_status_display'] ?? '';
+  String get _shopStatusDisplay => _orderData?['shop_status_display'] ?? '';
   String? get _image => _orderData?['image'];
+  // double? get _latitude => _orderData?['latitude'];
+  // double? get _longitude => _orderData?['longitude'];
 
   String get _dropCarrierName => _orderData?['drop_carrier_name'] ?? '';
   String get _dropCarrierPhone => _orderData?['drop_carrier_phone'] ?? '';
-  String get _dropCarrierTrackingNo =>
-      _orderData?['drop_carrier_tracking_no'] ?? '';
+  String get _dropCarrierTrackingNo => _orderData?['drop_carrier_tracking_no'] ?? '';
   // String get _dropCarrierStatus => _orderData?['drop_carrier_status'] ?? '';
-  String get _dropCarrierStatusDisplay =>
-      _orderData?['drop_carrier_status_display'] ?? '';
+  String get _dropCarrierStatusDisplay => _orderData?['drop_carrier_status_display'] ?? '';
 
   String? get _nextCarrierName => _orderData?['next_carrier_name'];
   String? get _nextCarrierPhone => _orderData?['next_carrier_phone'];
   String? get _nextCarrierTrackingNo => _orderData?['next_carrier_tracking_no'];
   // String? get _nextCarrierStatus => _orderData?['next_carrier_status'];
-  String? get _nextCarrierStatusDisplay =>
-      _orderData?['next_carrier_status_display'];
+  String? get _nextCarrierStatusDisplay => _orderData?['next_carrier_status_display'];
 
   // int get _pickupId => _orderData?['pickup_id'] ?? 0;
   String get _pickupNo => _orderData?['pickup_no'] ?? '';
 
+  // int get _senderId => _orderData?['sender_id'] ?? 0;
   String get _senderName => _orderData?['sender_name'] ?? '';
   String get _senderPhone => _orderData?['sender_phone'] ?? '';
 
-  String? get _shopName => _orderData?['shop_name'];
-  String? get _shopPhone => _orderData?['shop_phone'];
+  // int get _shopId => _orderData?['shop_id'] ?? 0;
+  String get _shopName => _orderData?['shop_name'] ?? '';
+  String get _shopPhone => _orderData?['shop_phone'] ?? '';
 
-  String? get _dropAssignedAt => _orderData?['drop_assigned_at'];
-  String? get _arrivedAtShopAt => _orderData?['arrived_at_shop_at'];
-  String? get _droppedAtShopAt => _orderData?['dropped_at_shop_at'];
-  String? get _dispatchedFromShopAt => _orderData?['dispatched_from_shop_at'];
+  String get _dropAssignedAt => _orderData?['drop_assigned_at'] ?? '';
+  String get _arrivedAtShopAt => _orderData?['arrived_at_shop_at'] ?? '';
+  String get _droppedAtShopAt => _orderData?['dropped_at_shop_at'] ?? '';
   String get _createdAt => _orderData?['created_at'] ?? '';
-  // String get _updatedAt => _orderData?['updated_at'] ?? '';
+  String get _updatedAt => _orderData?['updated_at'] ?? '';
 
   bool get _hasNextCarrier =>
       _nextCarrierName != null && _nextCarrierName!.isNotEmpty;
@@ -98,7 +98,7 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
         return Colors.orange;
       case 'dropped_at_shop':
         return Colors.blue;
-      case 'dispatched_from_shop':
+      case 'gone_from_shop':
         return Colors.green;
       default:
         return Colors.grey;
@@ -111,14 +111,14 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
         return 'Coming to Shop';
       case 'dropped_at_shop':
         return 'In Shop';
-      case 'dispatched_from_shop':
-        return 'Dispatched';
+      case 'gone_from_shop':
+        return 'Gone from Shop';
       case 'drop_assigned':
         return 'Drop Assigned';
       case 'arrived_at_shop':
         return 'Arrived at Shop';
       default:
-        return status.replaceAll('_', ' ').toUpperCase();
+        return _shopStatusDisplay.isNotEmpty ? _shopStatusDisplay : status.replaceAll('_', ' ').toUpperCase();
     }
   }
 
@@ -278,7 +278,7 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
-                    _shopStatus == 'dispatched_from_shop'
+                    _shopStatus == 'gone_from_shop'
                         ? Icons.check_circle_rounded
                         : Icons.pending_rounded,
                     size: 32,
@@ -403,21 +403,27 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
             ),
             const SizedBox(height: 12),
             _buildInfoRow(
-              icon: Icons.shop,
+              icon: Icons.store,
               label: 'Shop Name',
-              value: _shopName ?? 'N/A',
+              value: _shopName,
             ),
             const SizedBox(height: 12),
             _buildInfoRow(
               icon: Icons.phone,
               label: 'Shop Phone',
-              value: _shopPhone ?? 'N/A',
+              value: _shopPhone,
             ),
             const SizedBox(height: 12),
             _buildInfoRow(
               icon: Icons.calendar_today,
               label: 'Created At',
               value: _formatDateTime(_createdAt),
+            ),
+            const SizedBox(height: 12),
+            _buildInfoRow(
+              icon: Icons.update,
+              label: 'Updated At',
+              value: _formatDateTime(_updatedAt),
             ),
           ],
         ),
@@ -536,86 +542,56 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
               title: 'Order Created',
               icon: Icons.create,
               dateTime: _createdAt,
-              isCompleted: true,
-              carrierName: null,
-              carrierPhone: null,
-              trackingNo: null,
-              status: null,
+              isCompleted: _createdAt.isNotEmpty,
             ),
+            _buildConnector(isCompleted: _dropAssignedAt.isNotEmpty),
 
-            _buildConnector(isCompleted: _dropAssignedAt != null),
-
+        
             _buildJourneyStep(
               stepNumber: 2,
               title: 'Drop Assigned',
               icon: Icons.assignment,
               dateTime: _dropAssignedAt,
-              isCompleted: _dropAssignedAt != null,
+              isCompleted: _dropAssignedAt.isNotEmpty,
               carrierName: _dropCarrierName,
               carrierPhone: _dropCarrierPhone,
               trackingNo: _dropCarrierTrackingNo,
               status: _dropCarrierStatusDisplay,
               isCarrierActive: true,
             ),
-
-            _buildConnector(isCompleted: _arrivedAtShopAt != null),
+            _buildConnector(isCompleted: _arrivedAtShopAt.isNotEmpty),
 
             _buildJourneyStep(
               stepNumber: 3,
               title: 'Arrived at Shop',
               icon: Icons.location_on,
               dateTime: _arrivedAtShopAt,
-              isCompleted: _arrivedAtShopAt != null,
-              carrierName: null,
-              carrierPhone: null,
-              trackingNo: null,
-              status: null,
+              isCompleted: _arrivedAtShopAt.isNotEmpty,
             ),
-
-            _buildConnector(isCompleted: _droppedAtShopAt != null),
+            _buildConnector(isCompleted: _droppedAtShopAt.isNotEmpty),
 
             _buildJourneyStep(
               stepNumber: 4,
               title: 'Dropped at Shop',
               icon: Icons.inventory,
               dateTime: _droppedAtShopAt,
-              isCompleted: _droppedAtShopAt != null,
-              carrierName: null,
-              carrierPhone: null,
-              trackingNo: null,
-              status: null,
+              isCompleted: _droppedAtShopAt.isNotEmpty,
             ),
 
             if (_hasNextCarrier) ...[
               _buildHandoverDivider(),
-
+              
               _buildJourneyStep(
                 stepNumber: 5,
-                title: 'Picked Up by Next Carrier',
+                title: 'Next Carrier Assignment',
                 icon: Icons.swap_horiz,
-                dateTime: _dispatchedFromShopAt,
-                isCompleted: _dispatchedFromShopAt != null,
+                dateTime: _updatedAt,
+                isCompleted: true,
                 carrierName: _nextCarrierName,
                 carrierPhone: _nextCarrierPhone,
                 trackingNo: _nextCarrierTrackingNo,
                 status: _nextCarrierStatusDisplay,
                 isCarrierActive: true,
-                isNewCarrier: true,
-              ),
-
-              _buildConnector(isCompleted: _dispatchedFromShopAt != null),
-
-            
-              _buildJourneyStep(
-                stepNumber: 6,
-                title: 'Dispatched from Shop',
-                icon: Icons.delivery_dining,
-                dateTime: _dispatchedFromShopAt,
-                isCompleted: _dispatchedFromShopAt != null,
-                carrierName: null,
-                carrierPhone: null,
-                trackingNo: null,
-                status: null,
                 isNewCarrier: true,
               ),
             ],
@@ -636,7 +612,6 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
     String? trackingNo,
     String? status,
     bool isCarrierActive = false,
-    // bool isCarrierComplete = false,
     bool isNewCarrier = false,
   }) {
     return Column(
@@ -698,7 +673,6 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
                     ],
                   ),
 
-       
                   if (isCarrierActive &&
                       carrierName != null &&
                       carrierName.isNotEmpty) ...[
@@ -731,7 +705,7 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                isNewCarrier ? 'New Carrier' : 'Active Carrier',
+                                isNewCarrier ? 'Next Carrier' : 'Drop Carrier',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -775,7 +749,7 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
                     ),
                   ],
 
-                  if (!isCarrierActive && dateTime == null) ...[
+                  if (!isCarrierActive && (dateTime == null || dateTime.isEmpty)) ...[
                     const SizedBox(height: 4),
                     Text(
                       'Pending',
@@ -860,7 +834,7 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
                   Icon(Icons.swap_horiz, size: 16, color: Colors.orange),
                   SizedBox(width: 8),
                   Text(
-                    'Carrier Handover',
+                    'Next Carrier Assigned',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -1024,7 +998,7 @@ class _ShopDropOrderDetailScreenState extends State<ShopDropOrderDetailScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            value,
+            value.isEmpty ? 'N/A' : value,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,

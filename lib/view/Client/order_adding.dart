@@ -1996,14 +1996,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
         children: [
           Row(
             children: [
-              // Container(
-              //   width: 4,
-              //   height: 18,
-              //   decoration: BoxDecoration(
-              //     color: ColorConstants.red,
-              //     borderRadius: BorderRadius.circular(2),
-              //   ),
-              // ),
+     
               const SizedBox(width: 8),
               Text(
                 label,
@@ -2603,12 +2596,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                         "📡 Posting delivery mode: $selectedDeliveryModeId",
                       );
 
-                      // if (!deliveryModeSuccess) {
-                      //   logger.e("❌ Delivery mode post failed");
-                      //   _showErrorSnackBar("Failed to set delivery mode");
-                      //   setState(() => isCreatingShipment = false);
-                      //   return;
-                      // }
+             
 
                       logger.i("✅ Delivery mode posted successfully");
 
@@ -2963,33 +2951,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                                 color: primaryColor,
                               ),
                             ),
-                            // TextButton(
-                            //   onPressed: onEdit,
-
-                            //   // icon: Icon(
-                            //   //   Icons.edit,
-                            //   //   color: primaryColor,
-                            //   //   size: 14,
-                            //   // ),
-                            //   style: TextButton.styleFrom(
-                            //     backgroundColor: Colors.black.withOpacity(0.1),
-                            //     padding: const EdgeInsets.symmetric(
-                            //       horizontal: 10,
-                            //       vertical: 10,
-                            //     ),
-                            //     shape: RoundedRectangleBorder(
-                            //       borderRadius: BorderRadius.circular(30),
-                            //     ),
-                            //   ),
-                            //   child: Text(
-                            //     "Edit Address",
-                            //     style: TextStyle(
-                            //       fontSize: 12,
-                            //       color: primaryColor,
-                            //       fontWeight: FontWeight.w600,
-                            //     ),
-                            //   ),
-                            // ),
+                      
                           ],
                         ),
                       ),

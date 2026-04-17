@@ -1,4 +1,3 @@
-// lib/model/transportation_model.dart
 class DeliveryMode {
   final int? id;
   final String name;

@@ -29,6 +29,13 @@ class CompletedOrder {
   final String? receiverCountry;
   final String? receiverZipCode;
   
+  final String? shopName;
+  final String? shopOwnerName;
+  final String? shopCategory;
+  final Map<String, dynamic>? shopAddress;
+  
+  final DateTime? droppedAtShopAt;
+  
   final String? latitude;
   final String? longitude;
   final DateTime? droppedAt;
@@ -60,32 +67,51 @@ class CompletedOrder {
     this.receiverState,
     this.receiverCountry,
     this.receiverZipCode,
+    this.shopName,
+    this.shopOwnerName,
+    this.shopCategory,
+    this.shopAddress,
+    this.droppedAtShopAt,
     this.latitude,
     this.longitude,
     this.droppedAt,
     this.updatedAt,
   });
 
-  // Helper method to parse custom date format
   static DateTime? _parseCustomDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return null;
     
     try {
-      // Try parsing the custom format first: "10 Apr 2026, 10:28 AM"
       return DateFormat('dd MMM yyyy, hh:mm a').parse(dateStr);
     } catch (e) {
-      // Fallback to ISO format if custom format fails
       try {
-        return DateTime.parse(dateStr);
+        return DateFormat('dd MMM yyyy, hh:mm:ss a').parse(dateStr);
       } catch (e) {
-        print('⚠️ Failed to parse date: $dateStr');
-        return null;
+        try {
+          return DateTime.parse(dateStr);
+        } catch (e) {
+          print('⚠️ Failed to parse date: $dateStr');
+          return null;
+        }
       }
     }
   }
 
   factory CompletedOrder.fromJson(Map<String, dynamic> json) {
     final data = json['data'] != null ? json['data'] as Map<String, dynamic> : json;
+    
+    Map<String, dynamic>? parsedShopAddress;
+    if (data['shop_address'] != null) {
+      if (data['shop_address'] is Map<String, dynamic>) {
+        parsedShopAddress = Map<String, dynamic>.from(data['shop_address']);
+      } else if (data['shop_address'] is String) {
+        try {
+          parsedShopAddress = {'address': data['shop_address']};
+        } catch (e) {
+          print('⚠️ Failed to parse shop_address: $e');
+        }
+      }
+    }
     
     return CompletedOrder(
       id: data['id'] as int,
@@ -113,10 +139,62 @@ class CompletedOrder {
       receiverState: data['receiver_state'] as String?,
       receiverCountry: data['receiver_country'] as String?,
       receiverZipCode: data['receiver_zip_code'] as String?,
+      
+      shopName: data['shop_name'] as String?,
+      shopOwnerName: data['shop_owner_name'] as String?,
+      shopCategory: data['shop_category'] as String?,
+      shopAddress: parsedShopAddress,
+      
+      droppedAtShopAt: _parseCustomDate(data['dropped_at_shop_at'] as String?),
+      
       latitude: data['latitude'] as String?,
       longitude: data['longitude'] as String?,
       droppedAt: _parseCustomDate(data['dropped_at'] as String?),
       updatedAt: _parseCustomDate(data['updated_at'] as String?),
     );
+  }
+  
+  
+  String getFormattedShopAddress() {
+    if (shopAddress == null) return 'Not available';
+    
+    final address = shopAddress!['address'] as String?;
+    final landmark = shopAddress!['landmark'] as String?;
+    final district = shopAddress!['district'] as String?;
+    final state = shopAddress!['state'] as String?;
+    final country = shopAddress!['country'] as String?;
+    final zipCode = shopAddress!['zip_code'] as String?;
+    
+    List<String> parts = [];
+    if (address != null && address.isNotEmpty) parts.add(address);
+    if (landmark != null && landmark.isNotEmpty) parts.add(landmark);
+    
+    List<String> locationParts = [];
+    if (district != null && district.isNotEmpty) locationParts.add(district);
+    if (state != null && state.isNotEmpty) locationParts.add(state);
+    if (country != null && country.isNotEmpty) locationParts.add(country);
+    if (zipCode != null && zipCode.isNotEmpty) locationParts.add(zipCode);
+    
+    if (locationParts.isNotEmpty) {
+      parts.add(locationParts.join(', '));
+    }
+    
+    return parts.isNotEmpty ? parts.join(', ') : 'Not available';
+  }
+  
+
+  String getDisplayStatus() {
+    if (status == 'Dropped at Shop') {
+      return 'Drop';
+    }
+    return status;
+  }
+
+  bool get isDroppedAtShop {
+    return status == 'Dropped at Shop';
+  }
+  
+  bool get isDelivered {
+    return status == 'Delivered';
   }
 }

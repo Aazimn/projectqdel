@@ -435,7 +435,7 @@ class _ShopApprovalScreenState extends State<ShopApprovalScreen> {
         );
 
         if (result != null) {
-          fetchShops(page: currentPage); // refresh if needed
+          fetchShops(page: currentPage); 
         }
       },
       child: Container(
@@ -499,7 +499,7 @@ class _ShopApprovalScreenState extends State<ShopApprovalScreen> {
               ),
             ),
 
-            /// Action buttons based on current tab
+           
             if (currentTab == ShopTab.approved)
               _actionButton(
                 label: "REJECT",

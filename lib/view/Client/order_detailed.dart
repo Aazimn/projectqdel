@@ -125,9 +125,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       return const SizedBox.shrink();
     }
 
-    final sender = data["sender_details"] as Map<String, dynamic>?;
     final address = data["sender_address"] as Map<String, dynamic>?;
-    debugPrint("👤 Sender Details: $sender");
     debugPrint("🏠 Sender Address: $address");
     return _card(
       title: "Sender Details",
@@ -264,16 +262,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final timeline =
         trackingData["tracking"]["timeline"] as List<dynamic>? ?? [];
 
-
     return _card(
       title: "Order Tracking",
       icon: Icons.track_changes,
       children: [
         _trackingHeader(trackingNo),
         const SizedBox(height: 16),
-        ..._buildTimeline(
-          timeline,
-        ), // This will use the filtered timeline internally
+        ..._buildTimeline(timeline),
       ],
     );
   }
@@ -314,7 +309,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   List<Widget> _buildTimeline(List<dynamic> timeline) {
-    // Filter out assigned status events
     final filteredTimeline = _filterTimeline(timeline);
 
     if (filteredTimeline.isEmpty) {
@@ -329,102 +323,77 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
 
     List<Widget> widgets = [];
-    Map<String, List<Map<String, dynamic>>> carrierSegments = {};
-    String? currentCarrier;
 
-    // Group timeline events by carrier
-    for (var event in filteredTimeline) {
-      final eventMap = Map<String, dynamic>.from(event);
-      Map<String, dynamic>? carrierDetails;
+    String? lastCarrierKey;
 
-      // Extract carrier details based on event structure
-      if (eventMap["details"] != null) {
-        if (eventMap["details"].containsKey("carrier")) {
-          carrierDetails = eventMap["details"]["carrier"];
-        } else if (eventMap["details"].containsKey("id") &&
-            !eventMap["details"].containsKey("shop_id")) {
-          carrierDetails = eventMap["details"];
+    for (int i = 0; i < filteredTimeline.length; i++) {
+      final event = Map<String, dynamic>.from(filteredTimeline[i]);
+      final status = (event["status"] as String? ?? "").toLowerCase();
+      final actor = event["actor"] as String?;
+      final details = event["details"] as Map<String, dynamic>?;
+      final isLast = i == filteredTimeline.length - 1;
+
+     
+      if (status == "pending" && actor == "carrier" && details != null) {
+        final carrierId = details["id"]?.toString();
+        final carrierKey = carrierId != null ? "carrier_$carrierId" : null;
+
+        if (carrierKey != null &&
+            lastCarrierKey != null &&
+            carrierKey != lastCarrierKey) {
+          widgets.add(_carrierTransitionDivider());
+        }
+
+        if (carrierKey != null) {
+          lastCarrierKey = carrierKey;
         }
       }
 
-      final carrierKey = carrierDetails != null
-          ? "${carrierDetails["id"]}_${carrierDetails["name"]}"
-          : null;
+      widgets.add(_timelineItem(event, isLast: isLast));
 
-      if (carrierKey != null && carrierKey != currentCarrier) {
-        currentCarrier = carrierKey;
-        if (!carrierSegments.containsKey(currentCarrier)) {
-          carrierSegments[currentCarrier] = [];
+      if (status == "pending" && actor == "carrier" && details != null) {
+        final carrierDetails = _extractCarrierDetails(details);
+        if (carrierDetails != null) {
+          widgets.add(_inlineCarrierCard(carrierDetails));
         }
       }
 
-      if (currentCarrier != null) {
-        carrierSegments[currentCarrier]!.add(eventMap);
-      } else {
-        if (!carrierSegments.containsKey("no_carrier")) {
-          carrierSegments["no_carrier"] = [];
+     
+      if (status == "dropped_at_shop" && details != null) {
+        final shopDetails = _extractShopDetails(details);
+        if (shopDetails != null) {
+          widgets.add(_inlineShopCard(shopDetails));
         }
-        carrierSegments["no_carrier"]!.add(eventMap);
       }
     }
-
-    // Build UI for each carrier segment
-    int segmentIndex = 0;
-    carrierSegments.forEach((carrierKey, events) {
-      // Get carrier details from the first event that has them
-      Map<String, dynamic>? carrierDetails;
-      Map<String, dynamic>? shopDetails;
-
-      for (var event in events) {
-        if (event["details"] != null) {
-          if (event["details"].containsKey("carrier")) {
-            carrierDetails = event["details"]["carrier"];
-            if (event["details"].containsKey("shop")) {
-              shopDetails = event["details"]["shop"];
-            }
-          } else if (event["details"].containsKey("id") &&
-              !event["details"].containsKey("shop_id") &&
-              carrierDetails == null) {
-            carrierDetails = event["details"];
-          }
-          if (event["details"].containsKey("shop_id") && shopDetails == null) {
-            shopDetails = event["details"];
-          }
-        }
-      }
-
-      if (segmentIndex > 0 && carrierDetails != null) {
-        widgets.add(_carrierTransitionDivider());
-      }
-
-      if (carrierDetails != null && carrierKey != "no_carrier") {
-        widgets.add(_carrierInfoCard(carrierDetails));
-      }
-
-      // Add shop info card if shop details exist
-      if (shopDetails != null) {
-        widgets.add(_shopInfoCard(shopDetails));
-      }
-
-      for (int i = 0; i < events.length; i++) {
-        final event = events[i];
-        final isLast =
-            i == events.length - 1 &&
-            segmentIndex == carrierSegments.length - 1;
-        widgets.add(_timelineItem(event, isLast: isLast));
-      }
-
-      segmentIndex++;
-    });
 
     return widgets;
   }
 
-  Widget _carrierInfoCard(Map<String, dynamic>? carrier) {
-    if (carrier == null) return const SizedBox.shrink();
+  Map<String, dynamic>? _extractCarrierDetails(Map<String, dynamic> details) {
+    if (details.containsKey("carrier")) {
+      return details["carrier"] as Map<String, dynamic>?;
+    }
+    if (details.containsKey("id") && !details.containsKey("shop_id")) {
+      return details;
+    }
+    return null;
+  }
 
+  Map<String, dynamic>? _extractShopDetails(Map<String, dynamic> details) {
+    if (details.containsKey("shop")) {
+      return details["shop"] as Map<String, dynamic>?;
+    }
+    if (details.containsKey("shop_id")) {
+      return details;
+    }
+    return null;
+  }
+
+ 
+  Widget _inlineCarrierCard(Map<String, dynamic> carrier) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(left: 52, bottom: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.blue.shade50,
@@ -436,12 +405,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.local_shipping, size: 20, color: Colors.blue.shade700),
+              Icon(Icons.local_shipping, size: 18, color: Colors.blue.shade700),
               const SizedBox(width: 8),
               Text(
                 "Delivery Partner",
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue.shade700,
                 ),
@@ -449,30 +418,22 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            carrier["name"] ?? "N/A",
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
+          if (carrier["name"] != null)
+            _infoRow(Icons.person, carrier["name"]),
           if (carrier["phone"] != null)
-            Text(
-              "Phone: ${carrier["phone"]}",
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            _infoRow(Icons.phone, carrier["phone"]),
           if (carrier["email"] != null)
-            Text(
-              "Email: ${carrier["email"]}",
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            _infoRow(Icons.email, carrier["email"]),
         ],
       ),
     );
   }
 
-  Widget _shopInfoCard(Map<String, dynamic>? shop) {
-    if (shop == null) return const SizedBox.shrink();
+  Widget _inlineShopCard(Map<String, dynamic> shop) {
+    final address = shop["address"] as Map<String, dynamic>?;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(left: 52, bottom: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.orange.shade50,
@@ -484,12 +445,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.store, size: 20, color: Colors.orange.shade700),
+              Icon(Icons.storefront, size: 18, color: Colors.orange.shade700),
               const SizedBox(width: 8),
               Text(
-                "Shop Details",
+                "Drop Shop",
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: Colors.orange.shade700,
                 ),
@@ -497,53 +458,48 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            shop["shop_name"] ?? shop["name"] ?? "N/A",
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
+          if (shop["shop_name"] != null)
+            _infoRow(Icons.store, shop["shop_name"]),
           if (shop["owner_name"] != null)
-            Text(
-              "Owner: ${shop["owner_name"]}",
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            _infoRow(Icons.person, "Owner: ${shop["owner_name"]}"),
           if (shop["phone"] != null)
-            Text(
-              "Phone: ${shop["phone"]}",
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            _infoRow(Icons.phone, shop["phone"]),
           if (shop["category"] != null)
-            Text(
-              "Category: ${shop["category"]}",
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          if (shop["address"] != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Address:",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                  ),
-                  if (shop["address"]["address"] != null)
-                    Text(
-                      shop["address"]["address"],
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  if (shop["address"]["landmark"] != null)
-                    Text(
-                      "Landmark: ${shop["address"]["landmark"]}",
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  if (shop["address"]["district"] != null)
-                    Text(
-                      "${shop["address"]["district"]}, ${shop["address"]["state"]}",
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                ],
+            _infoRow(Icons.category, shop["category"]),
+          if (address != null) ...[
+            const SizedBox(height: 6),
+            if (address["address"] != null)
+              _infoRow(Icons.location_on, address["address"]),
+            if (address["landmark"] != null)
+              _infoRow(
+                  Icons.place, "Landmark: ${address["landmark"]}"),
+            if (address["district"] != null || address["state"] != null)
+              _infoRow(
+                Icons.map,
+                [address["district"], address["state"]]
+                    .where((v) => v != null && v.toString().isNotEmpty)
+                    .join(", "),
               ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, dynamic value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: Colors.grey.shade600),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              value?.toString() ?? "-",
+              style: const TextStyle(fontSize: 12, color: Colors.black87),
             ),
+          ),
         ],
       ),
     );
@@ -558,7 +514,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.orange.shade100,
                 borderRadius: BorderRadius.circular(20),
@@ -583,30 +540,17 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final status = event["status"] as String? ?? "pending";
     final time = event["time"] as String?;
     final actor = event["actor"] as String?;
-    final details = event["details"] as Map<String, dynamic>?;
 
-    String title = _getStatusTitle(status, actor);
-    String subtitle = _getStatusSubtitle(status, actor);
-    IconData icon = _getStatusIcon(status, actor);
-    Color color = _getStatusColor(status, actor);
-
-    
-    // ignore: unused_local_variable
-    Map<String, dynamic>? displayDetails;
-    if (details != null) {
-      if (details.containsKey("carrier")) {
-        displayDetails = details["carrier"];
-      } else if (details.containsKey("id") && !details.containsKey("shop_id")) {
-        displayDetails = details;
-      }
-    }
+    final String title = _getStatusTitle(status, actor);
+    final String subtitle = _getStatusSubtitle(status, actor);
+    final IconData icon = _getStatusIcon(status, actor);
+    final Color color = _getStatusColor(status, actor);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Timeline line and icon
           SizedBox(
             width: 40,
             child: Column(
@@ -623,42 +567,48 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                   Container(
                     margin: const EdgeInsets.only(top: 4),
                     width: 2,
-                    height: 60,
+                    height: 50,
                     color: Colors.grey.shade300,
                   ),
               ],
             ),
           ),
           const SizedBox(width: 12),
-          // Content
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                if (subtitle.isNotEmpty)
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: color,
-                      fontWeight: FontWeight.w500,
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                const SizedBox(height: 4),
-                if (time != null)
-                  Text(
-                    _formatDateTime(time),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-              ],
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  if (time != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      time,
+                      style: const TextStyle(
+                          fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                ],
+              ),
             ),
           ),
         ],
@@ -666,93 +616,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     );
   }
 
-  String _getStatusSubtitle(String status, String? actor) {
-    switch (status.toLowerCase()) {
-      case "pending":
-        if (actor == "sender") {
-          return "Looking for available delivery partners in your area";
-        } else if (actor == "carrier") {
-          return "Delivery partner is on the way to pickup location";
-        } else {
-          return "Waiting for initial processing";
-        }
-
-      case "assigned":
-        return "A delivery partner has been assigned to your order";
-
-      case "arrived":
-        return "Delivery partner has reached the pickup location";
-
-      case "picked_up":
-        return "Package has been picked up and is on its way";
-
-      case "drop_assigned":
-        return "A drop partner has been assigned for final delivery";
-
-      case "arrived_at_shop":
-        return "Package has arrived at the drop location/shop";
-
-      case "dropped_at_shop":
-        return "Package has been dropped at the shop for processing";
-
-      case "arrived_at_drop":
-        return "Delivery partner has arrived at the delivery location";
-
-      case "delivered":
-        return "Package has been successfully delivered";
-
-      case "in_transit":
-        return "Package is in transit to the next facility";
-
-      case "out_for_delivery":
-        return "Package is out for final delivery";
-
-      case "returned":
-        return "Package has been returned to sender";
-
-      case "cancelled":
-        return "Order has been cancelled";
-
-      case "failed":
-        return "Delivery attempt was unsuccessful";
-
-      case "exception":
-        return "An unexpected issue has occurred with your delivery";
-
-      case "info_received":
-        return "Shipping information has been received";
-
-      case "manifested":
-        return "Shipment has been manifested for delivery";
-
-      case "received":
-        return "Shipment has been received at facility";
-
-      case "processed":
-        return "Shipment is being processed";
-
-      case "dispatched":
-        return "Shipment has been dispatched from facility";
-
-      case "clearance":
-        return "Package is going through customs clearance";
-
-      case "held":
-        return "Shipment is temporarily on hold";
-
-      case "rescheduled":
-        return "Delivery has been rescheduled";
-
-      case "return_to_sender":
-        return "Package is being returned to sender";
-
-      default:
-        return "";
-    }
-  }
-
   List<dynamic> _filterTimeline(List<dynamic> timeline) {
-    // Filter out events with status "assigned"
     return timeline.where((event) {
       final status = event["status"] as String? ?? "";
       return status.toLowerCase() != "assigned";
@@ -761,15 +625,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   String _getStatusTitle(String status, String? actor) {
     if (status.toLowerCase() == "pending") {
-      if (actor == "sender") {
-        return "Searching for Delivery Partner";
-      } else if (actor == "carrier") {
-        return "Partner En Route to Pickup";
-      } else {
-        return "Pending";
-      }
+      if (actor == "sender") return "Searching for Delivery Partner";
+      if (actor == "carrier") return "Partner En Route to Pickup";
+      return "Pending";
     }
-
     switch (status.toLowerCase()) {
       case "assigned":
         return "Partner Assigned";
@@ -792,17 +651,52 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
   }
 
+  String _getStatusSubtitle(String status, String? actor) {
+    switch (status.toLowerCase()) {
+      case "pending":
+        if (actor == "sender") {
+          return "Looking for available delivery partners in your area";
+        } else if (actor == "carrier") {
+          return "Delivery partner is on the way to pickup location";
+        }
+        return "Waiting for initial processing";
+      case "assigned":
+        return "A delivery partner has been assigned to your order";
+      case "arrived":
+        return "Delivery partner has reached the pickup location";
+      case "picked_up":
+        return "Package has been picked up and is on its way";
+      case "drop_assigned":
+        return "A drop partner has been assigned for final delivery";
+      case "arrived_at_shop":
+        return "Package has arrived at the drop location/shop";
+      case "dropped_at_shop":
+        return "Package has been dropped at the shop for processing";
+      case "arrived_at_drop":
+        return "Delivery partner has arrived at the delivery location";
+      case "delivered":
+        return "Package has been successfully delivered";
+      case "in_transit":
+        return "Package is in transit to the next facility";
+      case "out_for_delivery":
+        return "Package is out for final delivery";
+      case "returned":
+        return "Package has been returned to sender";
+      case "cancelled":
+        return "Order has been cancelled";
+      case "failed":
+        return "Delivery attempt was unsuccessful";
+      default:
+        return "";
+    }
+  }
+
   IconData _getStatusIcon(String status, String? actor) {
     if (status.toLowerCase() == "pending") {
-      if (actor == "sender") {
-        return Icons.search;
-      } else if (actor == "carrier") {
-        return Icons.directions_car;
-      } else {
-        return Icons.pending_actions;
-      }
+      if (actor == "sender") return Icons.search;
+      if (actor == "carrier") return Icons.directions_car;
+      return Icons.pending_actions;
     }
-
     switch (status.toLowerCase()) {
       case "assigned":
         return Icons.person_add;
@@ -827,15 +721,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Color _getStatusColor(String status, String? actor) {
     if (status.toLowerCase() == "pending") {
-      if (actor == "sender") {
-        return Colors.amber;
-      } else if (actor == "carrier") {
-        return Colors.blue;
-      } else {
-        return Colors.orange;
-      }
+      if (actor == "sender") return Colors.amber;
+      if (actor == "carrier") return Colors.blue;
+      return Colors.orange;
     }
-
     switch (status.toLowerCase()) {
       case "assigned":
         return Colors.purple;
@@ -858,16 +747,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
   }
 
-
-  String _formatDateTime(String dateTimeStr) {
-    try {
-      final dateTime = DateTime.parse(dateTimeStr);
-      return "${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } catch (e) {
-      return dateTimeStr;
-    }
-  }
-
   String _capitalize(String str) {
     if (str.isEmpty) return str;
     return str[0].toUpperCase() + str.substring(1);
@@ -885,7 +764,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -913,9 +793,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   Widget _row(String label, dynamic value, IconData icon) {
-    final display = value == null || value.toString().isEmpty
-        ? "-"
-        : value.toString();
+    final display =
+        value == null || value.toString().isEmpty ? "-" : value.toString();
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),

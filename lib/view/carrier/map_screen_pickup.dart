@@ -10,7 +10,6 @@ import 'package:projectqdel/model/delivery_model.dart';
 import 'package:projectqdel/services/api_service.dart';
 import 'package:projectqdel/model/order_model.dart';
 import 'package:projectqdel/view/Carrier/accepted_screen.dart';
-import 'package:projectqdel/view/Carrier/drop_location_screen.dart';
 
 class CarrierMapScreen extends StatefulWidget {
   final DeliveryMode? selectedDeliveryMode;
@@ -81,7 +80,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
       lat,
       lng,
     );
-
     return distance <= radiusMeters;
   }
 
@@ -278,24 +276,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
     );
   }
 
-  Future<void> _selectShopDropLocation(OrderModel order) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            DropLocationScreen(orderId: order.id, order: order),
-      ),
-    );
-
-    if (result != null && result is int) {
-      setState(() {
-        selectedShopDropId = result;
-      });
-      // Now accept the order with the selected shop
-      // await _acceptOrderWithShop(order, result);
-    }
-  }
-
   Widget _mapWithOrders() {
     return FutureBuilder<List<OrderModel>>(
       future: ordersFuture,
@@ -316,7 +296,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
             .where(_hasValidLocation)
             .where(_isWithinRadius)
             .toList();
-
         print("📦 Orders inside 5 km radius: ${validOrders.length}");
         print("Orders with valid locations: ${validOrders.length}");
         print(
@@ -487,10 +466,8 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
       print("Order ${order.id}: No senderAddress");
       return false;
     }
-
     final lat = order.senderAddress?.latitude;
     final lng = order.senderAddress?.longitude;
-
     if (lat == null || lng == null) {
       print("Order ${order.id}: Missing lat or lng");
       return false;
@@ -517,7 +494,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Drag handle
+                 
                   Container(
                     margin: const EdgeInsets.only(top: 12, bottom: 8),
                     width: 50,
@@ -528,7 +505,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                     ),
                   ),
 
-                  // Header with order ID and status
                   Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
@@ -570,7 +546,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                     ),
                   ),
 
-                  // Product details section
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 20),
                     padding: const EdgeInsets.all(16),
@@ -627,7 +602,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Journey timeline
+           
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 20),
                     padding: const EdgeInsets.all(16),
@@ -691,12 +666,12 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Action buttons
+        
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
                     child: Row(
                       children: [
-                        // Cancel button
+                       
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context),
@@ -718,7 +693,7 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        // Accept button
+                    
                         Expanded(
                           child: ElevatedButton(
                             onPressed: isAcceptingLocally
@@ -778,7 +753,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
     );
   }
 
-  // Helper widget for detail rows
   Widget _buildDetailRow(
     String label,
     String value,
@@ -827,7 +801,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
     );
   }
 
-  // Helper widget for timeline items
   Widget _buildTimelineItem({
     required bool isFirst,
     required bool isLast,
@@ -917,7 +890,6 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
       await Geolocator.openAppSettings();
       return false;
     }
-
     return true;
   }
 
@@ -980,14 +952,13 @@ class _CarrierMapScreenState extends State<CarrierMapScreen> {
           debugPrint("⚠️ No pickup_carrier_id captured from response");
         }
 
-        // Pass selectedShopDropId (null if not selected)
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => AcceptedOrderScreen(
               orderId: order.id,
               order: order,
-              selectedShopDropId: selectedShopDropId, // Now defined
+              selectedShopDropId: selectedShopDropId, 
             ),
           ),
         );

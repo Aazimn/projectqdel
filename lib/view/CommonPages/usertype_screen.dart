@@ -32,10 +32,8 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
       backgroundColor: Colors.white,
       body: CustomScrollView(
         slivers: [
-          // Header Sliver
-          SliverToBoxAdapter(child: _header(context)),
-
-          // Content Sliver
+         
+          SliverToBoxAdapter(child: _header(context)),   
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             sliver: SliverToBoxAdapter(
@@ -92,7 +90,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
             ),
           ),
 
-          // Button Sliver
+     
           SliverFillRemaining(
             hasScrollBody: false,
             child: Column(
@@ -258,7 +256,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header with red accent
+            
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: const BoxDecoration(
@@ -297,7 +295,6 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
                 ),
               ),
 
-              // Content
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -324,7 +321,7 @@ class _UsertypeScreenState extends State<UsertypeScreen> {
                 ),
               ),
 
-              // Actions
+           
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(

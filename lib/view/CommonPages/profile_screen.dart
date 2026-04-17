@@ -19,12 +19,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool loading = true;
   bool updating = false;
 
-  // Personal details controllers
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
 
-  // Shop details controllers
   final _shopNameCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _landmarkCtrl = TextEditingController();
@@ -58,16 +56,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _populateControllers() {
     if (user == null) return;
 
-    // Personal details
+
     _firstNameCtrl.text = user!.firstName;
     _lastNameCtrl.text = user!.lastName;
     _emailCtrl.text = user!.email;
 
     if (user!.isShop) {
-      // Shop name
+ 
       _shopNameCtrl.text = user!.shopName ?? '';
 
-      // Shop address
+    
       final address = user!.shopAddress;
       if (address != null) {
         _addressCtrl.text = address['address'] ?? '';
@@ -83,7 +81,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool personalUpdateSuccess = true;
     bool shopUpdateSuccess = true;
 
-    // Update personal details using updateMyProfile API
+   
     if (_firstNameCtrl.text.trim() != user!.firstName ||
         _lastNameCtrl.text.trim() != user!.lastName ||
         _emailCtrl.text.trim() != user!.email) {
@@ -94,7 +92,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    // Update shop details using updateUserrRegistration API
     if (user!.isShop) {
       shopUpdateSuccess = await apiService.updateUserrRegistration(
         shopName: _shopNameCtrl.text.trim().isEmpty
@@ -115,7 +112,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => updating = false);
 
     if (personalUpdateSuccess && shopUpdateSuccess) {
-      // Update local user data
+     
       setState(() {
         user = user!.copyWith(
           firstName: _firstNameCtrl.text.trim(),
@@ -449,7 +446,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _openEditDialog() {
     if (user == null) return;
 
-    // Set values for editing
+    
     _firstNameCtrl.text = user!.firstName;
     _lastNameCtrl.text = user!.lastName;
     _emailCtrl.text = user!.email;
@@ -482,7 +479,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Drag handle
+           
                   Container(
                     margin: const EdgeInsets.only(top: 12),
                     width: 50,
@@ -492,7 +489,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  // Header with gradient
+                  
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: const BoxDecoration(
@@ -560,7 +557,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                   ),
-                  // Form content
+                 
                   Flexible(
                     child: SingleChildScrollView(
                       padding: EdgeInsets.only(
@@ -572,7 +569,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Personal Details Section
+                         
                           Container(
                             margin: const EdgeInsets.only(bottom: 8),
                             child: Row(
@@ -622,7 +619,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           if (user?.isShop == true) ...[
                             const SizedBox(height: 24),
-                            // Shop Details Section
+                     
                             Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               child: Row(

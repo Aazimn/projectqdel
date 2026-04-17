@@ -24,7 +24,6 @@ class PickupStatusHelper {
   static const String arrivedAtDrop = 'arrived_at_drop';
   static const String delivered = 'delivered';
   static const String cancelled = 'cancelled';
-
   static const String dropAssigned = 'drop_assigned';
   static const String arrivedAtShop = 'arrived_at_shop';
   static const String droppedAtShop = 'dropped_at_shop';
@@ -32,6 +31,10 @@ class PickupStatusHelper {
 
   static String getCurrentPickupCarrierStatus(List<dynamic> timeline) {
     for (var event in timeline.reversed) {
+      if (event['actor'] == 'shop' && event['status'] == droppedAtShop) {
+        break;
+      }
+
       if (event['actor'] == 'carrier' &&
           [
             pending,
@@ -62,7 +65,6 @@ class PickupStatusHelper {
     return dropAssigned;
   }
 
-  // Get shop drop details from timeline
   static Map<String, dynamic>? getShopDropDetails(List<dynamic> timeline) {
     for (var event in timeline.reversed) {
       if (event['actor'] == 'shop' && event['details'] != null) {
@@ -72,27 +74,20 @@ class PickupStatusHelper {
     return null;
   }
 
-  // Check if pickup is arrived
   static bool isPickupArrived(String status) => status == arrived;
-  
-  // Check if pickup is verified (picked up)
   static bool isPickupVerified(String status) =>
       status == pickedUp ||
       status == dropStarted ||
       status == arrivedAtDrop ||
       status == delivered;
 
-  // Check if shop drop is arrived
   static bool isShopDropArrived(String status) => status == arrivedAtShop;
 
-  // Check if shop drop is completed
   static bool isShopDropCompleted(String status) =>
       status == droppedAtShop || status == dispatchedFromShop;
 
-  // Check if delivery is arrived
   static bool isDeliveryArrived(String status) => status == arrivedAtDrop;
 
-  // Check if delivery is verified
   static bool isDeliveryVerified(String status) => status == delivered;
 }
 
@@ -132,7 +127,6 @@ class OtpTimer {
   }
 }
 
-
 class AcceptedOrderScreen extends StatefulWidget {
   final int orderId;
   final OrderModel? order;
@@ -156,22 +150,37 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   bool isSubmitting = false;
   bool isCancelling = false;
 
-  // Backend statuses (single source of truth)
   String _pickupCarrierStatus = 'pending';
   String _shopDropStatus = 'drop_assigned';
   Map<String, dynamic>? _shopDropDetails;
 
-  // Computed getters from backend status
-  bool get isPickupArrived => PickupStatusHelper.isPickupArrived(_pickupCarrierStatus);
-  bool get isPickupVerified => PickupStatusHelper.isPickupVerified(_pickupCarrierStatus);
-  bool get isShopDropArrived => PickupStatusHelper.isShopDropArrived(_shopDropStatus);
-  bool get isShopDropCompleted => PickupStatusHelper.isShopDropCompleted(_shopDropStatus);
-  bool get isDeliveryArrived => PickupStatusHelper.isDeliveryArrived(_pickupCarrierStatus);
-  bool get isDeliveryCompleted => PickupStatusHelper.isDeliveryVerified(_pickupCarrierStatus);
+  bool get isPickupArrived =>
+      PickupStatusHelper.isPickupArrived(_pickupCarrierStatus) ||
+      (!isPickupVerified &&
+          _shopDropStatus == PickupStatusHelper.arrivedAtShop);
+  bool get isPickupVerified =>
+      PickupStatusHelper.isPickupVerified(_pickupCarrierStatus) ||
+      _shopDropStatus == PickupStatusHelper.dispatchedFromShop;
+  bool get isDeliveryArrived =>
+      PickupStatusHelper.isDeliveryArrived(_pickupCarrierStatus);
+  bool get isDeliveryCompleted =>
+      PickupStatusHelper.isDeliveryVerified(_pickupCarrierStatus);
 
-  bool get hasShopDrop => widget.selectedShopDropId != null || _shopDropDetails != null;
+  bool get hasShopDrop =>
+      widget.selectedShopDropId != null || _shopDropDetails != null;
+  bool get isShopDropCompleted =>
+      PickupStatusHelper.isShopDropCompleted(_shopDropStatus);
+  bool get isShopDropArrived =>
+      PickupStatusHelper.isShopDropArrived(_shopDropStatus);
 
-  // UI temporary states (not persisted)
+  bool get isPickupStage => !isPickupVerified;
+  bool get needsToDropAtShop =>
+      widget.selectedShopDropId != null && !isShopDropCompleted;
+  bool get isShopDropStage => isPickupVerified && needsToDropAtShop;
+  bool get isDeliveryStage => isPickupVerified && !isShopDropStage;
+  bool get pickingUpFromShop =>
+      isPickupStage && hasShopDrop && isShopDropCompleted;
+
   bool isOtpSent = false;
   bool isVerifying = false;
   bool isDeliveryOtpSent = false;
@@ -180,12 +189,13 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   bool isShopDropVerifying = false;
   bool isUploadingImage = false;
   bool isConfirmingShopArrival = false;
-  
-  // Modal flags
+
+ 
   bool _isPickupOtpSheetOpen = false;
   bool _isDeliveryOtpSheetOpen = false;
   bool _isShopDropOtpSheetOpen = false;
   bool _isImageSheetOpen = false;
+  String? _manualShopDropStatus;
 
   final TextEditingController _otpController = TextEditingController();
   LatLng? carrierLocation;
@@ -199,14 +209,12 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }
 
   Future<void> _initialize() async {
-    // Load order
     if (widget.order != null) {
       setState(() => order = widget.order);
     } else {
       await _loadOrderDetails();
     }
 
-    // Fetch status from backend
     await _fetchStatusFromBackend();
 
     await _startLiveLocation();
@@ -215,22 +223,28 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     if (mounted) setState(() => isLoading = false);
   }
 
-  // Main method to get status from backend
   Future<void> _fetchStatusFromBackend() async {
     try {
       final response = await apiService.getShipmentStatus(widget.orderId);
 
       if (response != null && response['status'] == 'success') {
         final timeline = response['data']['tracking']['timeline'] as List;
+        debugPrint("📜 FULL TIMELINE: $timeline");
 
-        _pickupCarrierStatus = PickupStatusHelper.getCurrentPickupCarrierStatus(timeline);
-        _shopDropStatus = PickupStatusHelper.getCurrentShopDropStatus(timeline);
+        _pickupCarrierStatus = PickupStatusHelper.getCurrentPickupCarrierStatus(
+          timeline,
+        );
+        _shopDropStatus =
+            _manualShopDropStatus ??
+            PickupStatusHelper.getCurrentShopDropStatus(timeline);
         _shopDropDetails = PickupStatusHelper.getShopDropDetails(timeline);
 
-        print("📊 Backend Status:");
-        print("   Pickup Carrier: $_pickupCarrierStatus");
-        print("   Shop Drop: $_shopDropStatus");
-        print("   Shop Details: $_shopDropDetails");
+        debugPrint("📊 STATUS UPDATE:");
+        debugPrint("   - Carrier Status: $_pickupCarrierStatus");
+        debugPrint("   - Shop Status: $_shopDropStatus");
+        debugPrint("   - isPickupVerified: $isPickupVerified");
+        debugPrint("   - hasShopDrop: $hasShopDrop");
+        debugPrint("   - isShopDropCompleted: $isShopDropCompleted");
 
         _showUIForCurrentStatus();
       }
@@ -243,13 +257,26 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      if (isPickupArrived && !isPickupVerified && !isVerifying && !_isPickupOtpSheetOpen) {
+      if (isPickupArrived &&
+          !isPickupVerified &&
+          !isVerifying &&
+          !_isPickupOtpSheetOpen) {
         _showPickupOtpSheet();
-      } else if (isDeliveryArrived && !isDeliveryCompleted && !isDeliveryVerifying && !_isDeliveryOtpSheetOpen) {
+      } else if (isDeliveryArrived &&
+          !isDeliveryCompleted &&
+          !isDeliveryVerifying &&
+          !_isDeliveryOtpSheetOpen) {
         _showDeliveryOtpSheet();
-      } else if (hasShopDrop && isPickupVerified && isShopDropArrived && !isShopDropCompleted && !_isImageSheetOpen) {
-        if (!isShopDropCompleted) {
-          _showImageUploadSheet();
+      } else if (isShopDropStage && isShopDropArrived) {
+        final bool hasImage = _shopDropDetails?['image'] != null;
+        if (hasImage) {
+          if (!_isShopDropOtpSheetOpen && !_isImageSheetOpen) {
+            _showShopDropOtpSheet();
+          }
+        } else {
+          if (!_isImageSheetOpen && !_isShopDropOtpSheetOpen) {
+            _showImageUploadSheet();
+          }
         }
       }
     });
@@ -260,7 +287,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     if (mounted) setState(() {});
   }
 
-
   Future<void> _markPickupArrived() async {
     if (isPickupArrived) return;
     setState(() => isSubmitting = true);
@@ -270,12 +296,17 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         _showErrorSnackBar("No pickup carrier ID found");
         return;
       }
-      final response = await apiService.markArrivedSimple(pickupCarrierId: pickupCarrierId);
+      final response = await apiService.markArrivedSimple(
+        pickupCarrierId: pickupCarrierId,
+      );
       if (!mounted) return;
       if (response != null && response['success'] != false) {
         await _refreshStatus();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Arrival confirmed successfully"), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text("Arrival confirmed successfully"),
+            backgroundColor: Colors.green,
+          ),
         );
       } else {
         _showErrorSnackBar(response?['error'] ?? "Failed to mark arrival");
@@ -295,12 +326,17 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         _showErrorSnackBar("No pickup carrier ID found");
         return;
       }
-      final response = await apiService.sendPickupOtp(pickupCarrierId: pickupCarrierId);
+      final response = await apiService.sendPickupOtp(
+        pickupCarrierId: pickupCarrierId,
+      );
       if (!mounted) return;
       if (response != null && response['success'] == true) {
         setState(() => isOtpSent = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("OTP sent to sender's phone"), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text("OTP sent to sender's phone"),
+            backgroundColor: Colors.green,
+          ),
         );
       } else {
         _showErrorSnackBar(response?['error'] ?? "Failed to send OTP");
@@ -322,7 +358,10 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         _showErrorSnackBar("No pickup carrier ID found");
         return;
       }
-      final response = await apiService.verifyPickupOtp(pickupCarrierId: pickupCarrierId, otp: otp);
+      final response = await apiService.verifyPickupOtp(
+        pickupCarrierId: pickupCarrierId,
+        otp: otp,
+      );
       if (!mounted) return;
       if (response != null && response['success'] == true) {
         Navigator.pop(context);
@@ -331,7 +370,10 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         _otpController.clear();
         setState(() => isVerifying = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Pickup verified successfully!"), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text("Pickup verified successfully!"),
+            backgroundColor: Colors.green,
+          ),
         );
       } else {
         _showErrorSnackBar(response?['error'] ?? "Invalid OTP");
@@ -363,103 +405,184 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
             _otpController.clear();
           }
         },
-        child: StatefulBuilder(builder: (context, setModalState) {
-          void startTimer() => OtpTimer.startTimer(() { if (mounted) setModalState(() {}); });
-          Future<void> handleResend() async {
-            if (OtpTimer.isTimerActive) return;
-            await _resendPickupOtp();
-            if (mounted) setModalState(startTimer);
-          }
+        child: StatefulBuilder(
+          builder: (context, setModalState) {
+            void startTimer() => OtpTimer.startTimer(() {
+              if (mounted) setModalState(() {});
+            });
+            Future<void> handleResend() async {
+              if (OtpTimer.isTimerActive) return;
+              await _resendPickupOtp();
+              if (mounted) setModalState(startTimer);
+            }
 
-          return Container(
-            decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _sheetHandle(),
-                Flexible(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(children: [
-                        _sheetIcon(Icons.verified_outlined, Colors.red.shade50, Colors.red.shade700),
-                        const SizedBox(height: 16),
-                        const Text("Verify Pickup", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        Text("Order #${order!.id}", style: TextStyle(color: Colors.grey.shade600)),
-                        const SizedBox(height: 16),
-                        _contactCard(Colors.red.shade50, Icons.person, Colors.red.shade700,
-                          order!.senderAddress?.senderName ?? "", order!.senderAddress?.phoneNumber ?? ""),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: isOtpSent ? null : () async {
-                            setModalState(() => isOtpSent = true);
-                            await _sendPickupOtp();
-                            if (mounted) setModalState(startTimer);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green, foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 54),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                          ),
-                          child: isOtpSent ? _sentRow()
-                              : const Text("Send OTP to Sender", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed: isCancelling ? null : _cancelOrder,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red.shade700,
-                            side: BorderSide(color: Colors.red.shade300),
-                            minimumSize: const Size(double.infinity, 54),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                          ),
-                          child: isCancelling
-                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Text("Cancel Order", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(height: 20),
-                        if (isOtpSent) ...[
-                          _otpEntryCard(
-                            controller: _otpController,
-                            focusColor: Colors.red.shade700,
-                            timerText: OtpTimer.timerText,
-                            timerActive: OtpTimer.isTimerActive,
-                            onResend: handleResend,
-                            onCompleted: (pin) => _verifyPickupOtp(pin),
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton(
-                            onPressed: isVerifying ? null : () {
-                              _otpController.text.length == 6
-                                  ? _verifyPickupOtp(_otpController.text)
-                                  : ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter 6-digit OTP")));
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red.shade700,
-                              minimumSize: const Size(double.infinity, 54),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _sheetHandle(),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            _sheetIcon(
+                              Icons.verified_outlined,
+                              Colors.red.shade50,
+                              Colors.red.shade700,
                             ),
-                            child: isVerifying ? _loadingIndicator()
-                                : const Text("Verify & Continue", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(height: 20),
-                        ] else const SizedBox(height: 20),
-                      ]),
+                            const SizedBox(height: 16),
+                            const Text(
+                              "Verify Pickup",
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Order #${order!.id}",
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                            const SizedBox(height: 16),
+                            _contactCard(
+                              Colors.red.shade50,
+                              Icons.person,
+                              Colors.red.shade700,
+                              order!.senderAddress?.senderName ?? "",
+                              order!.senderAddress?.phoneNumber ?? "",
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: isOtpSent
+                                  ? null
+                                  : () async {
+                                      setModalState(() => isOtpSent = true);
+                                      await _sendPickupOtp();
+                                      if (mounted) setModalState(startTimer);
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(double.infinity, 54),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                              ),
+                              child: isOtpSent
+                                  ? _sentRow()
+                                  : const Text(
+                                      "Send OTP to Sender",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton(
+                              onPressed: isCancelling ? null : _cancelOrder,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red.shade700,
+                                side: BorderSide(color: Colors.red.shade300),
+                                minimumSize: const Size(double.infinity, 54),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                              ),
+                              child: isCancelling
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      "Cancel Order",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                            const SizedBox(height: 20),
+                            if (isOtpSent) ...[
+                              _otpEntryCard(
+                                controller: _otpController,
+                                focusColor: Colors.red.shade700,
+                                timerText: OtpTimer.timerText,
+                                timerActive: OtpTimer.isTimerActive,
+                                onResend: handleResend,
+                                onCompleted: (pin) => _verifyPickupOtp(pin),
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton(
+                                onPressed: isVerifying
+                                    ? null
+                                    : () {
+                                        _otpController.text.length == 6
+                                            ? _verifyPickupOtp(
+                                                _otpController.text,
+                                              )
+                                            : ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Please enter 6-digit OTP",
+                                                  ),
+                                                ),
+                                              );
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red.shade700,
+                                  minimumSize: const Size(double.infinity, 54),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                ),
+                                child: isVerifying
+                                    ? _loadingIndicator()
+                                    : const Text(
+                                        "Verify & Continue",
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                              const SizedBox(height: 20),
+                            ] else
+                              const SizedBox(height: 20),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     ).then((_) {
       _isPickupOtpSheetOpen = false;
       OtpTimer.cancelTimer();
-      if (mounted && !isVerifying) { setState(() => isOtpSent = false); _otpController.clear(); }
+      if (mounted && !isVerifying) {
+        setState(() => isOtpSent = false);
+        _otpController.clear();
+      }
     });
   }
 
@@ -470,16 +593,45 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     }
     setState(() => isConfirmingShopArrival = true);
     try {
-      final response = await apiService.confirmShopDropArrival(widget.selectedShopDropId!);
+      final response = await apiService.confirmShopDropArrival(
+        widget.selectedShopDropId!,
+      );
       if (!mounted) return;
+
       if (response != null && response['success'] == true) {
+        if (response['data'] != null && response['data']['status'] != null) {
+          _manualShopDropStatus = response['data']['status'];
+        }
         await _refreshStatus();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Arrived at drop location successfully!"), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text("Arrived at drop location successfully!"),
+            backgroundColor: Colors.green,
+          ),
         );
         _showImageUploadSheet();
       } else {
-        _showErrorSnackBar(response?['error'] ?? "Failed to confirm arrival");
+        final errorDetail = response?['error'] ?? response?['detail'] ?? '';
+        final bool alreadyArrived =
+            errorDetail.toString().toLowerCase().contains('arrived_at_shop') ||
+            errorDetail.toString().toLowerCase().contains(
+              'cannot mark arrived',
+            );
+
+        if (alreadyArrived) {
+          _manualShopDropStatus = PickupStatusHelper.arrivedAtShop;
+          await _refreshStatus();
+          final bool hasImage = _shopDropDetails?['image'] != null;
+          if (hasImage) {
+            _showShopDropOtpSheet();
+          } else {
+            _showImageUploadSheet();
+          }
+        } else {
+          _showErrorSnackBar(
+            errorDetail.isNotEmpty ? errorDetail : "Failed to confirm arrival",
+          );
+        }
       }
     } catch (e) {
       _showErrorSnackBar("Error: $e");
@@ -496,103 +648,172 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
+      isDismissible: true,
+      enableDrag: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(builder: (context, setModalState) {
-        return Container(
-          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _sheetHandle(),
-              const SizedBox(height: 20),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: Column(children: [
-                  Icon(Icons.camera_alt, size: 60, color: Colors.orange),
-                  SizedBox(height: 16),
-                  Text("Upload Product Photo", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  Text("Please take a photo of the product at drop location",
-                      textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.grey)),
-                ]),
-              ),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: GestureDetector(
-                  onTap: () async {
-                    final picker = ImagePicker();
-                    final XFile? image = await picker.pickImage(source: ImageSource.camera);
-                    if (image != null) setModalState(() => selectedImage = File(image.path));
-                  },
-                  child: Container(
-                    height: 200, width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.grey.shade300, width: 2),
-                    ),
-                    child: selectedImage != null
-                        ? ClipRRect(borderRadius: BorderRadius.circular(20),
-                            child: Image.file(selectedImage!, fit: BoxFit.cover, width: double.infinity))
-                        : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Icon(Icons.add_photo_alternate, size: 50, color: Colors.grey.shade400),
-                            const SizedBox(height: 8),
-                            Text("Tap to take photo", style: TextStyle(color: Colors.grey.shade600)),
-                          ]),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _sheetHandle(),
+                const SizedBox(height: 20),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: [
+                      Icon(Icons.camera_alt, size: 60, color: Colors.orange),
+                      SizedBox(height: 16),
+                      Text(
+                        "Upload Product Photo",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        "Please take a photo of the product at drop location",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: isUploadingImage || selectedImage == null ? null : () async {
-                      setModalState(() => isUploadingImage = true);
-                      final response = await apiService.uploadShopDropImage(
-                        shopDropId: widget.selectedShopDropId!, image: selectedImage!);
-                      setModalState(() => isUploadingImage = false);
-                      if (response != null && response['success'] == true) {
-                        Navigator.pop(context);
-                        _isImageSheetOpen = false;
-                        await _refreshStatus();
-                        _showShopDropOtpSheet();
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Failed to upload image. Please try again."), backgroundColor: Colors.red));
-                      }
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: GestureDetector(
+                    onTap: () async {
+                      final picker = ImagePicker();
+                      final XFile? image = await picker.pickImage(
+                        source: ImageSource.camera,
+                      );
+                      if (image != null)
+                        setModalState(() => selectedImage = File(image.path));
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    child: Container(
+                      height: 200,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                          width: 2,
+                        ),
+                      ),
+                      child: selectedImage != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: Image.file(
+                                selectedImage!,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                              ),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add_photo_alternate,
+                                  size: 50,
+                                  color: Colors.grey.shade400,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  "Tap to take photo",
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
                     ),
-                    child: isUploadingImage ? _loadingIndicator()
-                        : const Text("Upload & Continue", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        );
-      }),
-    ).then((_) => _isImageSheetOpen = false);
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isUploadingImage || selectedImage == null
+                          ? null
+                          : () async {
+                              setModalState(() => isUploadingImage = true);
+                              final response = await apiService
+                                  .uploadShopDropImage(
+                                    shopDropId: widget.selectedShopDropId!,
+                                    image: selectedImage!,
+                                  );
+                              setModalState(() => isUploadingImage = false);
+                              if (response != null &&
+                                  response['success'] == true) {
+                                Navigator.pop(context);
+                                _isImageSheetOpen = false;
+                                await _refreshStatus();
+                                _showShopDropOtpSheet();
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "Failed to upload image. Please try again.",
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: isUploadingImage
+                          ? _loadingIndicator()
+                          : const Text(
+                              "Upload & Continue",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          );
+        },
+      ),
+    ).then((_) {
+      if (mounted) setState(() => _isImageSheetOpen = false);
+    });
   }
 
   Future<void> _sendShopDropOtp() async {
     setState(() => isSubmitting = true);
     try {
-      final response = await apiService.sendShopDropOtp(shopDropId: widget.selectedShopDropId!);
+      final response = await apiService.sendShopDropOtp(
+        shopDropId: widget.selectedShopDropId!,
+      );
       if (!mounted) return;
       if (response != null && response['success'] == true) {
         setState(() => isShopDropOtpSent = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("OTP sent to shop"), backgroundColor: Colors.green));
+          const SnackBar(
+            content: Text("OTP sent to shop"),
+            backgroundColor: Colors.green,
+          ),
+        );
       } else {
         _showErrorSnackBar(response?['error'] ?? "Failed to send OTP");
       }
@@ -609,7 +830,10 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     if (widget.selectedShopDropId == null) return;
     setState(() => isShopDropVerifying = true);
     try {
-      final response = await apiService.verifyShopDropOtp(shopDropId: widget.selectedShopDropId!, otp: otp);
+      final response = await apiService.verifyShopDropOtp(
+        shopDropId: widget.selectedShopDropId!,
+        otp: otp,
+      );
       if (!mounted) return;
       if (response != null && response['success'] == true) {
         await ApiService.clearActiveDropId();
@@ -619,9 +843,16 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         _stopLocationUpdates();
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Drop completed successfully! Thank you."), backgroundColor: Colors.green));
-        Navigator.pushAndRemoveUntil(context,
-          MaterialPageRoute(builder: (_) => const DeliveryFinishedLottie()), (route) => false);
+          const SnackBar(
+            content: Text("Drop completed successfully! Thank you."),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const DeliveryFinishedLottie()),
+          (route) => false,
+        );
       } else {
         _showErrorSnackBar(response?['error'] ?? "Invalid OTP");
         setState(() => isShopDropVerifying = false);
@@ -652,91 +883,164 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
             _otpController.clear();
           }
         },
-        child: StatefulBuilder(builder: (context, setModalState) {
-          void startTimer() => OtpTimer.startTimer(() { if (mounted) setModalState(() {}); });
-          Future<void> handleResend() async {
-            if (OtpTimer.isTimerActive) return;
-            await _resendShopDropOtp();
-            if (mounted) setModalState(startTimer);
-          }
+        child: StatefulBuilder(
+          builder: (context, setModalState) {
+            void startTimer() => OtpTimer.startTimer(() {
+              if (mounted) setModalState(() {});
+            });
+            Future<void> handleResend() async {
+              if (OtpTimer.isTimerActive) return;
+              await _resendShopDropOtp();
+              if (mounted) setModalState(startTimer);
+            }
 
-          return Container(
-            decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _sheetHandle(),
-                Flexible(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(children: [
-                        _sheetIcon(Icons.verified_outlined, Colors.orange.shade50, Colors.orange),
-                        const SizedBox(height: 16),
-                        const Text("Verify Drop", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        Text("Order #${order!.id}", style: TextStyle(color: Colors.grey.shade600)),
-                        const SizedBox(height: 16),
-                        _contactCard(Colors.orange.shade50, Icons.store, Colors.orange,
-                          _shopDropDetails?['shop_name'] ?? _shopDropDetails?['owner_name'] ?? "Shop",
-                          _shopDropDetails?['phone'] ?? ""),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: isShopDropOtpSent ? null : () async {
-                            setModalState(() => isShopDropOtpSent = true);
-                            await _sendShopDropOtp();
-                            if (mounted) setModalState(startTimer);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            minimumSize: const Size(double.infinity, 54),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                          ),
-                          child: isShopDropOtpSent ? _sentRow()
-                              : const Text("Send OTP to Shop", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(height: 20),
-                        if (isShopDropOtpSent) ...[
-                          _otpEntryCard(
-                            controller: _otpController,
-                            focusColor: Colors.orange,
-                            timerText: OtpTimer.timerText,
-                            timerActive: OtpTimer.isTimerActive,
-                            onResend: handleResend,
-                            onCompleted: (pin) => _verifyShopDropOtp(pin),
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton(
-                            onPressed: isShopDropVerifying ? null : () {
-                              _otpController.text.length == 6
-                                  ? _verifyShopDropOtp(_otpController.text)
-                                  : ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter 6-digit OTP")));
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange,
-                              minimumSize: const Size(double.infinity, 54),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _sheetHandle(),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            _sheetIcon(
+                              Icons.verified_outlined,
+                              Colors.orange.shade50,
+                              Colors.orange,
                             ),
-                            child: isShopDropVerifying ? _loadingIndicator()
-                                : const Text("Verify & Complete Drop", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(height: 20),
-                        ] else const SizedBox(height: 20),
-                      ]),
+                            const SizedBox(height: 16),
+                            const Text(
+                              "Verify Drop",
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Order #${order!.id}",
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                            const SizedBox(height: 16),
+                            _contactCard(
+                              Colors.orange.shade50,
+                              Icons.store,
+                              Colors.orange,
+                              _shopDropDetails?['shop_name'] ??
+                                  _shopDropDetails?['owner_name'] ??
+                                  "Shop",
+                              _shopDropDetails?['phone'] ?? "",
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: isShopDropOtpSent
+                                  ? null
+                                  : () async {
+                                      setModalState(
+                                        () => isShopDropOtpSent = true,
+                                      );
+                                      await _sendShopDropOtp();
+                                      if (mounted) setModalState(startTimer);
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                minimumSize: const Size(double.infinity, 54),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                              ),
+                              child: isShopDropOtpSent
+                                  ? _sentRow()
+                                  : const Text(
+                                      "Send OTP to Shop",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                            const SizedBox(height: 20),
+                            if (isShopDropOtpSent) ...[
+                              _otpEntryCard(
+                                controller: _otpController,
+                                focusColor: Colors.orange,
+                                timerText: OtpTimer.timerText,
+                                timerActive: OtpTimer.isTimerActive,
+                                onResend: handleResend,
+                                onCompleted: (pin) => _verifyShopDropOtp(pin),
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton(
+                                onPressed: isShopDropVerifying
+                                    ? null
+                                    : () {
+                                        _otpController.text.length == 6
+                                            ? _verifyShopDropOtp(
+                                                _otpController.text,
+                                              )
+                                            : ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Please enter 6-digit OTP",
+                                                  ),
+                                                ),
+                                              );
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  minimumSize: const Size(double.infinity, 54),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                ),
+                                child: isShopDropVerifying
+                                    ? _loadingIndicator()
+                                    : const Text(
+                                        "Verify & Complete Drop",
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                              const SizedBox(height: 20),
+                            ] else
+                              const SizedBox(height: 20),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     ).then((_) {
-      _isShopDropOtpSheetOpen = false;
-      OtpTimer.cancelTimer();
-      if (mounted && !isShopDropVerifying) { setState(() => isShopDropOtpSent = false); _otpController.clear(); }
+      if (mounted) {
+        setState(() {
+          _isShopDropOtpSheetOpen = false;
+          if (!isShopDropVerifying) {
+            isShopDropOtpSent = false;
+            _otpController.clear();
+          }
+        });
+      }
     });
   }
 
@@ -749,14 +1053,22 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         _showErrorSnackBar("No pickup carrier ID found");
         return;
       }
-      final response = await apiService.markDelivered(pickupCarrierId: pickupCarrierId);
+      final response = await apiService.markDelivered(
+        pickupCarrierId: pickupCarrierId,
+      );
       if (!mounted) return;
       if (response != null && response['success'] != false) {
         await _refreshStatus();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Arrived at delivery location"), backgroundColor: Colors.green));
+          const SnackBar(
+            content: Text("Arrived at delivery location"),
+            backgroundColor: Colors.green,
+          ),
+        );
       } else {
-        _showErrorSnackBar(response?['error'] ?? "Failed to mark delivery arrival");
+        _showErrorSnackBar(
+          response?['error'] ?? "Failed to mark delivery arrival",
+        );
       }
     } catch (e) {
       _showErrorSnackBar("Error: $e");
@@ -773,12 +1085,18 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         _showErrorSnackBar("No pickup carrier ID found");
         return;
       }
-      final response = await apiService.sendDeliveryOtp(pickupCarrierId: pickupCarrierId);
+      final response = await apiService.sendDeliveryOtp(
+        pickupCarrierId: pickupCarrierId,
+      );
       if (!mounted) return;
       if (response != null && response['success'] == true) {
         setState(() => isDeliveryOtpSent = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("OTP sent to receiver's phone"), backgroundColor: Colors.green));
+          const SnackBar(
+            content: Text("OTP sent to receiver's phone"),
+            backgroundColor: Colors.green,
+          ),
+        );
       } else {
         _showErrorSnackBar(response?['error'] ?? "Failed to send OTP");
       }
@@ -799,7 +1117,10 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         _showErrorSnackBar("No pickup carrier ID found");
         return;
       }
-      final response = await apiService.verifyDeliveryOtp(pickupCarrierId: pickupCarrierId, otp: otp);
+      final response = await apiService.verifyDeliveryOtp(
+        pickupCarrierId: pickupCarrierId,
+        otp: otp,
+      );
       if (!mounted) return;
       if (response != null && response['success'] == true) {
         await ApiService.clearActiveDropId();
@@ -809,9 +1130,16 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         _stopLocationUpdates();
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Delivery completed successfully! Thank you."), backgroundColor: Colors.green));
-        Navigator.pushAndRemoveUntil(context,
-          MaterialPageRoute(builder: (_) => const DeliveryFinishedLottie()), (route) => false);
+          const SnackBar(
+            content: Text("Delivery completed successfully! Thank you."),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const DeliveryFinishedLottie()),
+          (route) => false,
+        );
       } else {
         _showErrorSnackBar(response?['error'] ?? "Invalid OTP");
         setState(() => isDeliveryVerifying = false);
@@ -842,104 +1170,194 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
             _otpController.clear();
           }
         },
-        child: StatefulBuilder(builder: (context, setModalState) {
-          void startTimer() => OtpTimer.startTimer(() { if (mounted) setModalState(() {}); });
-          Future<void> handleResend() async {
-            if (OtpTimer.isTimerActive) return;
-            await _resendDeliveryOtp();
-            if (mounted) setModalState(startTimer);
-          }
+        child: StatefulBuilder(
+          builder: (context, setModalState) {
+            void startTimer() => OtpTimer.startTimer(() {
+              if (mounted) setModalState(() {});
+            });
+            Future<void> handleResend() async {
+              if (OtpTimer.isTimerActive) return;
+              await _resendDeliveryOtp();
+              if (mounted) setModalState(startTimer);
+            }
 
-          return Container(
-            decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _sheetHandle(),
-                Flexible(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(children: [
-                        _sheetIcon(Icons.verified_outlined, Colors.green.shade50, Colors.green),
-                        const SizedBox(height: 16),
-                        const Text("Verify Delivery", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        Text("Order #${order!.id}", style: TextStyle(color: Colors.grey.shade600)),
-                        const SizedBox(height: 16),
-                        _contactCard(Colors.green.shade50, Icons.person, Colors.green,
-                          order!.receiverAddress?.receiverName ?? "", order!.receiverAddress?.phoneNumber ?? ""),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: isDeliveryOtpSent ? null : () async {
-                            setModalState(() => isDeliveryOtpSent = true);
-                            await _sendDeliveryOtp();
-                            if (mounted) setModalState(startTimer);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            minimumSize: const Size(double.infinity, 54),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                          ),
-                          child: isDeliveryOtpSent ? _sentRow()
-                              : const Text("Send OTP to Receiver", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(height: 20),
-                        if (isDeliveryOtpSent) ...[
-                          _otpEntryCard(
-                            controller: _otpController,
-                            focusColor: Colors.green,
-                            timerText: OtpTimer.timerText,
-                            timerActive: OtpTimer.isTimerActive,
-                            onResend: handleResend,
-                            onCompleted: (pin) => _verifyDeliveryOtp(pin),
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton(
-                            onPressed: isDeliveryVerifying ? null : () {
-                              _otpController.text.length == 6
-                                  ? _verifyDeliveryOtp(_otpController.text)
-                                  : ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter 6-digit OTP")));
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              minimumSize: const Size(double.infinity, 54),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _sheetHandle(),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            _sheetIcon(
+                              Icons.verified_outlined,
+                              Colors.green.shade50,
+                              Colors.green,
                             ),
-                            child: isDeliveryVerifying ? _loadingIndicator()
-                                : const Text("Verify & Complete Delivery", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(height: 20),
-                        ] else const SizedBox(height: 20),
-                      ]),
+                            const SizedBox(height: 16),
+                            const Text(
+                              "Verify Delivery",
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Order #${order!.id}",
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                            const SizedBox(height: 16),
+                            _contactCard(
+                              Colors.green.shade50,
+                              Icons.person,
+                              Colors.green,
+                              order!.receiverAddress?.receiverName ?? "",
+                              order!.receiverAddress?.phoneNumber ?? "",
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: isDeliveryOtpSent
+                                  ? null
+                                  : () async {
+                                      setModalState(
+                                        () => isDeliveryOtpSent = true,
+                                      );
+                                      await _sendDeliveryOtp();
+                                      if (mounted) setModalState(startTimer);
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                minimumSize: const Size(double.infinity, 54),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                              ),
+                              child: isDeliveryOtpSent
+                                  ? _sentRow()
+                                  : const Text(
+                                      "Send OTP to Receiver",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                            const SizedBox(height: 20),
+                            if (isDeliveryOtpSent) ...[
+                              _otpEntryCard(
+                                controller: _otpController,
+                                focusColor: Colors.green,
+                                timerText: OtpTimer.timerText,
+                                timerActive: OtpTimer.isTimerActive,
+                                onResend: handleResend,
+                                onCompleted: (pin) => _verifyDeliveryOtp(pin),
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton(
+                                onPressed: isDeliveryVerifying
+                                    ? null
+                                    : () {
+                                        _otpController.text.length == 6
+                                            ? _verifyDeliveryOtp(
+                                                _otpController.text,
+                                              )
+                                            : ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Please enter 6-digit OTP",
+                                                  ),
+                                                ),
+                                              );
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  minimumSize: const Size(double.infinity, 54),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                ),
+                                child: isDeliveryVerifying
+                                    ? _loadingIndicator()
+                                    : const Text(
+                                        "Verify & Complete Delivery",
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                              const SizedBox(height: 20),
+                            ] else
+                              const SizedBox(height: 20),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     ).then((_) {
       _isDeliveryOtpSheetOpen = false;
       OtpTimer.cancelTimer();
-      if (mounted && !isDeliveryVerifying) { setState(() => isDeliveryOtpSent = false); _otpController.clear(); }
+      if (mounted && !isDeliveryVerifying) {
+        setState(() => isDeliveryOtpSent = false);
+        _otpController.clear();
+      }
     });
   }
 
-
   Future<void> _cancelOrder() async {
     final shouldCancel = await showDialog<bool>(
-      context: context, barrierDismissible: false,
+      context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text("Cancel Order", style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text("Are you sure you want to cancel this order? This action cannot be undone.", style: TextStyle(fontSize: 16)),
+        title: const Text(
+          "Cancel Order",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          "Are you sure you want to cancel this order? This action cannot be undone.",
+          style: TextStyle(fontSize: 16),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("No", style: TextStyle(color: Colors.grey, fontSize: 16))),
-          TextButton(onPressed: () => Navigator.pop(context, true),
-              child: const Text("Yes, Cancel", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              "No",
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              "Yes, Cancel",
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -960,9 +1378,16 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         await ApiService.clearPickupCarrierId();
         _stopLocationUpdates();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Order cancelled successfully"), backgroundColor: Colors.orange));
-        Navigator.pushAndRemoveUntil(context,
-          MaterialPageRoute(builder: (_) => const CarrierDashboard()), (route) => false);
+          const SnackBar(
+            content: Text("Order cancelled successfully"),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const CarrierDashboard()),
+          (route) => false,
+        );
       } else {
         _showErrorSnackBar(response?['error'] ?? "Failed to cancel order");
         setState(() => isCancelling = false);
@@ -974,45 +1399,98 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }
 
   void _navigateToDropLocation() {
-    Navigator.push(context,
-      MaterialPageRoute(builder: (context) => DropLocationScreen(orderId: widget.orderId, order: order)),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            DropLocationScreen(orderId: widget.orderId, order: order),
+      ),
     ).then((result) async {
       if (result != null && result is int) {
         await ApiService.saveActiveDropId(result);
-        Navigator.pushReplacement(context, MaterialPageRoute(
-          builder: (context) => AcceptedOrderScreen(orderId: widget.orderId, order: order, selectedShopDropId: result)));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AcceptedOrderScreen(
+              orderId: widget.orderId,
+              order: order,
+              selectedShopDropId: result,
+            ),
+          ),
+        );
       }
     });
   }
 
   void _showDropLocationConfirmation() {
     showDialog(
-      context: context, barrierDismissible: false,
+      context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(children: [
-          Icon(Icons.store, color: Colors.red.shade700, size: 28), const SizedBox(width: 12),
-          const Text('Drop Location', style: TextStyle(fontWeight: FontWeight.bold)),
-        ]),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Proceed to drop location?', style: TextStyle(fontSize: 16)),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)),
-            child: Row(children: [
-              Icon(Icons.info_outline, color: Colors.red.shade700, size: 20), const SizedBox(width: 8),
-              Expanded(child: Text('You can select nearby drop locations for delivery',
-                  style: TextStyle(fontSize: 13, color: Colors.red.shade700))),
-            ]),
-          ),
-        ]),
+        title: Row(
+          children: [
+            Icon(Icons.store, color: Colors.red.shade700, size: 28),
+            const SizedBox(width: 12),
+            const Text(
+              'Drop Location',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Proceed to drop location?',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.red.shade700,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You can select nearby drop locations for delivery',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-            onPressed: () { Navigator.pop(context); _navigateToDropLocation(); },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () {
+              Navigator.pop(context);
+              _navigateToDropLocation();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             child: const Text('Proceed', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -1020,9 +1498,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LOCATION
-  // ═══════════════════════════════════════════════════════════════════════════
 
   Future<void> _startLiveLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -1034,17 +1509,34 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     }
     if (permission == LocationPermission.deniedForever) return;
     final position = await Geolocator.getCurrentPosition();
-    if (mounted) setState(() => carrierLocation = LatLng(position.latitude, position.longitude));
+    if (mounted)
+      setState(
+        () => carrierLocation = LatLng(position.latitude, position.longitude),
+      );
     _locationStream?.cancel();
-    _locationStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 10),
-    ).listen((pos) { if (mounted) setState(() => carrierLocation = LatLng(pos.latitude, pos.longitude)); });
+    _locationStream =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
+          ),
+        ).listen((pos) {
+          if (mounted)
+            setState(
+              () => carrierLocation = LatLng(pos.latitude, pos.longitude),
+            );
+        });
   }
 
   void _startLocationUpdates() {
     _locationUpdateTimer?.cancel();
-    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
-      if (!mounted || isDeliveryCompleted) { timer.cancel(); return; }
+    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (
+      timer,
+    ) async {
+      if (!mounted || isDeliveryCompleted) {
+        timer.cancel();
+        return;
+      }
       await _sendCurrentLocation();
     });
   }
@@ -1056,7 +1548,9 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       if (pickupCarrierId == null) return;
       await apiService.updateCarrierLocation(
         pickupCarrierId: pickupCarrierId,
-        latitude: carrierLocation!.latitude, longitude: carrierLocation!.longitude);
+        latitude: carrierLocation!.latitude,
+        longitude: carrierLocation!.longitude,
+      );
     } catch (_) {}
   }
 
@@ -1066,16 +1560,22 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     _locationStream?.cancel();
   }
 
-  void _openMapForNavigation() {
-    final lat = order!.senderAddress?.latitude; final lng = order!.senderAddress?.longitude;
+  void _openMapForPickupNavigation() {
+    final lat = order!.senderAddress?.latitude;
+    final lng = order!.senderAddress?.longitude;
     if (lat == null || lng == null || carrierLocation == null) return;
-    _launchUrl("https://www.google.com/maps/dir/?api=1&origin=${carrierLocation!.latitude},${carrierLocation!.longitude}&destination=$lat,$lng&travelmode=driving");
+    _launchUrl(
+      "https://www.google.com/maps/dir/?api=1&origin=${carrierLocation!.latitude},${carrierLocation!.longitude}&destination=$lat,$lng&travelmode=driving",
+    );
   }
 
   void _openMapForDeliveryNavigation() {
-    final lat = order!.receiverAddress?.latitude; final lng = order!.receiverAddress?.longitude;
+    final lat = order!.receiverAddress?.latitude;
+    final lng = order!.receiverAddress?.longitude;
     if (lat == null || lng == null || carrierLocation == null) return;
-    _launchUrl("https://www.google.com/maps/dir/?api=1&origin=${carrierLocation!.latitude},${carrierLocation!.longitude}&destination=$lat,$lng&travelmode=driving");
+    _launchUrl(
+      "https://www.google.com/maps/dir/?api=1&origin=${carrierLocation!.latitude},${carrierLocation!.longitude}&destination=$lat,$lng&travelmode=driving",
+    );
   }
 
   void _openMapForShopNavigation() {
@@ -1084,60 +1584,99 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     final lat = double.tryParse(shopAddress?['latitude']?.toString() ?? "0");
     final lng = double.tryParse(shopAddress?['longitude']?.toString() ?? "0");
     if (lat == null || lng == null) return;
-    _launchUrl("https://www.google.com/maps/dir/?api=1&origin=${carrierLocation!.latitude},${carrierLocation!.longitude}&destination=$lat,$lng&travelmode=driving");
+    _launchUrl(
+      "https://www.google.com/maps/dir/?api=1&origin=${carrierLocation!.latitude},${carrierLocation!.longitude}&destination=$lat,$lng&travelmode=driving",
+    );
   }
 
   Future<void> _launchUrl(String url) async {
     final Uri uri = Uri.parse(url);
-    if (await launcher.canLaunchUrl(uri)) await launcher.launchUrl(uri, mode: launcher.LaunchMode.externalApplication);
+    if (await launcher.canLaunchUrl(uri))
+      await launcher.launchUrl(
+        uri,
+        mode: launcher.LaunchMode.externalApplication,
+      );
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {
-    if (phoneNumber.isEmpty) { _showErrorSnackBar("Phone number is empty"); return; }
+    if (phoneNumber.isEmpty) {
+      _showErrorSnackBar("Phone number is empty");
+      return;
+    }
     String formatted = phoneNumber.trim();
     if (RegExp(r'^\d{10}$').hasMatch(formatted)) formatted = '+91$formatted';
     try {
-      await launchUrl(Uri.parse('tel:$formatted'), mode: LaunchMode.externalApplication);
-    } catch (_) { _showCallFailedDialog(phoneNumber); }
+      await launchUrl(
+        Uri.parse('tel:$formatted'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      _showCallFailedDialog(phoneNumber);
+    }
   }
 
   void _showCallFailedDialog(String phoneNumber) {
-    showDialog(context: context, builder: (context) => AlertDialog(
-      title: const Text("Cannot Make Call"),
-      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text("Unable to open dialer automatically."),
-        const SizedBox(height: 12),
-        Text("Please call manually: $phoneNumber"),
-        const SizedBox(height: 8),
-        const Text("Note: Make sure you're using a real device or an emulator with telephony support.",
-            style: TextStyle(fontSize: 12, color: Colors.grey)),
-      ]),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK")),
-        ElevatedButton(
-          onPressed: () { Navigator.pop(context); Clipboard.setData(ClipboardData(text: phoneNumber)); _showErrorSnackBar("Number copied to clipboard"); },
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
-          child: const Text("Copy Number"),
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Cannot Make Call"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Unable to open dialer automatically."),
+            const SizedBox(height: 12),
+            Text("Please call manually: $phoneNumber"),
+            const SizedBox(height: 8),
+            const Text(
+              "Note: Make sure you're using a real device or an emulator with telephony support.",
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
         ),
-      ],
-    ));
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Clipboard.setData(ClipboardData(text: phoneNumber));
+              _showErrorSnackBar("Number copied to clipboard");
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
+            child: const Text("Copy Number"),
+          ),
+        ],
+      ),
+    );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // DISTANCES
-  // ═══════════════════════════════════════════════════════════════════════════
-
+  
   String _getPickupDistance() {
-    if (carrierLocation == null || order?.senderAddress?.latitude == null) return "0 km";
-    final d = Geolocator.distanceBetween(carrierLocation!.latitude, carrierLocation!.longitude,
-        order!.senderAddress!.latitude!, order!.senderAddress!.longitude!);
+    if (carrierLocation == null || order?.senderAddress?.latitude == null)
+      return "0 km";
+    final d = Geolocator.distanceBetween(
+      carrierLocation!.latitude,
+      carrierLocation!.longitude,
+      order!.senderAddress!.latitude!,
+      order!.senderAddress!.longitude!,
+    );
     return "${(d / 1000).toStringAsFixed(2)} km";
   }
 
   String _getDeliveryDistance() {
-    if (carrierLocation == null || order?.receiverAddress?.latitude == null) return "0 km";
-    final d = Geolocator.distanceBetween(carrierLocation!.latitude, carrierLocation!.longitude,
-        order!.receiverAddress!.latitude!, order!.receiverAddress!.longitude!);
+    if (carrierLocation == null || order?.receiverAddress?.latitude == null)
+      return "0 km";
+    final d = Geolocator.distanceBetween(
+      carrierLocation!.latitude,
+      carrierLocation!.longitude,
+      order!.receiverAddress!.latitude!,
+      order!.receiverAddress!.longitude!,
+    );
     return "${(d / 1000).toStringAsFixed(2)} km";
   }
 
@@ -1147,18 +1686,16 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     final lat = double.tryParse(shopAddress?['latitude']?.toString() ?? "0");
     final lng = double.tryParse(shopAddress?['longitude']?.toString() ?? "0");
     if (lat == null || lng == null) return "0 km";
-    final d = Geolocator.distanceBetween(carrierLocation!.latitude, carrierLocation!.longitude, lat, lng);
+    final d = Geolocator.distanceBetween(
+      carrierLocation!.latitude,
+      carrierLocation!.longitude,
+      lat,
+      lng,
+    );
     return "${(d / 1000).toStringAsFixed(2)} km";
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LOCATION CARD
-  // ═══════════════════════════════════════════════════════════════════════════
-
   Widget _buildLocationCard() {
-    final bool isPickupStage = !isPickupVerified && !hasShopDrop;
-    final bool isShopDropStage = hasShopDrop && !isShopDropCompleted;
-    
     final Color accentColor = isPickupStage
         ? Colors.red.shade700
         : (isShopDropStage ? Colors.orange : Colors.green);
@@ -1166,55 +1703,80 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     final String cardTitle = isPickupStage
         ? "Pickup Location"
         : (isShopDropStage ? "Drop Location (Shop)" : "Delivery Location");
-        
+
     final String cardSubtitle = isPickupStage
         ? "Collect parcel from here"
-        : (isShopDropStage ? "Deliver to shop first" : "Final delivery destination");
+        : (isShopDropStage
+              ? "Deliver to shop first"
+              : "Final delivery destination");
 
     final String personName = isPickupStage
-        ? (order!.senderAddress?.senderName ?? "Sender")
-        : (isShopDropStage 
-            ? (_shopDropDetails?['shop_name'] ?? _shopDropDetails?['owner_name'] ?? "Shop")
-            : (order!.receiverAddress?.receiverName ?? "Receiver"));
-            
-    final String phone = isPickupStage
-        ? (order!.senderAddress?.phoneNumber ?? "")
-        : (isShopDropStage 
-            ? (_shopDropDetails?['phone'] ?? "")
-            : (order!.receiverAddress?.phoneNumber ?? ""));
-            
-    final String address = isPickupStage
-        ? (order!.senderAddress?.address ?? "")
-        : (isShopDropStage 
-            ? (_shopDropDetails?['address']?['address'] ?? _shopDropDetails?['address'] ?? "")
-            : (order!.receiverAddress?.address ?? ""));
-            
-    final String districtState = isPickupStage
-        ? "${order!.senderAddress?.district ?? ""}, ${order!.senderAddress?.state ?? ""}"
+        ? (pickingUpFromShop
+              ? (_shopDropDetails?['shop_name'] ??
+                    _shopDropDetails?['owner_name'] ??
+                    "Shop")
+              : (order!.senderAddress?.senderName ?? "Sender"))
         : (isShopDropStage
-            ? "${_shopDropDetails?['address']?['district'] ?? ""}, ${_shopDropDetails?['address']?['state'] ?? ""}"
-            : "${order!.receiverAddress?.district ?? ""}, ${order!.receiverAddress?.state ?? ""}");
-            
+              ? (_shopDropDetails?['shop_name'] ??
+                    _shopDropDetails?['owner_name'] ??
+                    "Shop")
+              : (order!.receiverAddress?.receiverName ?? "Receiver"));
+
+    final String phoneNumber = isPickupStage
+        ? (pickingUpFromShop
+              ? (_shopDropDetails?['phone'] ?? "")
+              : (order!.senderAddress?.phoneNumber ?? ""))
+        : (isShopDropStage
+              ? (_shopDropDetails?['phone'] ?? "")
+              : (order!.receiverAddress?.phoneNumber ?? ""));
+
+    final String address = isPickupStage
+        ? (pickingUpFromShop
+              ? (_shopDropDetails?['address']?['address'] ??
+                    _shopDropDetails?['address'] ??
+                    "")
+              : (order!.senderAddress?.address ?? ""))
+        : (isShopDropStage
+              ? (_shopDropDetails?['address']?['address'] ??
+                    _shopDropDetails?['address'] ??
+                    "")
+              : (order!.receiverAddress?.address ?? ""));
+
+    final String districtState = isPickupStage
+        ? (pickingUpFromShop
+              ? "${_shopDropDetails?['address']?['district'] ?? ""}, ${_shopDropDetails?['address']?['state'] ?? ""}"
+              : "${order!.senderAddress?.district ?? ""}, ${order!.senderAddress?.state ?? ""}")
+        : (isShopDropStage
+              ? "${_shopDropDetails?['address']?['district'] ?? ""}, ${_shopDropDetails?['address']?['state'] ?? ""}"
+              : "${order!.receiverAddress?.district ?? ""}, ${order!.receiverAddress?.state ?? ""}");
+
     final String zip = isPickupStage
-        ? (order!.senderAddress?.zipCode ?? "")
-        : (isShopDropStage 
-            ? (_shopDropDetails?['address']?['zip_code'] ?? "")
-            : (order!.receiverAddress?.zipCode ?? ""));
-            
+        ? (pickingUpFromShop
+              ? (_shopDropDetails?['address']?['zip_code'] ?? "")
+              : (order!.senderAddress?.zipCode ?? ""))
+        : (isShopDropStage
+              ? (_shopDropDetails?['address']?['zip_code'] ?? "")
+              : (order!.receiverAddress?.zipCode ?? ""));
+
     final String distanceLabel = isPickupStage
-        ? "Distance to pickup"
+        ? (pickingUpFromShop ? "Distance to shop" : "Distance to pickup")
         : (isShopDropStage ? "Distance to shop" : "Distance to delivery");
-        
+
     final String distanceValue = isPickupStage
-        ? _getPickupDistance()
+        ? (pickingUpFromShop ? _getShopDistance() : _getPickupDistance())
         : (isShopDropStage ? _getShopDistance() : _getDeliveryDistance());
-        
+
     final VoidCallback navigateAction = isPickupStage
-        ? _openMapForNavigation
-        : (isShopDropStage ? _openMapForShopNavigation : _openMapForDeliveryNavigation);
+        ? (pickingUpFromShop
+              ? _openMapForShopNavigation
+              : _openMapForPickupNavigation)
+        : (isShopDropStage
+              ? _openMapForShopNavigation
+              : _openMapForDeliveryNavigation);
 
     final bool showCancelButton = !isPickupVerified;
-    final bool showDropOrderButton = isPickupVerified && widget.selectedShopDropId == null;
+    final bool showDropOrderButton =
+        isPickupVerified && widget.selectedShopDropId == null;
 
     return Container(
       margin: const EdgeInsets.all(20),
@@ -1222,110 +1784,258 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: accentColor.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
-              child: Icon(isPickupStage ? Icons.location_pin : Icons.location_on, color: accentColor, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(cardTitle, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: accentColor)),
-              Text(cardSubtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-            ])),
-            if (showCancelButton || showDropOrderButton)
+          Row(
+            children: [
               Container(
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: showDropOrderButton ? Colors.green : Colors.red.shade700,
-                  borderRadius: BorderRadius.circular(25),
+                  color: accentColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(15),
                 ),
-                child: InkWell(
-                  onTap: () {
-                    if (!isCancelling) {
-                      showDropOrderButton ? _showDropLocationConfirmation() : _cancelOrder();
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(25),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: isCancelling
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text(showDropOrderButton ? "Drop Order" : "Cancel",
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-                  ),
+                child: Icon(
+                  isPickupStage ? Icons.location_pin : Icons.location_on,
+                  color: accentColor,
+                  size: 24,
                 ),
               ),
-          ]),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      cardTitle,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: accentColor,
+                      ),
+                    ),
+                    Text(
+                      cardSubtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (showCancelButton || showDropOrderButton)
+                Container(
+                  decoration: BoxDecoration(
+                    color: showDropOrderButton
+                        ? Colors.green
+                        : Colors.red.shade700,
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      if (!isCancelling) {
+                        showDropOrderButton
+                            ? _showDropLocationConfirmation()
+                            : _cancelOrder();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(25),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: isCancelling
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              showDropOrderButton ? "Drop Order" : "Cancel",
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: accentColor.withOpacity(0.07), borderRadius: BorderRadius.circular(20)),
-            child: Row(children: [
-              CircleAvatar(radius: 28, backgroundColor: Colors.white,
-                child: Icon(isShopDropStage ? Icons.store : Icons.person, color: accentColor, size: 28)),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(personName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(phone, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
-              ])),
-              GestureDetector(
-                onTap: () => _makePhoneCall(phone),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))]),
-                  child: Icon(Icons.call, color: accentColor, size: 22),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.07),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.white,
+                  child: Icon(
+                    isShopDropStage ? Icons.store : Icons.person,
+                    color: accentColor,
+                    size: 28,
+                  ),
                 ),
-              ),
-            ]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        personName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        phoneNumber,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _makePhoneCall(phoneNumber),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(Icons.call, color: accentColor, size: 22),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(20)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(Icons.location_on_outlined, size: 16, color: Colors.grey.shade600), const SizedBox(width: 8),
-                Text(
-                  isShopDropStage ? "Shop Address Details" : (isPickupStage ? "Pickup Address" : "Delivery Address"),
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isShopDropStage
+                          ? "Shop Address Details"
+                          : (isPickupStage
+                                ? "Pickup Address"
+                                : "Delivery Address"),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
                 ),
-              ]),
-              const SizedBox(height: 8),
-              Text(address, style: const TextStyle(fontSize: 14)),
-              const SizedBox(height: 4),
-              Text(districtState, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-              Text("ZIP: $zip", style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-            ]),
+                const SizedBox(height: 8),
+                Text(address, style: const TextStyle(fontSize: 14)),
+                const SizedBox(height: 4),
+                Text(
+                  districtState,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                ),
+                Text(
+                  "ZIP: $zip",
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
           ),
           if (carrierLocation != null) ...[
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(color: accentColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Row(children: [
-                  Icon(Icons.route, color: accentColor, size: 20), const SizedBox(width: 8),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(distanceLabel, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                    Text(distanceValue, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: accentColor)),
-                  ]),
-                ]),
-                ElevatedButton.icon(
-                  onPressed: navigateAction,
-                  icon: const Icon(Icons.navigation, size: 18),
-                  label: const Text("Navigate"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: accentColor, foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)), elevation: 0),
-                ),
-              ]),
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.route, color: accentColor, size: 20),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            distanceLabel,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            distanceValue,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: accentColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: navigateAction,
+                    icon: const Icon(Icons.navigation, size: 18),
+                    label: const Text("Navigate"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accentColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -1333,22 +2043,45 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // BOTTOM SLIDER
-  // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildBottomSlider() {
-    final bool hasShopDropSelected = hasShopDrop && !isShopDropCompleted;
+    final bool hasShopDropActive = isShopDropStage;
+    debugPrint(
+      "🛠️ DEBUG SLIDER: stage=$hasShopDropActive, arrived=$isShopDropArrived, completed=$isShopDropCompleted",
+    );
 
-    if (hasShopDropSelected) {
+    if (hasShopDropActive) {
       if (isShopDropCompleted) {
         return _buildCompletionCard("Drop Completed ✓", Colors.green);
       }
       if (isShopDropArrived) {
-        return _buildCompletionCard("Verify Drop", Colors.orange, onTap: _showShopDropOtpSheet);
+        final bool hasImage = _shopDropDetails?['image'] != null;
+        if (hasImage) {
+          return _buildCompletionCard(
+            "Verify Shop Drop",
+            Colors.orange,
+            onTap: _showShopDropOtpSheet,
+          );
+        } else {
+          return _buildCompletionCard(
+            "Upload Product Image",
+            Colors.orange,
+            onTap: _showImageUploadSheet,
+          );
+        }
       }
-      return _buildSlider(label: "Slide to confirm arrival at drop location",
-          color: Colors.orange, icon: Icons.store, onSlide: _confirmShopDropArrival);
+
+      
+      if (!isShopDropArrived) {
+        return _buildSlider(
+          label: "Slide to confirm arrival at drop location",
+          color: Colors.orange,
+          icon: Icons.store,
+          onSlide: _confirmShopDropArrival,
+        );
+      }
+
+      return const SizedBox.shrink(); 
     }
 
     if (isDeliveryCompleted) {
@@ -1356,104 +2089,194 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     }
 
     if (isDeliveryArrived && !isDeliveryCompleted) {
-      return _buildCompletionCard("Verify Delivery", Colors.green, onTap: () => _showDeliveryOtpSheet());
+      return _buildCompletionCard(
+        "Verify Delivery",
+        Colors.green,
+        onTap: () => _showDeliveryOtpSheet(),
+      );
     }
 
     if (isPickupVerified && !isDeliveryArrived) {
-      return _buildSlider(label: "Slide to confirm delivery arrival",
-          color: Colors.green, icon: Icons.check, onSlide: _markDeliveryArrived);
+      return _buildSlider(
+        label: "Slide to confirm delivery arrival",
+        color: Colors.green,
+        icon: Icons.check,
+        onSlide: _markDeliveryArrived,
+      );
     }
 
     if (isPickupArrived && !isPickupVerified) {
-      return _buildCompletionCard("Verify Pickup", Colors.green, onTap: () => _showPickupOtpSheet());
+      return _buildCompletionCard(
+        pickingUpFromShop ? "Verify Shop Pickup" : "Verify Pickup",
+        Colors.green,
+        onTap: () => _showPickupOtpSheet(),
+      );
     }
 
-    return _buildSlider(label: "Slide to confirm pickup arrival",
-        color: Colors.red.shade700, icon: Icons.arrow_forward, onSlide: _markPickupArrived);
+    return _buildSlider(
+      label: pickingUpFromShop
+          ? "Slide to confirm arrival at shop"
+          : "Slide to confirm pickup arrival",
+      color: Colors.red.shade700,
+      icon: pickingUpFromShop ? Icons.store : Icons.arrow_forward,
+      onSlide: _markPickupArrived,
+    );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // MISC
-  // ═══════════════════════════════════════════════════════════════════════════
 
   Future<void> _loadOrderDetails() async {
     setState(() => isLoading = true);
     try {
       final fetchedOrder = await apiService.fetchOrderById(widget.orderId);
       if (mounted && fetchedOrder != null) {
-        setState(() { order = fetchedOrder; isLoading = false; });
+        setState(() {
+          order = fetchedOrder;
+          isLoading = false;
+        });
         await ApiService.saveActiveOrder(widget.orderId);
       } else {
         if (mounted) setState(() => isLoading = false);
         _showErrorSnackBar("Order not found");
       }
     } catch (e) {
-      if (mounted) { setState(() => isLoading = false); _showErrorSnackBar("Failed to load order details: $e"); }
+      if (mounted) {
+        setState(() => isLoading = false);
+        _showErrorSnackBar("Failed to load order details: $e");
+      }
     }
   }
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _showExitDialog() {
-    showDialog(context: context, builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Row(children: [
-        Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 28), const SizedBox(width: 12),
-        const Text('Active Order', style: TextStyle(fontWeight: FontWeight.bold)),
-      ]),
-      content: const Text('You have an active order. Going back will cancel the delivery process.', style: TextStyle(fontSize: 15)),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Stay', style: TextStyle(color: Colors.red))),
-        ElevatedButton(
-          onPressed: () async {
-            Navigator.pop(context);
-            await ApiService.clearActiveOrder();
-            if (mounted) Navigator.pushAndRemoveUntil(context,
-              MaterialPageRoute(builder: (_) => const CarrierDashboard()), (route) => false);
-          },
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-          child: const Text('Exit Anyway'),
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.red.shade700,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Active Order',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
-      ],
-    ));
+        content: const Text(
+          'You have an active order. Going back will cancel the delivery process.',
+          style: TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Stay', style: TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await ApiService.clearActiveOrder();
+              if (mounted)
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CarrierDashboard()),
+                  (route) => false,
+                );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Exit Anyway'),
+          ),
+        ],
+      ),
+    );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SHARED UI HELPERS
-  // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _sheetHandle() => Container(
-    margin: const EdgeInsets.only(top: 12), width: 50, height: 4,
-    decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)));
+    margin: const EdgeInsets.only(top: 12),
+    width: 50,
+    height: 4,
+    decoration: BoxDecoration(
+      color: Colors.grey.shade300,
+      borderRadius: BorderRadius.circular(2),
+    ),
+  );
 
   Widget _sheetIcon(IconData icon, Color bg, Color fg) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-    child: Icon(icon, color: fg, size: 40));
+    child: Icon(icon, color: fg, size: 40),
+  );
 
-  Widget _contactCard(Color bg, IconData icon, Color iconColor, String name, String phone) => Container(
+  Widget _contactCard(
+    Color bg,
+    IconData icon,
+    Color iconColor,
+    String name,
+    String phone,
+  ) => Container(
     padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-    child: Row(children: [
-      CircleAvatar(backgroundColor: Colors.white, child: Icon(icon, color: iconColor)),
-      const SizedBox(width: 12),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Text(phone, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-      ])),
-    ]));
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(
+      children: [
+        CircleAvatar(
+          backgroundColor: Colors.white,
+          child: Icon(icon, color: iconColor),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                phone,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 
-  Widget _sentRow() => const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-    Icon(Icons.check_circle, size: 20, color: Colors.white), SizedBox(width: 8),
-    Text("OTP Sent Successfully", style: TextStyle(fontSize: 16, color: Colors.white)),
-  ]);
+  Widget _sentRow() => const Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      Icon(Icons.check_circle, size: 20, color: Colors.white),
+      SizedBox(width: 8),
+      Text(
+        "OTP Sent Successfully",
+        style: TextStyle(fontSize: 16, color: Colors.white),
+      ),
+    ],
+  );
 
   Widget _loadingIndicator() => const SizedBox(
-    height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white));
+    height: 20,
+    width: 20,
+    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+  );
 
   Widget _otpEntryCard({
     required TextEditingController controller,
@@ -1465,40 +2288,86 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(20)),
-      child: Column(children: [
-        const Text("Enter 6-digit OTP", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 16),
-        Pinput(
-          controller: controller,
-          length: 6,
-          defaultPinTheme: PinTheme(
-            width: 50, height: 55,
-            textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            "Enter 6-digit OTP",
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
-          focusedPinTheme: PinTheme(
-            width: 50, height: 55,
-            textStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: focusColor),
-            decoration: BoxDecoration(color: Colors.white, border: Border.all(color: focusColor, width: 2), borderRadius: BorderRadius.circular(12)),
+          const SizedBox(height: 16),
+          Pinput(
+            controller: controller,
+            length: 6,
+            defaultPinTheme: PinTheme(
+              width: 50,
+              height: 55,
+              textStyle: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            focusedPinTheme: PinTheme(
+              width: 50,
+              height: 55,
+              textStyle: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: focusColor,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: focusColor, width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            submittedPinTheme: PinTheme(
+              width: 50,
+              height: 55,
+              textStyle: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                border: Border.all(color: Colors.green, width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onCompleted: onCompleted,
+            autofocus: true,
           ),
-          submittedPinTheme: PinTheme(
-            width: 50, height: 55,
-            textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
-            decoration: BoxDecoration(color: Colors.green.shade50, border: Border.all(color: Colors.green, width: 2), borderRadius: BorderRadius.circular(12)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Didn't receive OTP? ",
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+              GestureDetector(
+                onTap: timerActive ? null : onResend,
+                child: Text(
+                  timerText,
+                  style: TextStyle(
+                    color: timerActive ? Colors.grey : focusColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-          onCompleted: onCompleted,
-          autofocus: true,
-        ),
-        const SizedBox(height: 12),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text("Didn't receive OTP? ", style: TextStyle(color: Colors.grey.shade600)),
-          GestureDetector(
-            onTap: timerActive ? null : onResend,
-            child: Text(timerText, style: TextStyle(color: timerActive ? Colors.grey : focusColor, fontWeight: FontWeight.bold)),
-          ),
-        ]),
-      ]),
+        ],
+      ),
     );
   }
 
@@ -1510,18 +2379,37 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }) {
     return Container(
       height: 100,
-      decoration: BoxDecoration(color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -5))]),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         child: SliderButton(
-          action: () async { await onSlide(); return true; },
-          buttonColor: color, backgroundColor: Colors.grey.shade100,
-          highlightedColor: Colors.white, baseColor: color,
-          label: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 15)),
+          action: () async {
+            await onSlide();
+            return true;
+          },
+          buttonColor: color,
+          backgroundColor: Colors.grey.shade100,
+          highlightedColor: Colors.white,
+          baseColor: color,
+          label: Text(
+            label,
+            style: const TextStyle(color: Colors.grey, fontSize: 15),
+          ),
           icon: Center(child: Icon(icon, color: Colors.white, size: 24)),
           width: MediaQuery.of(context).size.width - 40,
-          height: 60, radius: 30, vibrationFlag: true, shimmer: true,
+          height: 60,
+          radius: 30,
+          vibrationFlag: true,
+          shimmer: true,
         ),
       ),
     );
@@ -1530,8 +2418,16 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   Widget _buildCompletionCard(String text, Color color, {VoidCallback? onTap}) {
     return Container(
       height: 90,
-      decoration: BoxDecoration(color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -5))]),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
       child: Center(
         child: GestureDetector(
           onTap: onTap,
@@ -1544,12 +2440,31 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Icon(Icons.check_circle, color: Colors.white, size: 24), const SizedBox(width: 12),
-                  Text(text, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(width: 8),
-                  Icon(Icons.arrow_forward_ios, color: Colors.white.withOpacity(0.7), size: 14),
-                ]),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.check_circle,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      text,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white.withOpacity(0.7),
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1559,60 +2474,108 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   }
 
   Widget _buildErrorWidget() {
-    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(Icons.error_outline, size: 80, color: Colors.red.shade300),
-      const SizedBox(height: 16),
-      const Text("Failed to load order details", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 8),
-      Text("Order ID: ${widget.orderId}", style: TextStyle(color: Colors.grey.shade600)),
-      const SizedBox(height: 24),
-      ElevatedButton.icon(
-        onPressed: _loadOrderDetails,
-        icon: const Icon(Icons.refresh), label: const Text("Retry"),
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 80, color: Colors.red.shade300),
+          const SizedBox(height: 16),
+          const Text(
+            "Failed to load order details",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Order ID: ${widget.orderId}",
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _loadOrderDetails,
+            icon: const Icon(Icons.refresh),
+            label: const Text("Retry"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
       ),
-    ]));
+    );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // BUILD
-  // ═══════════════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) { if (didPop) return; _showExitDialog(); },
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        _showExitDialog();
+      },
       child: Scaffold(
         backgroundColor: Colors.white,
         body: isLoading
             ? const Center(child: CircularProgressIndicator())
             : order == null
-                ? _buildErrorWidget()
-                : Column(children: [
-                    Container(
-                      height: 100, width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
-                          colors: [Colors.red.shade700, Colors.red.shade400]),
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
-                      ),
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        const SizedBox(height: 20),
-                        const Row(children: [
-                          Icon(Icons.check_circle, color: Colors.white, size: 20), SizedBox(width: 8),
-                          Text("Order Accepted Successfully",
-                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        ]),
-                      ]),
+            ? _buildErrorWidget()
+            : Column(
+                children: [
+                  Container(
+                    height: 100,
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 24,
+                      horizontal: 20,
                     ),
-                    Lottie.asset("assets/lottie_assets/delivery_boy.json", width: 180, height: 160, fit: BoxFit.fitWidth),
-                    Expanded(child: _buildLocationCard()),
-                  ]),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Colors.red.shade700, Colors.red.shade400],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(30),
+                        bottomRight: Radius.circular(30),
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 20),
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              "Order Accepted Successfully",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Lottie.asset(
+                    "assets/lottie_assets/delivery_boy.json",
+                    width: 180,
+                    height: 160,
+                    fit: BoxFit.fitWidth,
+                  ),
+                  Expanded(child: _buildLocationCard()),
+                ],
+              ),
         bottomSheet: _buildBottomSlider(),
       ),
     );
