@@ -190,7 +190,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
   bool isUploadingImage = false;
   bool isConfirmingShopArrival = false;
 
- 
   bool _isPickupOtpSheetOpen = false;
   bool _isDeliveryOtpSheetOpen = false;
   bool _isShopDropOtpSheetOpen = false;
@@ -1498,7 +1497,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     );
   }
 
-
   Future<void> _startLiveLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
@@ -1655,7 +1653,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     );
   }
 
-  
   String _getPickupDistance() {
     if (carrierLocation == null || order?.senderAddress?.latitude == null)
       return "0 km";
@@ -2043,7 +2040,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
     );
   }
 
-
   Widget _buildBottomSlider() {
     final bool hasShopDropActive = isShopDropStage;
     debugPrint(
@@ -2071,7 +2067,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         }
       }
 
-      
       if (!isShopDropArrived) {
         return _buildSlider(
           label: "Slide to confirm arrival at drop location",
@@ -2081,7 +2076,7 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
         );
       }
 
-      return const SizedBox.shrink(); 
+      return const SizedBox.shrink();
     }
 
     if (isDeliveryCompleted) {
@@ -2122,7 +2117,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       onSlide: _markPickupArrived,
     );
   }
-
 
   Future<void> _loadOrderDetails() async {
     setState(() => isLoading = true);
@@ -2207,7 +2201,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       ),
     );
   }
-
 
   Widget _sheetHandle() => Container(
     margin: const EdgeInsets.only(top: 12),
@@ -2506,7 +2499,6 @@ class _AcceptedOrderScreenState extends State<AcceptedOrderScreen> {
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {

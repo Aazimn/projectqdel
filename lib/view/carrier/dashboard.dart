@@ -222,16 +222,6 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
-  void _clearDateFilter() {
-    _searchFocusNode.unfocus();
-    setState(() {
-      _startDate = null;
-      _endDate = null;
-      _currentPage = 1;
-    });
-    _refreshOrders();
-  }
-
   String _formatShortDate(DateTime? date) {
     if (date == null) return 'N/A';
     return DateFormat('dd MMM yyyy').format(date);
@@ -797,7 +787,7 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Widget _buildOrderCard(CompletedOrder order) {
-    final isDropOrder = order.status == 'Dropped at Shop';
+    final isDropOrder = order.isDroppedAtShop;
 
     return GestureDetector(
       onTap: () {
@@ -879,81 +869,97 @@ class _DashboardState extends State<Dashboard> {
                           ],
                         ),
                       ),
-                      Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.blue.withOpacity(0.3),
-                                width: 1,
+
+                      if (isDropOrder && order.droppedAtShopAt != null)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
                               ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.local_shipping,
-                                  size: 12,
-                                  color: Colors.blue,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  order.deliveryMode ?? "N/A",
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getStatusColor(
-                                order.status,
-                              ).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
+                              decoration: BoxDecoration(
                                 color: _getStatusColor(
                                   order.status,
-                                ).withOpacity(0.3),
-                                width: 1,
+                                ).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _getStatusColor(
+                                    order.status,
+                                  ).withOpacity(0.3),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _getStatusIcon(order.status),
+                                    size: 14,
+                                    color: _getStatusColor(order.status),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    order.getDisplayStatus(),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: _getStatusColor(order.status),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _getStatusIcon(order.status),
-                                  size: 14,
-                                  color: _getStatusColor(order.status),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _getStatusDisplayText(order.status),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: _getStatusColor(order.status),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
+                            const SizedBox(height: 4),
+                            Text(
+                              _formatTime(order.droppedAtShopAt),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(
+                              order.status,
+                            ).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: _getStatusColor(
+                                order.status,
+                              ).withOpacity(0.3),
+                              width: 1,
                             ),
                           ),
-                        ],
-                      ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _getStatusIcon(order.status),
+                                size: 14,
+                                color: _getStatusColor(order.status),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                order.getDisplayStatus(),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _getStatusColor(order.status),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
 
@@ -1099,7 +1105,12 @@ class _DashboardState extends State<Dashboard> {
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
                                       color: order.droppedAtShopAt != null
-                                          ? Colors.purple.withOpacity(0.1)
+                                          ? const Color.fromARGB(
+                                              255,
+                                              206,
+                                              70,
+                                              70,
+                                            ).withOpacity(0.1)
                                           : Colors.black54.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
@@ -1107,7 +1118,12 @@ class _DashboardState extends State<Dashboard> {
                                       Icons.store,
                                       size: 16,
                                       color: order.droppedAtShopAt != null
-                                          ? Colors.purple
+                                          ? const Color.fromARGB(
+                                              255,
+                                              206,
+                                              70,
+                                              70,
+                                            )
                                           : Colors.black54,
                                     ),
                                   ),
@@ -1246,7 +1262,7 @@ class _DashboardState extends State<Dashboard> {
       case 'Delivered':
         return Colors.green;
       case 'Dropped at Shop':
-        return Colors.orange;
+        return const Color.fromARGB(255, 206, 70, 70);
       case 'Pending':
         return Colors.orange;
       case 'Cancelled':

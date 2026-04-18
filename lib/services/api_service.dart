@@ -18,8 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   int? lastCreatedProductId;
   int? currentUserId;
-  final String baseurl =
-      "https://nav-catherine-jeff-grace.trycloudflare.com";
+  final String baseurl = "https://scholar-comparative-cleaning-testimony.trycloudflare.com";
   Logger logger = Logger();
   static bool? isFirstTime;
   static Future<void> setFirstTime(bool value) async {
@@ -2131,7 +2130,6 @@ class ApiService {
     await prefs.remove("pickup_carrier_id");
   }
 
-
   Future<Map<String, dynamic>> getAcceptedOrders({
     int? page,
     String? search,
@@ -3040,181 +3038,182 @@ class ApiService {
     return prefs.getInt("order_${orderId}_carrier_id");
   }
 
-Future<Map<String, dynamic>> getCarrierCompletedOrders({
-  int? page,
-  String? search,
-  DateTime? startDate,
-  DateTime? endDate,
-  int pageSize = 10,
-}) async {
-  try {
-    String urlString = "$baseurl/api/qdel/carrier/dashboard/";
-    final queryParams = <String>[];
+  Future<Map<String, dynamic>> getCarrierCompletedOrders({
+    int? page,
+    String? search,
+    DateTime? startDate,
+    DateTime? endDate,
+    int pageSize = 10,
+  }) async {
+    try {
+      String urlString = "$baseurl/api/qdel/carrier/dashboard/";
+      final queryParams = <String>[];
 
-    if (page != null) {
-      queryParams.add("page=$page");
-    }
-    if (search != null && search.isNotEmpty) {
-      queryParams.add("search=$search");
-    }
-    if (startDate != null) {
-      final formattedDate = DateFormat('yyyy-MM-dd').format(startDate);
-      queryParams.add("start_date=$formattedDate");
-    }
-    if (endDate != null) {
-      final formattedDate = DateFormat('yyyy-MM-dd').format(endDate);
-      queryParams.add("end_date=$formattedDate");
-    }
-    queryParams.add("page_size=$pageSize");
+      if (page != null) {
+        queryParams.add("page=$page");
+      }
+      if (search != null && search.isNotEmpty) {
+        queryParams.add("search=$search");
+      }
+      if (startDate != null) {
+        final formattedDate = DateFormat('yyyy-MM-dd').format(startDate);
+        queryParams.add("start_date=$formattedDate");
+      }
+      if (endDate != null) {
+        final formattedDate = DateFormat('yyyy-MM-dd').format(endDate);
+        queryParams.add("end_date=$formattedDate");
+      }
+      queryParams.add("page_size=$pageSize");
 
-    if (queryParams.isNotEmpty) {
-      urlString += "?" + queryParams.join("&");
-    }
-
-    final uri = Uri.parse(urlString);
-    final headers = {
-      "Authorization": "Bearer ${ApiService.accessToken}",
-      "Content-Type": "application/json",
-    };
-
-    logger.i("📡 FETCHING CARRIER COMPLETED ORDERS - URL: $urlString");
-
-    final response = await http.get(uri, headers: headers);
-
-    logger.i("📦 CARRIER COMPLETED ORDERS STATUS :: ${response.statusCode}");
-    logger.i("📦 CARRIER COMPLETED ORDERS BODY :: ${response.body}");
-
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-
-      List<CompletedOrder> orders = [];
-
-      if (jsonResponse.containsKey('results') &&
-          jsonResponse['results'] is List) {
-        orders = (jsonResponse['results'] as List)
-            .map((json) => CompletedOrder.fromJson(json))
-            .toList();
+      if (queryParams.isNotEmpty) {
+        urlString += "?" + queryParams.join("&");
       }
 
-      int totalCount = jsonResponse['count'] ?? 0;
-      if (totalCount is String) {
-        totalCount = totalCount;
-      }
-
-      String? nextUrl = jsonResponse['next'];
-      String? previousUrl = jsonResponse['previous'];
-
-      bool hasNext = nextUrl != null && nextUrl.isNotEmpty;
-      bool hasPrevious = previousUrl != null && previousUrl.isNotEmpty;
-
-      int totalPages;
-      if (hasNext) {
-        totalPages = (totalCount / pageSize).ceil();
-        if (totalPages < 2 && hasNext) {
-          totalPages = 2;
-        }
-      } else {
-        totalPages = (totalCount / pageSize).ceil();
-        if (totalPages < 1) totalPages = 1;
-      }
-
-      logger.i("✅ Successfully fetched ${orders.length} completed orders");
-      logger.i("📊 Page ${page ?? 1} of $totalPages (Total: $totalCount)");
-      logger.i("📊 Has Next: $hasNext, Has Previous: $hasPrevious");
-
-      return {
-        'orders': orders,
-        'hasNext': hasNext,
-        'hasPrevious': hasPrevious,
-        'totalPages': totalPages,
-        'currentPage': page ?? 1,
-        'count': totalCount,
-        'nextUrl': nextUrl,
-        'previousUrl': previousUrl,
+      final uri = Uri.parse(urlString);
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
       };
-    } else if (response.statusCode == 401) {
-      logger.e("❌ Unauthorized - Token expired or invalid");
-      throw Exception("Unauthorized - Please login again");
-    } else {
-      logger.e("❌ Failed to fetch completed orders: ${response.statusCode}");
 
-      try {
-        final errorData = jsonDecode(response.body);
+      logger.i("📡 FETCHING CARRIER COMPLETED ORDERS - URL: $urlString");
+
+      final response = await http.get(uri, headers: headers);
+
+      logger.i("📦 CARRIER COMPLETED ORDERS STATUS :: ${response.statusCode}");
+      logger.i("📦 CARRIER COMPLETED ORDERS BODY :: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+        List<CompletedOrder> orders = [];
+
+        if (jsonResponse.containsKey('results') &&
+            jsonResponse['results'] is List) {
+          orders = (jsonResponse['results'] as List)
+              .map((json) => CompletedOrder.fromJson(json))
+              .toList();
+
+          for (var order in orders) {
+            if (order.isDroppedAtShop && order.droppedAtShopAt != null) {
+              logger.i(
+                "📦 ORDER #${order.id} - DROPPED AT SHOP: ${order.droppedAtShopAt}",
+              );
+            }
+          }
+        }
+
+        int totalCount = jsonResponse['count'] ?? 0;
+        if (totalCount is String) {
+          totalCount = totalCount;
+        }
+
+        String? nextUrl = jsonResponse['next'];
+        String? previousUrl = jsonResponse['previous'];
+
+        bool hasNext = nextUrl != null && nextUrl.isNotEmpty;
+        bool hasPrevious = previousUrl != null && previousUrl.isNotEmpty;
+
+        int totalPages = (totalCount / pageSize).ceil();
+        if (totalPages < 1) totalPages = 1;
+
+        logger.i("✅ Successfully fetched ${orders.length} completed orders");
+        logger.i("📊 Page ${page ?? 1} of $totalPages (Total: $totalCount)");
+
         return {
-          'orders': [],
-          'hasNext': false,
-          'hasPrevious': false,
-          'totalPages': 1,
+          'orders': orders,
+          'hasNext': hasNext,
+          'hasPrevious': hasPrevious,
+          'totalPages': totalPages,
           'currentPage': page ?? 1,
-          'count': 0,
-          'error':
-              errorData['detail'] ??
-              errorData['message'] ??
-              'Failed to fetch completed orders',
+          'count': totalCount,
+          'nextUrl': nextUrl,
+          'previousUrl': previousUrl,
         };
-      } catch (_) {
-        return {
-          'orders': [],
-          'hasNext': false,
-          'hasPrevious': false,
-          'totalPages': 1,
-          'currentPage': page ?? 1,
-          'count': 0,
-          'error':
-              'Failed to fetch completed orders with status ${response.statusCode}',
-        };
+      } else if (response.statusCode == 401) {
+        logger.e("❌ Unauthorized - Token expired or invalid");
+        throw Exception("Unauthorized - Please login again");
+      } else {
+        logger.e("❌ Failed to fetch completed orders: ${response.statusCode}");
+
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            'orders': [],
+            'hasNext': false,
+            'hasPrevious': false,
+            'totalPages': 1,
+            'currentPage': page ?? 1,
+            'count': 0,
+            'error':
+                errorData['detail'] ??
+                errorData['message'] ??
+                'Failed to fetch completed orders',
+          };
+        } catch (_) {
+          return {
+            'orders': [],
+            'hasNext': false,
+            'hasPrevious': false,
+            'totalPages': 1,
+            'currentPage': page ?? 1,
+            'count': 0,
+            'error':
+                'Failed to fetch completed orders with status ${response.statusCode}',
+          };
+        }
       }
+    } catch (e) {
+      logger.e("🔥 CARRIER COMPLETED ORDERS ERROR => $e");
+      return {
+        'orders': [],
+        'hasNext': false,
+        'hasPrevious': false,
+        'totalPages': 1,
+        'currentPage': page ?? 1,
+        'count': 0,
+        'error': 'Exception: $e',
+      };
     }
-  } catch (e) {
-    logger.e("🔥 CARRIER COMPLETED ORDERS ERROR => $e");
-    return {
-      'orders': [],
-      'hasNext': false,
-      'hasPrevious': false,
-      'totalPages': 1,
-      'currentPage': page ?? 1,
-      'count': 0,
-      'error': 'Exception: $e',
-    };
   }
-}
+
+
 
   Future<CompletedOrder?> getCarrierOrderDetail(int id) async {
-  try {
-    final url = Uri.parse("$baseurl/api/qdel/carrier/dashboard/detail/$id/");
-    final headers = {
-      "Authorization": "Bearer ${ApiService.accessToken}",
-      "Content-Type": "application/json",
-    };
+    try {
+      final url = Uri.parse("$baseurl/api/qdel/carrier/dashboard/detail/$id/");
+      final headers = {
+        "Authorization": "Bearer ${ApiService.accessToken}",
+        "Content-Type": "application/json",
+      };
 
-    logger.i("📡 FETCHING CARRIER ORDER DETAIL - URL: $url");
+      logger.i("📡 FETCHING CARRIER ORDER DETAIL - URL: $url");
 
-    final response = await http.get(url, headers: headers);
+      final response = await http.get(url, headers: headers);
 
-    logger.i("📦 CARRIER ORDER DETAIL STATUS :: ${response.statusCode}");
-    logger.i("📦 CARRIER ORDER DETAIL BODY :: ${response.body}");
+      logger.i("📦 CARRIER ORDER DETAIL STATUS :: ${response.statusCode}");
+      logger.i("📦 CARRIER ORDER DETAIL BODY :: ${response.body}");
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-    
-      if (jsonResponse.containsKey('data')) {
-        return CompletedOrder.fromJson(jsonResponse['data']);
-      } else if (jsonResponse.containsKey('results') &&
-          jsonResponse['results'] is List) {
-        final results = jsonResponse['results'] as List;
-        if (results.isNotEmpty) {
-          return CompletedOrder.fromJson(results.first);
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+        if (jsonResponse.containsKey('data')) {
+          return CompletedOrder.fromJson(jsonResponse['data']);
+        } else if (jsonResponse.containsKey('results') &&
+            jsonResponse['results'] is List) {
+          final results = jsonResponse['results'] as List;
+          if (results.isNotEmpty) {
+            return CompletedOrder.fromJson(results.first);
+          }
+        } else {
+          return CompletedOrder.fromJson(jsonResponse);
         }
-      } else {
-        return CompletedOrder.fromJson(jsonResponse);
       }
+      return null;
+    } catch (e) {
+      logger.e("🔥 CARRIER ORDER DETAIL ERROR => $e");
+      return null;
     }
-    return null;
-  } catch (e) {
-    logger.e("🔥 CARRIER ORDER DETAIL ERROR => $e");
-    return null;
   }
-}
 
   Future<Map<String, dynamic>> getCarrierDashboardCounts() async {
     try {
@@ -4440,7 +4439,6 @@ Future<Map<String, dynamic>> getCarrierCompletedOrders({
 
       print("🔍 FINAL URL: $urlString");
 
-
       final uri = Uri.parse(urlString);
       final headers = {
         "Authorization": "Bearer ${ApiService.accessToken}",
@@ -4509,7 +4507,6 @@ Future<Map<String, dynamic>> getCarrierCompletedOrders({
       };
     }
   }
-
 
   Future<Map<String, dynamic>> getShopDropOrderDetail(int id) async {
     try {

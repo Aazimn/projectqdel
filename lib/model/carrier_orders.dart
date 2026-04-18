@@ -145,13 +145,31 @@ class CompletedOrder {
       shopCategory: data['shop_category'] as String?,
       shopAddress: parsedShopAddress,
       
-      droppedAtShopAt: _parseCustomDate(data['dropped_at_shop_at'] as String?),
+      droppedAtShopAt: _parseCustomDate(data['dropped_at_shop'] as String?),
       
       latitude: data['latitude'] as String?,
       longitude: data['longitude'] as String?,
       droppedAt: _parseCustomDate(data['dropped_at'] as String?),
       updatedAt: _parseCustomDate(data['updated_at'] as String?),
     );
+  }
+
+    bool get hasDropDateTime {
+    return isDroppedAtShop && droppedAtShopAt != null;
+  }
+
+  String getFormattedDropDateTime() {
+    if (droppedAtShopAt == null) return 'Not dropped';
+    final dateFormat = DateFormat('dd MMM yyyy');
+    final timeFormat = DateFormat('hh:mm a');
+    return '${dateFormat.format(droppedAtShopAt!)} at ${timeFormat.format(droppedAtShopAt!)}';
+  }
+
+  String getFormattedDeliveredDateTime() {
+    if (deliveredAt == null) return 'Not delivered';
+    final dateFormat = DateFormat('dd MMM yyyy');
+    final timeFormat = DateFormat('hh:mm a');
+    return '${dateFormat.format(deliveredAt!)} at ${timeFormat.format(deliveredAt!)}';
   }
   
   
